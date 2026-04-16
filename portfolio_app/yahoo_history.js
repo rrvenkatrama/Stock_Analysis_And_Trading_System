@@ -8,9 +8,9 @@ const alpaca  = require('../data/alpacaData');
 const finnhub = require('../data/finnhub');
 const db      = require('../db/db');
 
-// Finnhub free tier = 60 req/min. We make 2 calls/symbol (fundamentals + analyst).
-// 1200ms between symbols => 1.67 symbols/sec => ~100 calls/min: safe with burst allowance.
-const FUND_DELAY  = 1200; // ms between symbols during fundamentals phase
+// Finnhub free tier = 60 req/min. We make 3 calls/symbol (fundamentals + profile + analyst).
+// 2000ms between symbols => 0.5 symbols/sec => ~90 calls/min: safe with burst allowance.
+const FUND_DELAY  = 2000; // ms between symbols during fundamentals phase
 const QUOTE_DELAY = 800;  // ms between Yahoo quote calls (name/type enrichment only)
 
 const ETF_TYPES  = new Set(['ETF', 'EXCHANGE_TRADED_FUND']);
@@ -104,31 +104,42 @@ async function fetchHistory(symbol, fullYear = false) {
   }
 }
 
-// ─── Fetch fundamentals: Finnhub (PE, div) + Yahoo (name, sector, asset type) ──
+// ─── Fetch fundamentals: Finnhub (PE, div, sector) + Yahoo (enrichment) ────────
 async function fetchQuote(symbol) {
-  // Finnhub fundamentals — reliable, 60 req/min free
+  // Finnhub fundamentals + profile in parallel — reliable, rate-limited at 2000ms/symbol
   let peTrailing = null, peForward = null, divYield = null, psRatio = null;
   let epsGrowth = null, revenueGrowth = null, debtEquity = null, roe = null, beta = null;
-  try {
-    const fund = await finnhub.getFundamentals(symbol);
-    peTrailing    = fund.pe            || null;
-    divYield      = fund.dividendYield != null ? fund.dividendYield : null;
-    psRatio       = fund.psRatio       || null;
-    epsGrowth     = fund.epsGrowthPct  != null ? fund.epsGrowthPct  : null;
-    revenueGrowth = fund.revenueGrowth != null ? fund.revenueGrowth : null;
-    debtEquity    = fund.debtEquity    != null ? fund.debtEquity    : null;
-    roe           = fund.roe           != null ? fund.roe           : null;
-    beta          = fund.beta          != null ? fund.beta          : null;
-  } catch (_) {}
+  let name = symbol, sector = null, assetType = 'stock';
+  const [fund, profile] = await Promise.allSettled([
+    finnhub.getFundamentals(symbol),
+    finnhub.getProfile(symbol),
+  ]);
+  if (fund.status === 'fulfilled' && fund.value) {
+    const f = fund.value;
+    peTrailing    = f.pe            || null;
+    divYield      = f.dividendYield != null ? f.dividendYield : null;
+    psRatio       = f.psRatio       || null;
+    epsGrowth     = f.epsGrowthPct  != null ? f.epsGrowthPct  : null;
+    revenueGrowth = f.revenueGrowth != null ? f.revenueGrowth : null;
+    debtEquity    = f.debtEquity    != null ? f.debtEquity    : null;
+    roe           = f.roe           != null ? f.roe           : null;
+    beta          = f.beta          != null ? f.beta          : null;
+  }
+  if (profile.status === 'fulfilled' && profile.value) {
+    const p = profile.value;
+    name   = p.name   || name;
+    sector = p.sector || null;
+  }
 
-  // Yahoo quote — name, sector, asset type + fallback for PE/div + short interest
-  let name = symbol, sector = null, assetType = 'stock', forwardPE = null, shortFloat = null,
-      recMean = null, recCount = null, targetMean = null, targetHigh = null, targetLow = null;
+  // Yahoo quote — enrichment: forward PE, short interest, rec consensus, price targets
+  // Yahoo is rate-limited after ~10-15 requests; all fields here are optional enrichment
+  let forwardPE = null, shortFloat = null, recMean = null, recCount = null;
+  let targetMean = null, targetHigh = null, targetLow = null;
   try {
     const q = await yf.quote(symbol, {}, { validateResult: false });
     if (q) {
-      name       = q.longName || q.shortName || symbol;
-      sector     = q.sector   || null;
+      if (!name || name === symbol) name = q.longName || q.shortName || symbol;
+      if (!sector) sector = q.sector || null;
       assetType  = classifyAssetType(q);
       forwardPE  = q.forwardPE || null;
       shortFloat  = q.shortPercentOfFloat    != null ? q.shortPercentOfFloat * 100 : null;
@@ -144,7 +155,7 @@ async function fetchQuote(symbol) {
           : (q.dividendYield ? q.dividendYield * 100 : null);
       }
     }
-  } catch (_) { /* Yahoo failed — use Finnhub data only */ }
+  } catch (_) { /* Yahoo failed — Finnhub data still used */ }
 
   return {
     symbol, name, sector, assetType,
@@ -208,12 +219,17 @@ async function refreshAll(fullYear = false) {
       } catch (_) {}
 
       await db.query(
-        `UPDATE watchlist SET name=?, sector=?, asset_type=?,
-         pe_trailing=?, pe_forward=?, div_yield=?, ps_ratio=?,
+        `UPDATE watchlist SET
+         name=COALESCE(?,name), sector=COALESCE(?,sector), asset_type=COALESCE(?,asset_type),
+         pe_trailing=COALESCE(?,pe_trailing), pe_forward=COALESCE(?,pe_forward),
+         div_yield=COALESCE(?,div_yield), ps_ratio=COALESCE(?,ps_ratio),
          analyst_buy=?, analyst_sell=?, analyst_hold=?,
-         eps_growth=?, revenue_growth=?, debt_equity=?, roe=?, beta=?, short_float=?,
-         rec_mean=?, rec_count=?,
-         target_mean=?, target_high=?, target_low=?,
+         eps_growth=COALESCE(?,eps_growth), revenue_growth=COALESCE(?,revenue_growth),
+         debt_equity=COALESCE(?,debt_equity), roe=COALESCE(?,roe),
+         beta=COALESCE(?,beta), short_float=COALESCE(?,short_float),
+         rec_mean=COALESCE(?,rec_mean), rec_count=COALESCE(?,rec_count),
+         target_mean=COALESCE(?,target_mean), target_high=COALESCE(?,target_high),
+         target_low=COALESCE(?,target_low),
          fundamentals_at=NOW()
          WHERE symbol=?`,
         [q.name, q.sector, q.assetType,

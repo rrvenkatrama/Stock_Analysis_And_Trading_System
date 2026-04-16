@@ -566,7 +566,8 @@ async function analyzeSymbol(symbol, quoteData = null) {
       score, recommendation, why
     ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON DUPLICATE KEY UPDATE
-      name=VALUES(name), sector=VALUES(sector), asset_type=VALUES(asset_type),
+      name=COALESCE(VALUES(name),name), sector=COALESCE(VALUES(sector),sector),
+      asset_type=COALESCE(VALUES(asset_type),asset_type),
       generated_at=NOW(),
       price=VALUES(price), price_change_pct=VALUES(price_change_pct),
       high_52w=VALUES(high_52w), low_52w=VALUES(low_52w),
@@ -581,9 +582,13 @@ async function analyzeSymbol(symbol, quoteData = null) {
       macd_histogram=VALUES(macd_histogram), macd_trend=VALUES(macd_trend),
       macd_cross_ago=VALUES(macd_cross_ago),
       rsi=VALUES(rsi), oversold=VALUES(oversold),
-      pe_trailing=VALUES(pe_trailing), pe_forward=VALUES(pe_forward),
-      fwd_pe_improving=VALUES(fwd_pe_improving), dividend_yield=VALUES(dividend_yield),
-      target_mean=VALUES(target_mean), target_high=VALUES(target_high), target_low=VALUES(target_low),
+      pe_trailing=COALESCE(VALUES(pe_trailing),pe_trailing),
+      pe_forward=COALESCE(VALUES(pe_forward),pe_forward),
+      fwd_pe_improving=VALUES(fwd_pe_improving),
+      dividend_yield=COALESCE(VALUES(dividend_yield),dividend_yield),
+      target_mean=COALESCE(VALUES(target_mean),target_mean),
+      target_high=COALESCE(VALUES(target_high),target_high),
+      target_low=COALESCE(VALUES(target_low),target_low),
       ema9_bull_cross_ago=VALUES(ema9_bull_cross_ago), ema9_bear_cross_ago=VALUES(ema9_bear_cross_ago),
       score=VALUES(score), recommendation=VALUES(recommendation), why=VALUES(why)`,
     [
