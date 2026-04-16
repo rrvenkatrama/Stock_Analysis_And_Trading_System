@@ -108,10 +108,27 @@ Uses ACTUAL Alpaca account equity (account.equity || account.portfolio_value), N
 - deployable = buyingPower × portfolio_deploy_pct (50%)
 - perSlot = min(deployable / openSlots, maxPerPosition)
 
+## Autotrader — Manual Buy Interaction
+When user manually buys via the Buy button while autotrader is ON:
+- Autotrader has NO pre-trade awareness of manual buys
+- **EXIT EVALUATION APPLIES**: next 9:35 AM run evaluates ALL positions (including manual) — will soft-exit (50%) or hard-stop (-8%) if exit rules trigger
+- Manual positions count against maxPositions limit
+- 30-day time stop does NOT apply to manual buys (getDaysHeld() reads autotrader_trades only, returns null → skip)
+
+## Autotrader — Why High-Score Stocks May Not Be Selected
+1. Signal data at 9:35 AM = 8:30 AM snapshot. Manual refresh after 8:30 changes scores but autotrader already ran.
+2. Tier 2 blocks: >8% above 50MA (e.g. TWLO currently 12% above → blocked)
+3. Tier 1 RSI window is 30–55, NOT just ≤65 (RSI=58 fails Tier 1 RSI confirmation)
+4. Slots fill in score-DESC order — bot stops when maxPositions reached
+
 ## Known Issues (April 2026)
 1. Finnhub price target returns 403 (paid feature) — gracefully handled, targetMean = null
 2. VIXY proxy for VIX is approximate (VIXY × 1.8 + 2 ≈ VIX)
 3. Yahoo Finance rate-limits after ~10 rapid requests (clears in 30-60 min)
+   — sector/name now from Finnhub (fixed 2026-04-16) so rate-limit no longer blocks core data
+   — price targets still Yahoo-only; COALESCE protects once populated
+4. analyst_upgrades table populates weekly — will be empty until next weekly pass
+5. VIXY/SPY must be in watchlist for VIX sizing and 50MA gate to work
 
 ## Guardrails (trader/guardrails.js — do not weaken)
 - Max 4 trades/day, max 4 open positions
