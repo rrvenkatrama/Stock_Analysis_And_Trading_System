@@ -239,10 +239,12 @@ Price history  → alpacaData.getDailyBars() — fast, no rate limits, stored in
 PE / dividend  → finnhub.getFundamentals() — peBasicExclExtraTTM, currentDividendYieldTTM
 Analyst counts → finnhub.getAnalystRatings() — totalBuy, totalSell, hold
 Growth/quality → finnhub.getFundamentals() — epsGrowth3Y, revenueGrowth3Y, roe, debtEquity, beta
-Name/sector    → yahoo-finance2 quote() — enrichment, graceful on rate limit
+Name/sector    → finnhub.getProfile() — primary source (reliable); Yahoo is fallback enrichment only
 Short interest → yahoo-finance2 quote() — shortPercentOfFloat
 Rec consensus  → yahoo-finance2 quote() — recommendationMean, numberOfAnalystOpinions
-FUND_DELAY     → 1200ms between symbols (2 Finnhub calls/symbol → safe at 60 req/min)
+Price targets  → yahoo-finance2 quote() — targetMeanPrice, targetHighPrice, targetLowPrice
+FUND_DELAY     → 2000ms between symbols (3 Finnhub calls/symbol run in parallel via Promise.allSettled)
+COALESCE       → watchlist and stock_signals UPDATEs use COALESCE so Yahoo null never overwrites good data
 ```
 
 ### Deployment for My Stocks
