@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Stocks — Scoring Methodology</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #f5f7fa; color: #2c3e50; line-height: 1.7; }
+
+  nav { background: #1a252f; color: #fff; padding: 0 32px; display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.3); flex-wrap: wrap; }
+  nav .brand { font-size: 17px; font-weight: 700; padding: 14px 0; white-space: nowrap; color: #f39c12; }
+  nav a { color: #bdc3c7; text-decoration: none; font-size: 12px; padding: 16px 4px; border-bottom: 3px solid transparent; white-space: nowrap; transition: color .2s, border-color .2s; }
+  nav a:hover { color: #fff; border-bottom-color: #f39c12; }
+
+  .page { max-width: 1020px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .hero { background: linear-gradient(135deg, #1a252f 0%, #2c3e50 60%, #1a6b4a 100%); color: #fff; border-radius: 12px; padding: 44px 40px; margin-bottom: 36px; }
+  .hero h1 { font-size: 30px; font-weight: 800; margin-bottom: 8px; }
+  .hero .sub { font-size: 14px; color: #bdc3c7; margin-bottom: 20px; }
+  .hero .badges { display: flex; flex-wrap: wrap; gap: 10px; }
+  .badge { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); border-radius: 20px; padding: 4px 13px; font-size: 12px; }
+  .badge.green { background: rgba(39,174,96,.25); border-color: #27ae60; }
+  .badge.blue  { background: rgba(52,152,219,.25); border-color: #3498db; }
+  .badge.orange{ background: rgba(230,126,34,.25); border-color: #e67e22; }
+  .badge.purple{ background: rgba(142,68,173,.25); border-color: #8e44ad; }
+
+  .section { background: #fff; border-radius: 10px; padding: 30px 34px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  h2 { font-size: 20px; font-weight: 700; color: #1a252f; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #f0f2f5; }
+  h3 { font-size: 15px; font-weight: 700; color: #2c3e50; margin: 22px 0 8px; }
+  p  { margin-bottom: 12px; color: #34495e; font-size: 14px; }
+  ul, ol { padding-left: 20px; margin-bottom: 12px; }
+  li { margin-bottom: 5px; color: #34495e; font-size: 13px; }
+  code { background: #f0f2f5; border-radius: 4px; padding: 2px 6px; font-size: 12px; font-family: 'Menlo','Courier New',monospace; color: #c0392b; }
+
+  /* Pipeline steps */
+  .steps { display: flex; gap: 0; margin: 20px 0; flex-wrap: wrap; }
+  .step  { flex: 1; min-width: 140px; background: #f8f9fb; border: 1px solid #e0e4ea; padding: 15px 18px; position: relative; }
+  .step:not(:last-child)::after { content: '▶'; position: absolute; right: -12px; top: 50%; transform: translateY(-50%); color: #bdc3c7; font-size: 14px; z-index: 1; }
+  .step .num  { font-size: 10px; font-weight: 700; color: #f39c12; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+  .step .name { font-size: 13px; font-weight: 700; color: #1a252f; margin-bottom: 3px; }
+  .step .desc { font-size: 11px; color: #7f8c8d; line-height: 1.5; }
+
+  /* Signal tables */
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 13px; }
+  thead th { background: #1a252f; color: #ecf0f1; padding: 9px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  tbody tr:nth-child(even) { background: #f8f9fb; }
+  tbody td { padding: 8px 12px; border-bottom: 1px solid #edf0f2; vertical-align: top; }
+  .pts-pos { color: #27ae60; font-weight: 700; font-family: monospace; white-space: nowrap; }
+  .pts-neg { color: #e74c3c; font-weight: 700; font-family: monospace; white-space: nowrap; }
+
+  /* Category chips */
+  .cat { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+  .cat-tech  { background: #eaf4fb; color: #1a5276; }
+  .cat-fund  { background: #eafaf1; color: #1e8449; }
+  .cat-sent  { background: #fef9e7; color: #7d6608; }
+  .cat-mkt   { background: #f5eef8; color: #6c3483; }
+
+  /* Recommendation bands */
+  .rec-bands { display: flex; gap: 12px; margin: 14px 0; flex-wrap: wrap; }
+  .rec-band  { flex: 1; min-width: 150px; border-radius: 8px; padding: 14px 18px; }
+  .rec-buy   { background: #eafaf1; border: 2px solid #27ae60; }
+  .rec-hold  { background: #fef9e7; border: 2px solid #f39c12; }
+  .rec-sell  { background: #fdedec; border: 2px solid #e74c3c; }
+  .rec-band .label { font-size: 16px; font-weight: 800; margin-bottom: 3px; }
+  .rec-buy  .label { color: #27ae60; }
+  .rec-hold .label { color: #d68910; }
+  .rec-sell .label { color: #e74c3c; }
+  .rec-band .range { font-size: 20px; font-weight: 700; color: #1a252f; }
+  .rec-band .note  { font-size: 11px; color: #7f8c8d; margin-top: 4px; line-height: 1.5; }
+
+  /* Autotrader tiers */
+  .tiers { display: flex; flex-direction: column; gap: 12px; margin: 14px 0; }
+  .tier  { border-radius: 8px; padding: 18px 22px; }
+  .tier3 { background: #fff8e1; border: 2px solid #f39c12; }
+  .tier2 { background: #e8f4fd; border: 2px solid #3498db; }
+  .tier1 { background: #eafaf1; border: 2px solid #27ae60; }
+  .tier .tier-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .tier3 .tier-label { color: #e67e22; }
+  .tier2 .tier-label { color: #2980b9; }
+  .tier1 .tier-label { color: #1e8449; }
+  .tier .tier-name  { font-size: 15px; font-weight: 700; color: #1a252f; margin-bottom: 6px; }
+  .tier .tier-body  { font-size: 13px; color: #34495e; }
+
+  /* Example score cards */
+  .example { background: #1a252f; color: #ecf0f1; border-radius: 10px; padding: 20px 24px; margin: 16px 0; font-family: 'Menlo','Courier New',monospace; font-size: 12px; line-height: 2; }
+  .example .title { font-family: -apple-system, sans-serif; font-size: 13px; font-weight: 700; color: #f39c12; margin-bottom: 10px; }
+  .ex-pos   { color: #2ecc71; }
+  .ex-neg   { color: #e74c3c; }
+  .ex-total { color: #f39c12; font-weight: 700; border-top: 1px solid #4a5568; margin-top: 4px; padding-top: 8px; }
+
+  /* Cross table */
+  .tag-golden  { background: #fef3cd; color: #856404; padding: 2px 8px; border-radius: 4px; font-size: 11px; border: 1px solid #ffc107; white-space: nowrap; }
+  .tag-death   { background: #f8d7da; color: #842029; padding: 2px 8px; border-radius: 4px; font-size: 11px; border: 1px solid #dc3545; white-space: nowrap; }
+  .tag-approach{ background: #d1f2eb; color: #0e6655; padding: 2px 8px; border-radius: 4px; font-size: 11px; border: 1px solid #1abc9c; white-space: nowrap; }
+  .tag-below   { background: #fadbd8; color: #7b241c; padding: 2px 8px; border-radius: 4px; font-size: 11px; border: 1px solid #cd6155; white-space: nowrap; }
+
+  .note-box { background: #fff8e1; border-left: 4px solid #f39c12; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 13px; color: #5d4037; }
+  .info-box  { background: #e8f4fd; border-left: 4px solid #3498db; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 13px; color: #1a5276; }
+  .warn-box  { background: #fdedec; border-left: 4px solid #e74c3c; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 13px; color: #7b241c; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">📊 My Stocks</span>
+  <a href="#overview">Overview</a>
+  <a href="#indicators">Indicators</a>
+  <a href="#signals">Signal Weights</a>
+  <a href="#thresholds">Thresholds</a>
+  <a href="#cross">Cross Logic</a>
+  <a href="#autotrader">Autotrader</a>
+  <a href="#example">Examples</a>
+  <a href="/">← Dashboard</a>
+</nav>
+
+<div class="page">
+
+  <div class="hero">
+    <h1>My Stocks — Scoring Methodology</h1>
+    <div class="sub">How each stock's BUY / HOLD / SELL recommendation is computed, and how the 3-tier autotrader uses those scores</div>
+    <div class="badges">
+      <span class="badge blue">113+ stocks scored daily</span>
+      <span class="badge green">30+ signals · 0–100 scale</span>
+      <span class="badge orange">Refreshed 8:30 AM ET Mon–Fri</span>
+      <span class="badge purple">Autotrader executes 9:35 AM</span>
+    </div>
+  </div>
+
+  <!-- Overview -->
+  <div class="section" id="overview">
+    <h2>How It Works — At a Glance</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="num">Step 1</div>
+        <div class="name">Fetch Price History</div>
+        <div class="desc">~260 days of daily OHLCV bars from <code>price_history</code> table (sourced from Alpaca)</div>
+      </div>
+      <div class="step">
+        <div class="num">Step 2</div>
+        <div class="name">Compute Indicators</div>
+        <div class="desc">50/200 SMA, EMA 9/21/50, RSI 14, MACD 12/26/9, volume ratio, 52W range, cross events</div>
+      </div>
+      <div class="step">
+        <div class="num">Step 3</div>
+        <div class="name">Merge Fundamentals</div>
+        <div class="desc">PE, P/S, EPS/revenue growth, ROE, D/E, dividend, analyst consensus from Finnhub + Yahoo</div>
+      </div>
+      <div class="step">
+        <div class="num">Step 4</div>
+        <div class="name">Apply Signal Weights</div>
+        <div class="desc">30+ signals each add or subtract points from a base of 0</div>
+      </div>
+      <div class="step">
+        <div class="num">Step 5</div>
+        <div class="name">Clamp 0–100</div>
+        <div class="desc">Raw sum floored at 0, capped at 100. Write to <code>stock_signals</code></div>
+      </div>
+      <div class="step">
+        <div class="num">Step 6</div>
+        <div class="name">Classify</div>
+        <div class="desc">≥50 = BUY · 10–49 = HOLD · &lt;10 = SELL</div>
+      </div>
+    </div>
+    <div class="info-box">
+      The score is <strong>additive and transparent</strong> — every point in the "Why?" column traces directly to a signal below. There are no hidden multipliers or black-box weights.
+      The "Why?" column in the dashboard shows every signal that fired, sorted by |impact|.
+    </div>
+  </div>
+
+  <!-- Indicators -->
+  <div class="section" id="indicators">
+    <h2>Step 1 &amp; 2 — What Gets Computed</h2>
+
+    <h3>Moving Averages</h3>
+    <p>
+      <strong>SMA 50 and SMA 200</strong> — simple averages of the last 50 and 200 closing prices. Used for
+      golden/death cross detection and price-vs-MA comparison.
+    </p>
+    <p>
+      <strong>EMA 9, EMA 21, EMA 50, EMA 200</strong> — exponential moving averages that weight recent bars more
+      heavily. EMA 9/21 are short-term swing signals. The <em>EMA stack</em> (price > EMA9 > EMA21 > EMA50) is the
+      strongest bull-alignment signal.
+    </p>
+
+    <h3>Golden Cross / Death Cross</h3>
+    <p>
+      When the 50-day SMA crosses the 200-day SMA:
+    </p>
+    <ul>
+      <li><strong>Golden cross</strong> (50 crosses above 200) — most powerful long-term buy signal. Institutions watch this.</li>
+      <li><strong>Death cross</strong> (50 crosses below 200) — long-term bearish signal.</li>
+    </ul>
+    <p>The system scans back up to 60 sessions to find the most recent cross date.</p>
+
+    <h3>RSI — Relative Strength Index (14-day)</h3>
+    <ul>
+      <li><strong>RSI &lt; 30</strong> — deeply oversold: sharp recent drop, mean-reversion candidate</li>
+      <li><strong>RSI 30–45</strong> — recovering from oversold: momentum turning up — the most actionable entry zone</li>
+      <li><strong>RSI 45–60</strong> — neutral-bullish: healthy uptrend</li>
+      <li><strong>RSI &gt; 70</strong> — overbought: stretched, pullback risk</li>
+    </ul>
+
+    <h3>MACD — Moving Average Convergence Divergence (12/26/9)</h3>
+    <p>
+      Compares a 12-day EMA vs 26-day EMA; signal line is a 9-day EMA of the difference.
+    </p>
+    <ul>
+      <li><strong>Bullish cross</strong> — MACD line crosses above signal line: strongest momentum signal</li>
+      <li><strong>Above signal (sustained)</strong> — upward momentum continuing</li>
+      <li><strong>Below signal</strong> — downward momentum</li>
+    </ul>
+    <p>The system records how many sessions ago the last bullish cross occurred (up to 6 sessions back).</p>
+
+    <h3>Volume Ratio</h3>
+    <p>
+      Today's volume divided by the 20-day average volume (excluding today to avoid self-reference).
+      A ratio ≥ 1.5× on an up day signals institutional buying. The same ratio on a down day signals heavy selling.
+    </p>
+
+    <h3>Fundamentals (from Finnhub + Yahoo Finance)</h3>
+    <ul>
+      <li><strong>Trailing / Forward P/E</strong> — valuation vs sector average; if fwd P/E &lt; trailing, earnings are accelerating</li>
+      <li><strong>P/S ratio</strong> — price/sales; used as PE fallback when no earnings</li>
+      <li><strong>PEG ratio</strong> — PE ÷ EPS growth rate (Peter Lynch metric): PEG &lt; 1 = undervalued vs growth</li>
+      <li><strong>EPS growth (3Y CAGR)</strong> — from Finnhub, in % form (18.5 = 18.5%)</li>
+      <li><strong>Revenue growth (3Y CAGR)</strong> — from Finnhub</li>
+      <li><strong>ROE</strong> — return on equity: proxy for business quality (Buffett metric)</li>
+      <li><strong>Debt/Equity</strong> — balance sheet risk</li>
+      <li><strong>Dividend yield</strong> — annual dividend as % of price (Finnhub primary, Yahoo fallback)</li>
+      <li><strong>Short float %</strong> — % of float sold short (Yahoo Finance)</li>
+      <li><strong>Analyst consensus</strong> — Finnhub buy/sell/hold counts + Yahoo recommendationMean (1=Strong Buy → 5=Strong Sell)</li>
+      <li><strong>Price targets</strong> — Yahoo Finance targetMeanPrice / targetHighPrice / targetLowPrice</li>
+    </ul>
+    <div class="note-box">
+      ETFs and funds skip all fundamental signals (P/E, PEG, EPS growth, ROE, D/E, short float, analyst ratings).
+      Only price-based technical signals and dividends apply to ETFs.
+    </div>
+  </div>
+
+  <!-- Signal Weights -->
+  <div class="section" id="signals">
+    <h2>Step 3 &amp; 4 — All Signal Weights</h2>
+    <p>
+      Each signal fires independently. Signals that don't apply (e.g. ETF trying to fire a PE signal) score 0.
+      Starting score = <strong>0</strong>. All signals are cumulative.
+    </p>
+
+    <h3><span class="cat cat-tech">Technical</span> &nbsp;MA Cross Signals (50 vs 200 SMA)</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Condition</th></tr></thead>
+      <tbody>
+        <tr><td>Golden cross — happened today</td><td class="pts-pos">+20</td><td>50DMA just crossed above 200DMA this session</td></tr>
+        <tr><td>Golden cross — ≤5 sessions ago</td><td class="pts-pos">+14</td><td>Very recent crossover, trend just turned</td></tr>
+        <tr><td>50DMA above 200DMA (ongoing)</td><td class="pts-pos">+8</td><td>Golden zone active — long-term bullish alignment</td></tr>
+        <tr><td>Death cross — ≤5 sessions ago</td><td class="pts-neg">−20</td><td>50DMA just crossed below 200DMA — strong bearish signal</td></tr>
+        <tr><td>50DMA below 200DMA (ongoing)</td><td class="pts-neg">−8</td><td>Death zone active — long-term bearish alignment</td></tr>
+        <tr><td>Price crossed above 200DMA (≤5 sessions)</td><td class="pts-pos">+18</td><td>Price just broke above long-term average</td></tr>
+        <tr><td>Price crossed above 50DMA (≤5 sessions)</td><td class="pts-pos">+15</td><td>Price just reclaimed medium-term average</td></tr>
+        <tr><td>Price above 200DMA</td><td class="pts-pos">+8</td><td>Above long-term trend</td></tr>
+        <tr><td>Price above 50DMA only (not 200DMA)</td><td class="pts-pos">+6</td><td>Above medium-term trend but below long-term</td></tr>
+        <tr><td>Price below 50DMA</td><td class="pts-neg">−8</td><td>Below medium-term trend</td></tr>
+        <tr><td>Price below 200DMA</td><td class="pts-neg">−10</td><td>Below long-term trend</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="cat cat-tech">Technical</span> &nbsp;EMA 9/21 Short-Term Swing Signals</h3>
+    <p>These EMA signals are tuned for swing trade entry timing — they react faster than the 50/200 SMA cross.</p>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Condition</th></tr></thead>
+      <tbody>
+        <tr><td>EMA 9 just crossed above EMA 21 (≤1 session)</td><td class="pts-pos">+12</td><td>Fresh bull cross — primary swing entry signal</td></tr>
+        <tr><td>EMA 9/21 bull cross 2–5 sessions ago</td><td class="pts-pos">+8</td><td>Recent crossover, early in the move</td></tr>
+        <tr><td>EMA 9 above EMA 21 (sustained)</td><td class="pts-pos">+4</td><td>Short-term trend is bullish</td></tr>
+        <tr><td>EMA 9 below EMA 21</td><td class="pts-neg">−5</td><td>Short-term trend is bearish</td></tr>
+        <tr><td>EMA 9 crossed below EMA 21 (≤3 sessions)</td><td class="pts-neg">−10</td><td>Fresh bear cross — swing exit signal</td></tr>
+        <tr><td>Full EMA bull stack (price &gt; EMA9 &gt; EMA21 &gt; EMA50)</td><td class="pts-pos">+10</td><td>All timeframes aligned bullish — strongest trend signal</td></tr>
+        <tr><td>Full EMA bear stack (price &lt; EMA9 &lt; EMA21 &lt; EMA50)</td><td class="pts-neg">−10</td><td>All timeframes aligned bearish</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="cat cat-tech">Technical</span> &nbsp;RSI Signals</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>RSI Range</th></tr></thead>
+      <tbody>
+        <tr><td>Recovering from oversold</td><td class="pts-pos">+15</td><td>RSI 30–45: was oversold, momentum turning up — best entry zone</td></tr>
+        <tr><td>Deeply oversold</td><td class="pts-pos">+10</td><td>RSI &lt;30: heavily beaten down, mean-reversion candidate</td></tr>
+        <tr><td>Neutral bullish</td><td class="pts-pos">+5</td><td>RSI 45–60: healthy uptrend, not extended</td></tr>
+        <tr><td>Overbought</td><td class="pts-neg">−15</td><td>RSI &gt;70: stretched, high pullback risk</td></tr>
+      </tbody>
+    </table>
+    <div class="note-box">
+      "Recovering from oversold" (+15) scores <em>higher</em> than "deeply oversold" (+10) because
+      active recovery (momentum turning up, RSI 30–45) is more actionable than still falling (RSI &lt;30).
+    </div>
+
+    <h3><span class="cat cat-tech">Technical</span> &nbsp;MACD Signals</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Condition</th></tr></thead>
+      <tbody>
+        <tr><td>Bullish cross just happened (0–1 sessions)</td><td class="pts-pos">+12</td><td>MACD line just crossed above signal — fresh momentum shift</td></tr>
+        <tr><td>Bullish cross 2–5 sessions ago</td><td class="pts-pos">+7</td><td>Recent crossover, momentum building</td></tr>
+        <tr><td>MACD above signal (ongoing)</td><td class="pts-pos">+4</td><td>Upward momentum continuing</td></tr>
+        <tr><td>MACD below signal (ongoing)</td><td class="pts-neg">−4</td><td>Downward momentum continuing</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="cat cat-tech">Technical</span> &nbsp;Volume Confirmation</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Condition</th></tr></thead>
+      <tbody>
+        <tr><td>Volume surge on up day</td><td class="pts-pos">+10</td><td>Price up + volume ≥1.5× 20-day avg → institutional buying</td></tr>
+        <tr><td>Volume confirmation on up day</td><td class="pts-pos">+4</td><td>Price up + volume 1.2–1.5× avg → moderate confirmation</td></tr>
+        <tr><td>Volume surge on down day</td><td class="pts-neg">−8</td><td>Price down + volume ≥1.5× avg → heavy selling pressure</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="cat cat-fund">Fundamental</span> &nbsp;Valuation vs Sector (stocks only)</h3>
+    <p>PE and P/S ratios are compared against sector averages from Finnhub's <code>getSectorPE()</code> / <code>getSectorPS()</code>.</p>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Condition</th></tr></thead>
+      <tbody>
+        <tr><td>Earnings accelerating</td><td class="pts-pos">+8</td><td>Forward PE &lt; trailing PE — earnings growing faster than expected</td></tr>
+        <tr><td>PE 40%+ below sector avg</td><td class="pts-pos">+12</td><td>Deep value: well below peers on earnings basis</td></tr>
+        <tr><td>PE 20–40% below sector avg</td><td class="pts-pos">+8</td><td>Meaningfully cheaper than peers</td></tr>
+        <tr><td>PE 10–20% below sector avg</td><td class="pts-pos">+5</td><td>Slight discount to peers</td></tr>
+        <tr><td>PE 30%+ above sector avg</td><td class="pts-neg">−6</td><td>Expensive relative to sector</td></tr>
+        <tr><td>P/S 40%+ below sector avg (no PE)</td><td class="pts-pos">+8</td><td>Revenue-based value signal when no earnings</td></tr>
+        <tr><td>P/S 20–40% below sector avg</td><td class="pts-pos">+5</td><td>Below peers on revenue basis</td></tr>
+        <tr><td>P/S 50%+ above sector avg</td><td class="pts-neg">−4</td><td>Expensive on revenue basis</td></tr>
+        <tr><td>PEG &lt; 1</td><td class="pts-pos">+10</td><td>Undervalued vs growth (Peter Lynch: PE ÷ EPS growth rate)</td></tr>
+        <tr><td>PEG 1–2</td><td class="pts-pos">+5</td><td>Fair value vs growth</td></tr>
+        <tr><td>PEG &gt; 3</td><td class="pts-neg">−5</td><td>Expensive vs growth rate</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="cat cat-fund">Fundamental</span> &nbsp;Business Quality (stocks only)</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Condition</th></tr></thead>
+      <tbody>
+        <tr><td>Strong EPS growth</td><td class="pts-pos">+8</td><td>3Y EPS CAGR &gt;20% (Finnhub)</td></tr>
+        <tr><td>Moderate EPS growth</td><td class="pts-pos">+4</td><td>3Y EPS CAGR 10–20%</td></tr>
+        <tr><td>Negative EPS growth</td><td class="pts-neg">−6</td><td>3Y EPS CAGR &lt;0</td></tr>
+        <tr><td>Strong revenue growth</td><td class="pts-pos">+6</td><td>3Y revenue CAGR &gt;15%</td></tr>
+        <tr><td>Moderate revenue growth</td><td class="pts-pos">+3</td><td>3Y revenue CAGR 5–15%</td></tr>
+        <tr><td>Strong ROE</td><td class="pts-pos">+6</td><td>ROE &gt;20% — high-quality business (Buffett metric)</td></tr>
+        <tr><td>Good ROE</td><td class="pts-pos">+3</td><td>ROE 10–20%</td></tr>
+        <tr><td>Negative ROE</td><td class="pts-neg">−3</td><td>ROE &lt;0 — losing money on equity</td></tr>
+        <tr><td>Low debt (fortress balance sheet)</td><td class="pts-pos">+4</td><td>D/E &lt;0.3</td></tr>
+        <tr><td>High debt (overleveraged)</td><td class="pts-neg">−4</td><td>D/E &gt;2.0</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="cat cat-fund">Fundamental</span> &nbsp;Dividend Income</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Yield Range</th></tr></thead>
+      <tbody>
+        <tr><td>High dividend</td><td class="pts-pos">+12</td><td>Yield ≥ 5% — strong income return</td></tr>
+        <tr><td>Good dividend</td><td class="pts-pos">+8</td><td>Yield ≥ 3%</td></tr>
+        <tr><td>Moderate dividend</td><td class="pts-pos">+4</td><td>Yield ≥ 1.5%</td></tr>
+        <tr><td>Small dividend</td><td class="pts-pos">+2</td><td>Yield ≥ 0.5%</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="cat cat-sent">Sentiment</span> &nbsp;Analyst Consensus (stocks only)</h3>
+    <p>Two independent analyst signals — Finnhub buy/sell/hold counts and Yahoo Finance recommendation mean. Both require a minimum analyst count to fire.</p>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Condition</th></tr></thead>
+      <tbody>
+        <tr><td>Strong buy consensus (Finnhub)</td><td class="pts-pos">+10</td><td>≥70% of analysts rated Buy (min 3 analysts)</td></tr>
+        <tr><td>Positive consensus (Finnhub)</td><td class="pts-pos">+6</td><td>50–70% rated Buy</td></tr>
+        <tr><td>Negative consensus (Finnhub)</td><td class="pts-neg">−8</td><td>≥40% rated Sell</td></tr>
+        <tr><td>Wall St. strong buy (Yahoo recMean)</td><td class="pts-pos">+7</td><td>recMean ≤1.5 (Strong Buy), ≥5 analysts</td></tr>
+        <tr><td>Wall St. buy (Yahoo recMean)</td><td class="pts-pos">+4</td><td>recMean 1.5–2.0</td></tr>
+        <tr><td>Wall St. sell (Yahoo recMean)</td><td class="pts-neg">−5</td><td>recMean ≥4.0</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="cat cat-sent">Sentiment</span> &nbsp;Analyst Price Targets (stocks only)</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Condition</th></tr></thead>
+      <tbody>
+        <tr><td>Strong upside target</td><td class="pts-pos">+8</td><td>Analyst mean target ≥30% above current price</td></tr>
+        <tr><td>Moderate upside target</td><td class="pts-pos">+5</td><td>Mean target 15–30% above current price</td></tr>
+        <tr><td>Downside target</td><td class="pts-neg">−6</td><td>Mean target ≥10% below current price</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="cat cat-sent">Sentiment</span> &nbsp;Short Interest (stocks only)</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Condition</th></tr></thead>
+      <tbody>
+        <tr><td>Short squeeze potential</td><td class="pts-pos">+6</td><td>&gt;20% of float short + price rising — bears getting squeezed</td></tr>
+        <tr><td>Bears winning</td><td class="pts-neg">−4</td><td>&gt;30% short + price falling — bears in control</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="cat cat-mkt">Market Context</span> &nbsp;SPY Regime</h3>
+    <p>SPY is scored via the same price_history pipeline. Its MA and MACD state adjusts every stock's score.</p>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Condition</th></tr></thead>
+      <tbody>
+        <tr><td>Bullish market</td><td class="pts-pos">+5</td><td>SPY above 200DMA AND MACD bullish</td></tr>
+        <tr><td>Bearish market</td><td class="pts-neg">−5</td><td>SPY below 200DMA</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Thresholds -->
+  <div class="section" id="thresholds">
+    <h2>Step 5 — BUY / HOLD / SELL Thresholds</h2>
+    <p>After clamping the raw sum to 0–100:</p>
+    <div class="rec-bands">
+      <div class="rec-band rec-buy">
+        <div class="label">▲ BUY</div>
+        <div class="range">Score ≥ 50</div>
+        <div class="note">Multiple strong signals aligning. Momentum, trend, and ideally fundamentals all pointing up. High conviction to add or initiate a position.</div>
+      </div>
+      <div class="rec-band rec-hold">
+        <div class="label">● HOLD</div>
+        <div class="range">Score 10–49</div>
+        <div class="note">Net positive signals but not strong enough to add aggressively. Maintain existing position. Watch for signals to strengthen or weaken.</div>
+      </div>
+      <div class="rec-band rec-sell">
+        <div class="label">▼ SELL</div>
+        <div class="range">Score &lt; 10</div>
+        <div class="note">Net bearish. Signals dominated by negative factors. Consider reducing or exiting. Not a panic signal — the score may recover next session.</div>
+      </div>
+    </div>
+    <div class="info-box">
+      <strong>Why 10 as HOLD/SELL boundary?</strong> Below 10 means the net arithmetic sum of all signals is close to zero or negative —
+      the stock has almost nothing going for it technically. A score of 10+ means at least some meaningful bullish signal is present.
+    </div>
+  </div>
+
+  <!-- Cross Logic -->
+  <div class="section" id="cross">
+    <h2>Cross Indicator Display Logic</h2>
+    <p>The "Cross" column in the dashboard shows exactly one tag per stock, with strict priority:</p>
+    <table>
+      <thead><tr><th>Condition</th><th>Display</th><th>Priority</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>50DMA crossed above 200DMA within last 15 sessions</td>
+          <td><span class="tag-golden">☀ Golden cross (X days ago)</span></td>
+          <td>1 — Highest</td>
+        </tr>
+        <tr>
+          <td>50DMA above 200DMA for &gt;15 sessions</td>
+          <td><span class="tag-golden">☀ Above GC</span></td>
+          <td>2</td>
+        </tr>
+        <tr>
+          <td>50DMA below 200DMA within last 15 sessions</td>
+          <td><span class="tag-death">☠ Death cross (X days ago)</span></td>
+          <td>3</td>
+        </tr>
+        <tr>
+          <td>50DMA below 200DMA, but 50DMA within 2.5% of 200DMA from below</td>
+          <td><span class="tag-approach">↗ Approaching GC</span></td>
+          <td>4</td>
+        </tr>
+        <tr>
+          <td>50DMA below 200DMA, not approaching</td>
+          <td><span class="tag-below">↓ Below GC</span></td>
+          <td>5 — Lowest</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Autotrader -->
+  <div class="section" id="autotrader">
+    <h2>Autotrader — 3-Tier Entry &amp; Exit System</h2>
+    <p>
+      When Autorun is ON, the system executes trades autonomously at <strong>9:35 AM ET</strong> each trading day.
+      A trade only executes if <em>all three tiers</em> agree. One veto from any tier blocks the trade.
+      The 8:30 AM digest always includes recommendations (evaluate only, no orders) regardless of Autorun state.
+    </p>
+
+    <div class="tiers">
+      <div class="tier tier3">
+        <div class="tier-label">Tier 3 — Outermost Gate</div>
+        <div class="tier-name">Market Regime Filter</div>
+        <div class="tier-body">
+          Uses SPY's pre-computed <code>above_200ma</code> from <code>stock_signals</code>.
+          <ul style="margin-top:8px">
+            <li><strong>BULL</strong> — SPY above 200DMA: proceed to Tiers 2 and 1</li>
+            <li><strong>BEAR</strong> — SPY below 200DMA: <strong>block all new buy orders</strong>; exit logic still runs</li>
+          </ul>
+        </div>
+      </div>
+      <div class="tier tier2">
+        <div class="tier-label">Tier 2 — Quality Filter</div>
+        <div class="tier-name">Watchlist-Only + Not Overextended</div>
+        <div class="tier-body">
+          All four conditions must pass:
+          <ul style="margin-top:8px">
+            <li>Symbol is in personal watchlist (<code>is_active=1</code>) — Discover universe is never auto-traded</li>
+            <li>Score ≥ 50 on the full 30+ signal engine</li>
+            <li>Price ≥ $5 (no penny stocks)</li>
+            <li>RSI ≤ 65 (not overbought entering position)</li>
+            <li>Price not &gt;8% above 50DMA (not extended)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="tier tier1">
+        <div class="tier-label">Tier 1 — Entry Gate</div>
+        <div class="tier-name">High-Conviction Entry + Guardrails</div>
+        <div class="tier-body">
+          All conditions must pass:
+          <ul style="margin-top:8px">
+            <li>Score ≥ 65</li>
+            <li>≥ 2 technical confirmations out of: RSI 30–55, MACD bullish/above-signal, above 50DMA, volume ≥1.3×</li>
+            <li>Not currently held (Alpaca qty = 0 for this symbol — one position per symbol)</li>
+            <li>Portfolio has open slots (max 8 positions; configurable via system_config)</li>
+            <li>Sufficient buying power: 20% cash buffer always reserved; 50% of remaining deployed</li>
+            <li>No earnings within next 5 calendar days (Finnhub calendar)</li>
+            <li>Market hours: 9:35 AM – 3:45 PM ET</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <h3>Exit Conditions</h3>
+    <p>Exits are evaluated <em>before</em> entries on each run. All current Alpaca positions are checked — including those opened manually.</p>
+    <table>
+      <thead><tr><th>Condition</th><th>Sell Qty</th><th>Rationale</th></tr></thead>
+      <tbody>
+        <tr><td>Price 8%+ below entry (hard stop)</td><td><strong>100% full exit</strong></td><td>Capital preservation overrides upside — no partial on a hard stop</td></tr>
+        <tr><td>Score &lt; 25</td><td>50% half exit</td><td>Signal deteriorating, reduce exposure</td></tr>
+        <tr><td>RSI &gt; 75</td><td>50% half exit</td><td>Overbought — take partial profit, let rest run</td></tr>
+        <tr><td>EMA 9 crossed below EMA 21 (≤3 sessions ago)</td><td>50% half exit</td><td>Short-term reversal, stored in <code>ema9_bear_cross_ago</code></td></tr>
+        <tr><td>MACD turned bearish (just crossed below signal)</td><td>50% half exit</td><td>Momentum reversal confirmation</td></tr>
+        <tr><td>Held ≥ 30 calendar days with no gain</td><td>50% half exit</td><td>Time stop — capital not working, free up a slot</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note-box">
+      <strong>Rounding edge case:</strong> if <code>floor(qty × 0.5) = 0</code> (e.g. holding only 1 share),
+      the full position is sold rather than 0 shares.
+    </div>
+
+    <h3>Position Sizing Formula</h3>
+    <ul>
+      <li><code>cashBuffer  = accountEquity × 0.20</code> — always keep 20% uninvested</li>
+      <li><code>deployable  = max(0, (buyingPower − cashBuffer) × 0.50)</code> — deploy 50% of remaining</li>
+      <li><code>maxPerPos   = accountEquity × 0.10</code> — max 10% per position</li>
+      <li><code>perSlot     = min(deployable / openSlots, maxPerPos)</code></li>
+      <li><code>shares      = floor(perSlot / currentPrice)</code></li>
+      <li>If shares &lt; 1 → skip (insufficient funds)</li>
+    </ul>
+
+    <h3>Autotrader Record-Keeping</h3>
+    <p>Every order (buy or sell) is written to the <code>autotrader_trades</code> table with: symbol, action, qty, exit_reason, alpaca_order_id, executed_at. This table drives the "days held" calculation for the time stop.</p>
+
+    <h3>Order Types</h3>
+    <ul>
+      <li>All autotrader orders are <strong>market orders</strong> during regular hours (9:35–15:45 ET)</li>
+      <li>No extended hours, no limit orders in autorun mode</li>
+      <li>No short selling, no options</li>
+    </ul>
+  </div>
+
+  <!-- Examples -->
+  <div class="section" id="example">
+    <h2>Score Examples</h2>
+
+    <h3>Example 1 — Strong BUY (score 84)</h3>
+    <div class="example">
+      <div class="title">NVDA — Nvidia Corp · Score: 84/100</div>
+      <span class="ex-pos">+14</span>  Golden cross 3d ago<br>
+      <span class="ex-pos">+8 </span>  50DMA above 200DMA (golden zone active)<br>
+      <span class="ex-pos">+18</span>  Price crossed above 200DMA 2d ago<br>
+      <span class="ex-pos">+12</span>  EMA 9 just crossed above EMA 21<br>
+      <span class="ex-pos">+10</span>  Volume surge 2.1× avg on up day<br>
+      <span class="ex-pos">+15</span>  RSI 38 — recovering from oversold<br>
+      <span class="ex-pos">+7 </span>  MACD bullish cross 2d ago<br>
+      <span class="ex-pos">+8 </span>  Forward P/E below sector avg<br>
+      <span class="ex-pos">+8 </span>  EPS growth 34% (3Y CAGR)<br>
+      <span class="ex-pos">+6 </span>  Strong ROE 32%<br>
+      <span class="ex-pos">+5 </span>  SPY above 200DMA (bull market)<br>
+      <span class="ex-neg">−7 </span>  Price below 200DMA<br>
+      <span class="ex-total">= 110 → clamped to 84/100 (BUY)</span>
+    </div>
+
+    <h3>Example 2 — HOLD (score 28)</h3>
+    <div class="example">
+      <div class="title">VZ — Verizon Communications · Score: 28/100</div>
+      <span class="ex-pos">+6 </span>  Price above 50DMA<br>
+      <span class="ex-pos">+4 </span>  EMA 9 above EMA 21 (short-term bullish)<br>
+      <span class="ex-pos">+5 </span>  RSI 51 — neutral bullish<br>
+      <span class="ex-pos">+4 </span>  MACD above signal (ongoing)<br>
+      <span class="ex-pos">+8 </span>  Dividend yield 6.8% (≥5%)<br>
+      <span class="ex-neg">−8 </span>  50DMA below 200DMA (death zone)<br>
+      <span class="ex-neg">−10</span>  Price below 200DMA<br>
+      <span class="ex-neg">−5 </span>  SPY below 200DMA (bear market)<br>
+      <span class="ex-total">= 4 → clamped to 28/100 (HOLD)</span>
+    </div>
+
+    <h3>Maximum Theoretical Score</h3>
+    <div class="example">
+      <div class="title">Theoretical maximum — all bullish signals simultaneously</div>
+      <span class="ex-pos">+20</span>  Golden cross today<br>
+      <span class="ex-pos">+8 </span>  Golden zone active<br>
+      <span class="ex-pos">+18</span>  Price crossed above 200DMA<br>
+      <span class="ex-pos">+15</span>  Price crossed above 50DMA<br>
+      <span class="ex-pos">+8 </span>  Price above 200DMA<br>
+      <span class="ex-pos">+12</span>  EMA 9 fresh bull cross<br>
+      <span class="ex-pos">+10</span>  Full EMA bull stack<br>
+      <span class="ex-pos">+10</span>  Volume surge on up day<br>
+      <span class="ex-pos">+15</span>  RSI recovering from oversold<br>
+      <span class="ex-pos">+12</span>  MACD bullish cross today<br>
+      <span class="ex-pos">+12</span>  High dividend (≥5%)<br>
+      <span class="ex-pos">+12</span>  PE 40%+ below sector<br>
+      <span class="ex-pos">+10</span>  PEG &lt;1<br>
+      <span class="ex-pos">+8 </span>  Strong EPS growth<br>
+      <span class="ex-pos">+10</span>  Strong buy consensus (70% buy)<br>
+      <span class="ex-pos">+8 </span>  Strong price target upside<br>
+      <span class="ex-pos">+5 </span>  Bullish market (SPY above 200DMA)<br>
+      <span class="ex-pos">+6 </span>  Short squeeze potential<br>
+      <span class="ex-total">= 199 → clamped to 100/100</span>
+    </div>
+    <p>In practice, scores in the 70–85 range represent very strong multi-signal alignment. A score of 100 would require near-perfect simultaneous conditions — extremely rare.</p>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align:center;padding:24px 0;font-size:12px;color:#95a5a6">
+    My Stocks Dashboard · v2.2 · Scoring engine: <code>portfolio_app/analyzer.js</code> · Autotrader: <code>portfolio_app/autotrader.js</code><br>
+    Last updated: April 2026 · 30+ signals · 0–100 scale · BUY ≥50 · HOLD 10–49 · SELL &lt;10
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockTrader v1 — System Documentation</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #f5f7fa; color: #2c3e50; line-height: 1.7; }
+
+  /* ── Nav ── */
+  nav { background: #1a252f; color: #fff; padding: 0 32px; display: flex; align-items: center; gap: 32px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+  nav .brand { font-size: 18px; font-weight: 700; padding: 16px 0; white-space: nowrap; color: #f39c12; }
+  nav a { color: #bdc3c7; text-decoration: none; font-size: 13px; padding: 18px 4px; border-bottom: 3px solid transparent; white-space: nowrap; transition: color .2s, border-color .2s; }
+  nav a:hover { color: #fff; border-bottom-color: #f39c12; }
+
+  /* ── Layout ── */
+  .page { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* ── Hero ── */
+  .hero { background: linear-gradient(135deg, #1a252f 0%, #2c3e50 60%, #1a6b4a 100%); color: #fff; border-radius: 12px; padding: 48px 40px; margin-bottom: 40px; }
+  .hero h1 { font-size: 36px; font-weight: 800; margin-bottom: 8px; }
+  .hero .sub { font-size: 16px; color: #bdc3c7; margin-bottom: 24px; }
+  .hero .badges { display: flex; flex-wrap: wrap; gap: 10px; }
+  .badge { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); border-radius: 20px; padding: 5px 14px; font-size: 13px; }
+  .badge.green { background: rgba(39,174,96,.25); border-color: #27ae60; }
+  .badge.orange { background: rgba(230,126,34,.25); border-color: #e67e22; }
+  .badge.blue { background: rgba(52,152,219,.25); border-color: #3498db; }
+
+  /* ── Sections ── */
+  .section { background: #fff; border-radius: 10px; padding: 32px 36px; margin-bottom: 28px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  h2 { font-size: 22px; font-weight: 700; color: #1a252f; margin-bottom: 6px; padding-bottom: 12px; border-bottom: 2px solid #f0f2f5; }
+  h3 { font-size: 16px; font-weight: 700; color: #2c3e50; margin: 22px 0 10px; }
+  h4 { font-size: 14px; font-weight: 700; color: #7f8c8d; text-transform: uppercase; letter-spacing: .6px; margin: 18px 0 8px; }
+  p { margin-bottom: 12px; color: #34495e; }
+  ul, ol { padding-left: 22px; margin-bottom: 12px; }
+  li { margin-bottom: 6px; color: #34495e; }
+  code { background: #f0f2f5; border-radius: 4px; padding: 2px 6px; font-size: 13px; font-family: 'Menlo', 'Courier New', monospace; color: #c0392b; }
+
+  /* ── Workflow diagram ── */
+  .flow { display: flex; align-items: flex-start; gap: 0; flex-wrap: wrap; margin: 24px 0; }
+  .flow-step { background: #f8f9fa; border: 2px solid #e0e4ea; border-radius: 10px; padding: 16px 20px; min-width: 155px; flex: 1; text-align: center; position: relative; }
+  .flow-step .icon { font-size: 28px; margin-bottom: 6px; }
+  .flow-step .label { font-size: 13px; font-weight: 700; color: #2c3e50; }
+  .flow-step .desc { font-size: 11px; color: #7f8c8d; margin-top: 4px; }
+  .flow-arrow { font-size: 22px; color: #bdc3c7; align-self: center; padding: 0 6px; flex-shrink: 0; }
+  .flow-step.highlight { border-color: #27ae60; background: #f0fff4; }
+  .flow-step.warn { border-color: #e67e22; background: #fff8f0; }
+  .flow-step.blue { border-color: #3498db; background: #f0f8ff; }
+
+  /* ── Schedule table ── */
+  .schedule { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  .schedule th { background: #f0f2f5; padding: 10px 14px; text-align: left; font-size: 13px; color: #7f8c8d; font-weight: 600; }
+  .schedule td { padding: 11px 14px; border-bottom: 1px solid #f0f2f5; font-size: 14px; vertical-align: top; }
+  .schedule tr:last-child td { border-bottom: none; }
+  .schedule .time { font-weight: 700; color: #2980b9; white-space: nowrap; }
+  .schedule .auto { background: #d5f5e3; color: #1a6b4a; border-radius: 4px; padding: 2px 8px; font-size: 12px; font-weight: 600; }
+  .schedule .manual { background: #fdebd0; color: #935116; border-radius: 4px; padding: 2px 8px; font-size: 12px; font-weight: 600; }
+
+  /* ── Score weights ── */
+  .weight-bar-wrap { margin: 10px 0 18px; }
+  .weight-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .weight-label { width: 150px; font-size: 14px; font-weight: 600; flex-shrink: 0; }
+  .weight-bar-bg { flex: 1; background: #eee; border-radius: 6px; height: 22px; overflow: hidden; }
+  .weight-bar { height: 22px; border-radius: 6px; display: flex; align-items: center; padding-left: 10px; font-size: 12px; font-weight: 700; color: #fff; }
+  .weight-pct { width: 40px; text-align: right; font-size: 14px; font-weight: 700; color: #2c3e50; }
+
+  /* ── Indicator grid ── */
+  .ind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin: 16px 0; }
+  .ind-card { border: 1px solid #e0e4ea; border-radius: 8px; padding: 16px 18px; }
+  .ind-card .name { font-weight: 700; font-size: 14px; color: #1a252f; margin-bottom: 6px; }
+  .ind-card .detail { font-size: 13px; color: #5d6d7e; line-height: 1.6; }
+  .ind-card .signals { margin-top: 8px; }
+  .sig { display: inline-block; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; margin: 2px 2px 2px 0; }
+  .sig.bull { background: #d5f5e3; color: #1a6b4a; }
+  .sig.bear { background: #fadbd8; color: #922b21; }
+  .sig.neutral { background: #eaf2ff; color: #1a5276; }
+
+  /* ── Data sources ── */
+  .source-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin: 16px 0; }
+  .source-card { border: 1px solid #e0e4ea; border-radius: 8px; padding: 14px 16px; }
+  .source-card .provider { font-weight: 700; font-size: 14px; color: #2c3e50; margin-bottom: 4px; }
+  .source-card .role { font-size: 12px; color: #7f8c8d; margin-bottom: 8px; }
+  .source-card .feeds { font-size: 12px; color: #5d6d7e; }
+  .pill { display: inline-block; background: #eaf2ff; color: #1a5276; border-radius: 10px; padding: 1px 8px; font-size: 11px; margin: 2px 2px 2px 0; }
+
+  /* ── Guardrails ── */
+  .rule-list { list-style: none; padding: 0; }
+  .rule-list li { display: flex; gap: 12px; padding: 10px 14px; border-radius: 6px; margin-bottom: 8px; background: #fef9f0; border-left: 4px solid #e67e22; }
+  .rule-list li .icon { font-size: 18px; flex-shrink: 0; }
+  .rule-list li .text { font-size: 14px; color: #34495e; }
+  .rule-list li .text strong { color: #1a252f; }
+
+  /* ── Anti-churn ── */
+  .decision-box { background: #f8f9fa; border-radius: 8px; padding: 20px 24px; margin: 16px 0; border: 1px solid #e0e4ea; }
+  .decision-box .q { font-weight: 700; color: #2c3e50; margin-bottom: 12px; font-size: 15px; }
+  .decision-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .decision-yes { flex: 1; min-width: 200px; background: #f0fff4; border: 1px solid #27ae60; border-radius: 6px; padding: 12px 16px; }
+  .decision-no  { flex: 1; min-width: 200px; background: #fff8f0; border: 1px solid #e67e22; border-radius: 6px; padding: 12px 16px; }
+  .decision-yes .head { color: #27ae60; font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+  .decision-no  .head { color: #e67e22; font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+
+  /* ── Phase timeline ── */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before { content: ''; position: absolute; left: 8px; top: 6px; bottom: 6px; width: 2px; background: #e0e4ea; }
+  .tl-item { position: relative; margin-bottom: 24px; }
+  .tl-item::before { content: ''; position: absolute; left: -24px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: #bdc3c7; border: 2px solid #fff; box-shadow: 0 0 0 2px #bdc3c7; }
+  .tl-item.done::before { background: #27ae60; box-shadow: 0 0 0 2px #27ae60; }
+  .tl-item.active::before { background: #e67e22; box-shadow: 0 0 0 2px #e67e22; }
+  .tl-item .phase { font-weight: 700; font-size: 15px; color: #2c3e50; }
+  .tl-item .phase-status { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 10px; padding: 2px 10px; margin-left: 10px; vertical-align: middle; }
+  .done .phase-status { background: #d5f5e3; color: #1a6b4a; }
+  .active .phase-status { background: #fdebd0; color: #935116; }
+  .tl-item ul { margin-top: 8px; }
+
+  /* ── Callout boxes ── */
+  .callout { border-radius: 8px; padding: 16px 20px; margin: 16px 0; display: flex; gap: 14px; }
+  .callout.info { background: #eaf2ff; border-left: 4px solid #3498db; }
+  .callout.warn { background: #fef9f0; border-left: 4px solid #e67e22; }
+  .callout.success { background: #f0fff4; border-left: 4px solid #27ae60; }
+  .callout .ci { font-size: 20px; flex-shrink: 0; }
+  .callout .ct { font-size: 14px; color: #34495e; }
+  .callout .ct strong { color: #1a252f; }
+
+  /* ── Responsive ── */
+  @media (max-width: 700px) {
+    nav { gap: 12px; padding: 0 16px; overflow-x: auto; }
+    .hero { padding: 32px 24px; }
+    .hero h1 { font-size: 26px; }
+    .section { padding: 24px 20px; }
+    .flow { gap: 8px; }
+    .flow-arrow { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">📈 StockTrader v1</div>
+  <a href="#overview">Overview</a>
+  <a href="#workflow">Workflow</a>
+  <a href="#schedule">Schedule</a>
+  <a href="#scoring">Scoring</a>
+  <a href="#indicators">Indicators</a>
+  <a href="#data">Data Sources</a>
+  <a href="#guardrails">Guardrails</a>
+  <a href="#antichurn">Anti-Churn</a>
+  <a href="#sizing">Position Sizing</a>
+  <a href="#stack">Tech Stack</a>
+  <a href="#phases">Phases</a>
+</nav>
+
+<div class="page">
+
+  <!-- ── HERO ── -->
+  <div class="hero">
+    <h1>StockTrader v1</h1>
+    <p class="sub">Swing trading research and execution system — human-approved, data-driven, fully automated scanning</p>
+    <div class="badges">
+      <span class="badge green">Paper Trading Active</span>
+      <span class="badge orange">VIX-Adaptive Thresholds</span>
+      <span class="badge blue">30-Stock Universe</span>
+      <span class="badge">Node.js 20 + MySQL 8.4</span>
+      <span class="badge">Alpaca Broker API</span>
+      <span class="badge">192.168.1.156:3001</span>
+    </div>
+  </div>
+
+  <!-- ── OVERVIEW ── -->
+  <div class="section" id="overview">
+    <h2>System Overview</h2>
+    <p>StockTrader v1 is a <strong>swing trading assistant</strong> that runs continuously on a local mini PC. It scans a curated universe of 30 liquid US stocks twice per day, scores each one across four dimensions, and produces a prioritised buy/hold/exit plan for your approval. <strong>No trade is ever placed without you clicking Approve.</strong></p>
+
+    <h3>Core Philosophy</h3>
+    <ul>
+      <li><strong>Human in the loop</strong> — every trade requires explicit approval. The system advises; you decide.</li>
+      <li><strong>Swing trading horizon</strong> — hold periods of 3–10 days, targeting 5–15% moves.</li>
+      <li><strong>Quality over quantity</strong> — max 4 open positions from a screened universe of 30 large-cap, liquid stocks.</li>
+      <li><strong>Anti-churn</strong> — never swaps a position unless a replacement scores 20+ points higher.</li>
+      <li><strong>Market-adaptive</strong> — thresholds automatically loosen in high-fear markets (VIX > 40) to surface oversold opportunities.</li>
+      <li><strong>Paper-first</strong> — defaults to Alpaca paper trading. Go live only after 2–4 weeks of consistent paper results.</li>
+    </ul>
+
+    <div class="callout info">
+      <div class="ci">ℹ️</div>
+      <div class="ct"><strong>Current market context (April 2026):</strong> VIX = 56 (extreme fear, tariff crisis). Score threshold automatically reduced from 55 → 35, giving the system a better chance to surface oversold quality stocks during the downturn. This is intentional — fear markets create the best swing setups.</div>
+    </div>
+  </div>
+
+  <!-- ── DAILY WORKFLOW ── -->
+  <div class="section" id="workflow">
+    <h2>Daily Workflow</h2>
+    <p>The system runs a complete cycle twice per trading day. Each cycle is fully automated up to the point of trade execution — which always requires your approval.</p>
+
+    <div class="flow">
+      <div class="flow-step blue">
+        <div class="icon">🕘</div>
+        <div class="label">Auto Scan</div>
+        <div class="desc">8:50 AM & 12 PM ET<br>30 stocks scored</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step blue">
+        <div class="icon">🧠</div>
+        <div class="label">Score &amp; Rank</div>
+        <div class="desc">4-dimension composite<br>score per symbol</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step blue">
+        <div class="icon">📋</div>
+        <div class="label">Build Plan</div>
+        <div class="desc">Buy / Hold / Exit<br>recommendations</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step warn">
+        <div class="icon">📧</div>
+        <div class="label">Email Alert</div>
+        <div class="desc">Plan sent to you<br>with approve link</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step warn">
+        <div class="icon">👤</div>
+        <div class="label">You Decide</div>
+        <div class="desc">Approve or Reject<br>within 12 hours</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">
+        <div class="icon">🏦</div>
+        <div class="label">Execute</div>
+        <div class="desc">Orders placed via<br>Alpaca API</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">
+        <div class="icon">📊</div>
+        <div class="label">Monitor</div>
+        <div class="desc">5-min P&amp;L sync<br>4:15 PM EOD report</div>
+      </div>
+    </div>
+
+    <h3>Plan Contents</h3>
+    <p>Each plan contains one or more of the following action types:</p>
+
+    <h4>BUY — New position</h4>
+    <ul>
+      <li>Symbol, share count, estimated cost</li>
+      <li>Suggested entry price (current market price)</li>
+      <li>Target price (analyst PT or ATR-based)</li>
+      <li>Stop loss (5% below entry, auto-placed)</li>
+      <li>Risk/reward ratio and estimated hold duration</li>
+      <li>Top 6 signals driving the recommendation</li>
+    </ul>
+
+    <h4>HOLD — Keep existing position</h4>
+    <ul>
+      <li>Current gain % since entry</li>
+      <li>Distance remaining to target</li>
+      <li>Reason (winning, momentum intact, no better alternative)</li>
+    </ul>
+
+    <h4>EXIT — Close position</h4>
+    <ul>
+      <li>Triggered when: within 1.5% of stop loss, score fell below threshold, or a significantly better stock is available</li>
+      <li>For swaps: shows which stock will replace this one</li>
+    </ul>
+
+    <div class="callout warn">
+      <div class="ci">⚠️</div>
+      <div class="ct"><strong>Market hours enforcement:</strong> Orders are only placed between 9:35 AM and 3:45 PM ET on weekdays. Approving a plan outside market hours saves the approval — execution happens at the next market open check.</div>
+    </div>
+  </div>
+
+  <!-- ── SCHEDULE ── -->
+  <div class="section" id="schedule">
+    <h2>Automated Schedule</h2>
+    <p>All times are US Eastern (ET). The scheduler runs continuously on the mini PC and survives reboots via systemd.</p>
+
+    <table class="schedule">
+      <thead>
+        <tr><th>Time (ET)</th><th>Days</th><th>Event</th><th>Type</th><th>Details</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="time">8:50 AM</td>
+          <td>Mon–Fri</td>
+          <td>Pre-market scan</td>
+          <td><span class="auto">AUTO</span></td>
+          <td>Scans all 30 symbols, builds and emails portfolio plan for approval before open</td>
+        </tr>
+        <tr>
+          <td class="time">9:35 AM</td>
+          <td>Mon–Fri</td>
+          <td>Market open — orders eligible</td>
+          <td><span class="auto">AUTO</span></td>
+          <td>Guardrails open; approved orders placed if within market hours window</td>
+        </tr>
+        <tr>
+          <td class="time">12:00 PM</td>
+          <td>Mon–Fri</td>
+          <td>Midday scan</td>
+          <td><span class="auto">AUTO</span></td>
+          <td>Re-scores all symbols with fresh data; new plan only if morning plan was acted on or expired</td>
+        </tr>
+        <tr>
+          <td class="time">Every 5 min</td>
+          <td>Mon–Fri market hours</td>
+          <td>Position sync</td>
+          <td><span class="auto">AUTO</span></td>
+          <td>Pulls current prices from Alpaca, updates P&amp;L, checks stop-loss proximity</td>
+        </tr>
+        <tr>
+          <td class="time">3:45 PM</td>
+          <td>Mon–Fri</td>
+          <td>Market close — orders blocked</td>
+          <td><span class="auto">AUTO</span></td>
+          <td>Guardrails close; no new orders accepted after this time</td>
+        </tr>
+        <tr>
+          <td class="time">4:15 PM</td>
+          <td>Mon–Fri</td>
+          <td>EOD summary email</td>
+          <td><span class="auto">AUTO</span></td>
+          <td>Daily P&amp;L summary, positions status, win/loss stats emailed to you</td>
+        </tr>
+        <tr>
+          <td class="time">Any time</td>
+          <td>Any</td>
+          <td>Manual scan</td>
+          <td><span class="manual">MANUAL</span></td>
+          <td>Click ▶ Scan Now on dashboard to trigger an immediate scan outside the schedule</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── SCORING ── -->
+  <div class="section" id="scoring">
+    <h2>Composite Scoring System</h2>
+    <p>Every stock receives a composite score from 0–100. <strong>50 = neutral</strong> (no signals either way). Scores below 35 are weak, 50–65 are moderate, 65+ are strong. In normal markets the threshold to become a candidate is 55. In extreme fear (VIX > 40) it drops to 35 automatically.</p>
+
+    <h3>Scoring Weights</h3>
+    <div class="weight-bar-wrap">
+      <div class="weight-row">
+        <div class="weight-label">Technical</div>
+        <div class="weight-bar-bg"><div class="weight-bar" style="width:35%;background:#2980b9">35%</div></div>
+        <div class="weight-pct">35%</div>
+      </div>
+      <div class="weight-row">
+        <div class="weight-label">Fundamental</div>
+        <div class="weight-bar-bg"><div class="weight-bar" style="width:25%;background:#27ae60">25%</div></div>
+        <div class="weight-pct">25%</div>
+      </div>
+      <div class="weight-row">
+        <div class="weight-label">Institutional</div>
+        <div class="weight-bar-bg"><div class="weight-bar" style="width:20%;background:#8e44ad">20%</div></div>
+        <div class="weight-pct">20%</div>
+      </div>
+      <div class="weight-row">
+        <div class="weight-label">Sentiment</div>
+        <div class="weight-bar-bg"><div class="weight-bar" style="width:20%;background:#e67e22">20%</div></div>
+        <div class="weight-pct">20%</div>
+      </div>
+    </div>
+    <p>After weighting, a <strong>market context adjustment</strong> (positive or negative) is applied based on SPY/QQQ trend, VIX level, and sector strength. This can move the final score by up to ±20 points.</p>
+
+    <h3>VIX-Adaptive Threshold</h3>
+    <p>Rather than using a fixed score cutoff, the system automatically lowers the bar when market fear is elevated — recognising that oversold quality stocks in panic markets are the best swing setups:</p>
+    <table class="schedule">
+      <thead><tr><th>VIX Level</th><th>Condition</th><th>Threshold Reduction</th><th>Effective Threshold</th></tr></thead>
+      <tbody>
+        <tr><td>&lt; 25</td><td>Calm market</td><td>0 pts</td><td>55 (base)</td></tr>
+        <tr><td>25–29</td><td>Elevated fear</td><td>−6 pts</td><td>49</td></tr>
+        <tr><td>30–39</td><td>High fear</td><td>−12 pts</td><td>43</td></tr>
+        <tr><td>≥ 40</td><td>Extreme fear</td><td>−20 pts</td><td>35</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Probability Estimate</h3>
+    <p>Each candidate also gets a <strong>probability of success</strong> estimate (35–85%). It is deliberately conservative — never exceeds 85% — and is derived from the composite score with boosts for strong technical setups and penalties for earnings proximity. Both the score and the probability must exceed their respective adaptive thresholds for a stock to qualify.</p>
+  </div>
+
+  <!-- ── INDICATORS ── -->
+  <div class="section" id="indicators">
+    <h2>Indicators &amp; Signals</h2>
+
+    <h3>Technical Indicators (35% weight)</h3>
+    <p>Baseline score starts at 50 (neutral). Bullish signals add points; bearish signals subtract.</p>
+    <div class="ind-grid">
+
+      <div class="ind-card">
+        <div class="name">RSI — Relative Strength Index (14-day)</div>
+        <div class="detail">Measures momentum. The system specifically looks for oversold conditions as swing entry opportunities.</div>
+        <div class="signals">
+          <span class="sig bull">RSI &lt; 25 → +15 pts (deeply oversold)</span>
+          <span class="sig bull">RSI &lt; 35 → +10 pts (oversold)</span>
+          <span class="sig bull">RSI 35–50 → +4 pts</span>
+          <span class="sig bear">RSI &gt; 70 → −8 pts (overbought)</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Golden / Death Cross (50MA vs 200MA)</div>
+        <div class="detail">Long-term trend indicator. A golden cross (50MA crossing above 200MA) is one of the strongest bullish signals.</div>
+        <div class="signals">
+          <span class="sig bull">Just crossed golden → +12 pts</span>
+          <span class="sig bull">Golden cross active → +8 pts</span>
+          <span class="sig bear">Just crossed death → −18 pts</span>
+          <span class="sig bear">Death cross active → −12 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Price vs 50-day MA</div>
+        <div class="detail">Short-term trend. Price above 50MA = uptrend. Below = downtrend.</div>
+        <div class="signals">
+          <span class="sig bull">Above 50MA → +5 pts</span>
+          <span class="sig bear">Below 50MA → −4 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Price vs 200-day MA</div>
+        <div class="detail">Long-term trend. Price above 200MA = secular uptrend. Major institutional reference level.</div>
+        <div class="signals">
+          <span class="sig bull">Above 200MA → +5 pts</span>
+          <span class="sig bear">Below 200MA → −6 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">MACD (12/26/9)</div>
+        <div class="detail">Momentum crossover. Bullish crossover (MACD line crossing above signal) indicates momentum turning positive.</div>
+        <div class="signals">
+          <span class="sig bull">Bullish crossover → +8 pts</span>
+          <span class="sig bull">Above signal line → +3 pts</span>
+          <span class="sig bear">Bearish crossover → −6 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Bollinger Bands (20-day, 2σ)</div>
+        <div class="detail">Volatility bands. Price at the lower band in a quality stock often signals a mean-reversion opportunity.</div>
+        <div class="signals">
+          <span class="sig bull">At lower band (oversold) → +6 pts</span>
+          <span class="sig bear">At upper band (overbought) → −4 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Volume Ratio (vs 20-day avg)</div>
+        <div class="detail">Confirms conviction. High volume on a bullish signal means institutional participation; not just retail noise.</div>
+        <div class="signals">
+          <span class="sig bull">Volume &gt; 2× avg → +7 pts (strong spike)</span>
+          <span class="sig bull">Volume &gt; 1.5× avg → +4 pts (elevated)</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">52-Week Low Proximity</div>
+        <div class="detail">Stocks within 10% of their 52-week low may represent value entry points when other signals align.</div>
+        <div class="signals">
+          <span class="sig bull">Within 10% of 52-wk low → +4 pts</span>
+          <span class="sig neutral">Used in combination with oversold RSI for high-conviction setups</span>
+        </div>
+      </div>
+
+    </div>
+
+    <h3>Fundamental Indicators (25% weight)</h3>
+    <div class="ind-grid">
+
+      <div class="ind-card">
+        <div class="name">P/E vs Sector Average</div>
+        <div class="detail">Compares the stock's price-to-earnings ratio against its sector benchmark. A stock trading at a P/E discount is considered relatively undervalued.</div>
+        <div class="signals">
+          <span class="sig bull">P/E &lt; 70% of sector avg → +12 pts</span>
+          <span class="sig bull">P/E &lt; sector avg → +6 pts</span>
+          <span class="sig bear">P/E &gt; 150% of sector avg → −5 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">EPS Growth (YoY)</div>
+        <div class="detail">Year-over-year earnings-per-share growth. Positive and accelerating EPS growth indicates a business gaining profitability.</div>
+        <div class="signals">
+          <span class="sig bull">EPS growth &gt; 20% → +10 pts</span>
+          <span class="sig bull">EPS growth &gt; 10% → +6 pts</span>
+          <span class="sig bull">EPS growth &gt; 0% → +3 pts</span>
+          <span class="sig bear">Negative EPS growth → −5 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Revenue Growth (YoY)</div>
+        <div class="detail">Top-line growth. Confirms the business is expanding, not just cutting costs to boost earnings.</div>
+        <div class="signals">
+          <span class="sig bull">Revenue &gt; 15% → +7 pts</span>
+          <span class="sig bull">Revenue &gt; 5% → +4 pts</span>
+          <span class="sig bear">Revenue declining → −4 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Debt/Equity Ratio</div>
+        <div class="detail">Balance sheet health. Low debt means the company can weather downturns and doesn't pay heavy interest costs.</div>
+        <div class="signals">
+          <span class="sig bull">D/E &lt; 0.3 → +5 pts (low debt)</span>
+          <span class="sig bear">D/E &gt; 2.0 → −6 pts (high debt)</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Earnings Date Risk</div>
+        <div class="detail">Upcoming earnings create binary volatility risk. The system penalises stocks close to reporting to avoid holding through unpredictable events.</div>
+        <div class="signals">
+          <span class="sig bear">Earnings within 5 days → −10 pts + prob −8%</span>
+          <span class="sig bear">Earnings within 14 days → −4 pts (caution)</span>
+          <span class="sig neutral">Earnings &gt; 14 days away → no penalty</span>
+        </div>
+      </div>
+
+    </div>
+
+    <h3>Institutional Signals (20% weight)</h3>
+    <div class="ind-grid">
+
+      <div class="ind-card">
+        <div class="name">Superinvestor Activity (Dataroma)</div>
+        <div class="detail">Tracks whether well-known value investors (Buffett, Ackman, etc.) recently added to or hold the stock. Smart money confirmation.</div>
+        <div class="signals">
+          <span class="sig bull">2+ superinvestors recently added → +12 pts</span>
+          <span class="sig bull">1 superinvestor recently added → +7 pts</span>
+          <span class="sig bull">3+ superinvestors hold → +5 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Insider Transactions (Finviz)</div>
+        <div class="detail">Corporate insiders (executives, directors) buying their own stock is a strong bullish signal. Selling is a mild warning.</div>
+        <div class="signals">
+          <span class="sig bull">Insider buying → +8 pts</span>
+          <span class="sig bear">Insider selling → −8 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Institutional Ownership Trend</div>
+        <div class="detail">Whether large funds are increasing or reducing their positions. Rising institutional ownership indicates accumulation by professionals.</div>
+        <div class="signals">
+          <span class="sig bull">Inst. ownership rising &gt;2% → +6 pts</span>
+          <span class="sig bear">Inst. ownership falling &gt;5% → −6 pts</span>
+          <span class="sig bull">Inst. ownership &gt;70% → +4 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Hedge Fund 13F Filings (SEC EDGAR)</div>
+        <div class="detail">Quarterly SEC filings show which hedge funds hold the stock. High filer count = wide institutional conviction.</div>
+        <div class="signals">
+          <span class="sig bull">5+ 13F filers → +5 pts</span>
+          <span class="sig bull">2+ 13F filers → +3 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Short Interest (Finviz)</div>
+        <div class="detail">High short interest can lead to a short squeeze when the stock rises — shorts are forced to buy, amplifying upward moves.</div>
+        <div class="signals">
+          <span class="sig bull">Short float &gt;20% → +8 pts (squeeze potential)</span>
+          <span class="sig bull">Short float &gt;10% → +4 pts (elevated)</span>
+        </div>
+      </div>
+
+    </div>
+
+    <h3>Sentiment Signals (20% weight)</h3>
+    <div class="ind-grid">
+
+      <div class="ind-card">
+        <div class="name">Analyst Consensus (Finnhub)</div>
+        <div class="detail">Aggregated buy/hold/sell ratings from Wall Street analysts. Strong consensus Buy is a meaningful signal.</div>
+        <div class="signals">
+          <span class="sig bull">Buy% &gt; 75% of analysts → +10 pts</span>
+          <span class="sig bull">Buy% &gt; 55% → +5 pts</span>
+          <span class="sig bear">Mostly Sell ratings → −6 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Analyst Price Target</div>
+        <div class="detail">Consensus price target from Wall Street analysts vs. current price. High upside potential is a positive signal.</div>
+        <div class="signals">
+          <span class="sig bull">PT upside &gt;20% → +8 pts</span>
+          <span class="sig bull">PT upside &gt;10% → +5 pts</span>
+          <span class="sig bear">Price above PT → −5 pts</span>
+          <span class="sig neutral">Note: Finnhub free tier — PT may be null</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Retail Sentiment (StockTwits)</div>
+        <div class="detail">Bullish/bearish ratio from StockTwits posts. Used as a contrarian signal in extreme readings and a confirming signal in moderate ranges.</div>
+        <div class="signals">
+          <span class="sig bull">Bulls% &gt;75% → +6 pts</span>
+          <span class="sig bull">Bulls% &gt;60% → +3 pts</span>
+          <span class="sig bear">Bulls% &lt;35% → −4 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">News Sentiment (Finnhub NLP)</div>
+        <div class="detail">Sentiment score derived from recent news headlines via NLP. Ranges −1 (very negative) to +1 (very positive).</div>
+        <div class="signals">
+          <span class="sig bull">Avg sentiment &gt; 0.3 → +6 pts</span>
+          <span class="sig bull">Avg sentiment &gt; 0.1 → +3 pts</span>
+          <span class="sig bear">Avg sentiment &lt; −0.2 → −5 pts</span>
+        </div>
+      </div>
+
+      <div class="ind-card">
+        <div class="name">Reddit Mentions</div>
+        <div class="detail">Trending mentions on Reddit (r/stocks, r/investing, r/wallstreetbets). High mention count can precede retail-driven momentum.</div>
+        <div class="signals">
+          <span class="sig bull">&gt;50 Reddit mentions → +4 pts</span>
+          <span class="sig neutral">Used as a secondary signal only</span>
+        </div>
+      </div>
+
+    </div>
+
+    <h3>Market Context Adjustments (applied after weighting)</h3>
+    <p>These are applied to every stock's score based on broad market conditions. They can move the final score by up to ±28 points.</p>
+    <div class="ind-grid">
+      <div class="ind-card">
+        <div class="name">SPY / QQQ Trend</div>
+        <div class="signals">
+          <span class="sig bear">SPY death cross → −12 pts</span>
+          <span class="sig bear">QQQ death cross → −8 pts</span>
+          <span class="sig bear">SPY below 200MA → −8 pts</span>
+          <span class="sig bull">SPY golden cross → +5 pts</span>
+        </div>
+      </div>
+      <div class="ind-card">
+        <div class="name">VIX Market Fear</div>
+        <div class="signals">
+          <span class="sig bear">VIX ≥ 40 (extreme) → −6 pts (but threshold lowered)</span>
+          <span class="sig bear">VIX ≥ 30 (high) → −8 pts</span>
+          <span class="sig bear">VIX ≥ 25 (elevated) → −4 pts</span>
+          <span class="sig bull">VIX &lt; 15 (calm) → +3 pts</span>
+        </div>
+      </div>
+      <div class="ind-card">
+        <div class="name">Sector Strength (20-day return)</div>
+        <div class="signals">
+          <span class="sig bull">Sector return &gt;2% → +5 pts</span>
+          <span class="sig neutral">Sector return 0–2% → +2 pts</span>
+          <span class="sig bear">Sector return &lt; −5% → −6 pts</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DATA SOURCES ── -->
+  <div class="section" id="data">
+    <h2>Data Sources</h2>
+    <p>All data fetching is routed through <code>data/provider.js</code> which reads the active source from the MySQL <code>system_config</code> table. Sources can be switched at runtime without restarting the server.</p>
+
+    <div class="source-grid">
+      <div class="source-card">
+        <div class="provider">Alpaca Market Data</div>
+        <div class="role">Primary — Price &amp; Bars</div>
+        <div class="feeds">
+          <span class="pill">Daily OHLCV bars</span>
+          <span class="pill">210-day history</span>
+          <span class="pill">SPY / QQQ context</span>
+          <span class="pill">Free tier, fast, uses existing keys</span>
+        </div>
+      </div>
+      <div class="source-card">
+        <div class="provider">Finnhub</div>
+        <div class="role">Primary — Fundamentals &amp; News</div>
+        <div class="feeds">
+          <span class="pill">P/E, EPS, revenue growth</span>
+          <span class="pill">Analyst ratings &amp; PT</span>
+          <span class="pill">Earnings dates</span>
+          <span class="pill">News NLP sentiment</span>
+          <span class="pill">60 req/min free tier</span>
+        </div>
+      </div>
+      <div class="source-card">
+        <div class="provider">StockTwits</div>
+        <div class="role">Primary — Retail Sentiment</div>
+        <div class="feeds">
+          <span class="pill">Bullish/bearish % per symbol</span>
+          <span class="pill">Message volume</span>
+          <span class="pill">Free API, no key needed</span>
+        </div>
+      </div>
+      <div class="source-card">
+        <div class="provider">Yahoo Finance</div>
+        <div class="role">Fallback — Fundamentals &amp; VIX</div>
+        <div class="feeds">
+          <span class="pill">VIX proxy via VIXY</span>
+          <span class="pill">Fundamental data</span>
+          <span class="pill">Rate-limited — blocks after ~10 requests</span>
+          <span class="pill">Clears after 30–60 min</span>
+        </div>
+      </div>
+      <div class="source-card">
+        <div class="provider">SEC EDGAR</div>
+        <div class="role">Institutional — 13F Filings</div>
+        <div class="feeds">
+          <span class="pill">Hedge fund holdings</span>
+          <span class="pill">Recent filer count</span>
+          <span class="pill">Free, public API</span>
+        </div>
+      </div>
+      <div class="source-card">
+        <div class="provider">Dataroma</div>
+        <div class="role">Institutional — Superinvestors</div>
+        <div class="feeds">
+          <span class="pill">Superinvestor holdings</span>
+          <span class="pill">Recently added positions</span>
+          <span class="pill">Scraped, no API key needed</span>
+        </div>
+      </div>
+      <div class="source-card">
+        <div class="provider">Finviz</div>
+        <div class="role">Institutional — Ownership &amp; Shorts</div>
+        <div class="feeds">
+          <span class="pill">Institutional ownership %</span>
+          <span class="pill">Insider transactions</span>
+          <span class="pill">Short interest %</span>
+        </div>
+      </div>
+      <div class="source-card">
+        <div class="provider">Alpha Vantage</div>
+        <div class="role">Supplemental — NLP Sentiment</div>
+        <div class="feeds">
+          <span class="pill">News sentiment scoring</span>
+          <span class="pill">25 req/day free tier</span>
+          <span class="pill">Used sparingly</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <div class="ci">🔄</div>
+      <div class="ct"><strong>Runtime source switching:</strong> If Yahoo blocks our IP, switch to Finnhub for fundamentals instantly via the <a href="http://192.168.1.156:3001/settings">/settings</a> page — no server restart needed. The active source is stored in MySQL and takes effect on the next scan.</div>
+    </div>
+  </div>
+
+  <!-- ── GUARDRAILS ── -->
+  <div class="section" id="guardrails">
+    <h2>Guardrails &amp; Safety Rules</h2>
+    <p>All rules are enforced in <code>trader/guardrails.js</code> before any order is placed. These cannot be bypassed by approving a plan.</p>
+
+    <ul class="rule-list">
+      <li><div class="icon">🕐</div><div class="text"><strong>Market hours only:</strong> Orders placed between 9:35 AM and 3:45 PM ET on weekdays only. Approvals outside this window are queued until the next eligible time.</div></li>
+      <li><div class="icon">💼</div><div class="text"><strong>Max 4 open positions:</strong> Never holds more than 4 stocks simultaneously. New buys are blocked if all slots are full.</div></li>
+      <li><div class="icon">📅</div><div class="text"><strong>Max 4 trades per day:</strong> No more than 4 new orders in a single trading day, preventing overtrading.</div></li>
+      <li><div class="icon">💰</div><div class="text"><strong>Max 10% of account per position:</strong> With $100K account, maximum $10K per stock (~100 shares of a $100 stock). Prevents concentration risk.</div></li>
+      <li><div class="icon">🏦</div><div class="text"><strong>20% cash buffer:</strong> Always keeps at least 20% of the account in cash. Never fully deploys all capital.</div></li>
+      <li><div class="icon">🛑</div><div class="text"><strong>5% automatic stop loss:</strong> Stop-loss order placed immediately after every buy. If the stock drops 5% from entry, it sells automatically without needing approval.</div></li>
+      <li><div class="icon">📆</div><div class="text"><strong>No same-day close:</strong> Positions opened today cannot be closed today — enforces the swing trading horizon and avoids wash-sale complications.</div></li>
+      <li><div class="icon">🚫</div><div class="text"><strong>No short selling:</strong> Long positions only. No borrowing, no margin trading.</div></li>
+      <li><div class="icon">⚡</div><div class="text"><strong>No options:</strong> Equity only. No derivatives of any kind.</div></li>
+      <li><div class="icon">📊</div><div class="text"><strong>Earnings blackout:</strong> Will not buy a stock with earnings within 5 days. Earnings create unpredictable binary risk incompatible with swing trading.</div></li>
+    </ul>
+  </div>
+
+  <!-- ── ANTI-CHURN ── -->
+  <div class="section" id="antichurn">
+    <h2>Anti-Churn Logic</h2>
+    <p>The system uses several rules to prevent unnecessary position changes. Stability is valued — each unnecessary trade incurs transaction costs and tax events.</p>
+
+    <div class="decision-box">
+      <div class="q">Should we exit or swap an existing position?</div>
+      <p style="font-size:13px;color:#7f8c8d;margin-bottom:12px">Evaluated in order — first matching rule wins:</p>
+      <div class="decision-row">
+        <div class="decision-yes">
+          <div class="head">HOLD — Never exit if:</div>
+          <ul style="font-size:13px;list-style:disc;padding-left:16px;color:#1a6b4a">
+            <li>Position is up &gt;3% AND still &gt;2% from target → protect the winner</li>
+            <li>No replacement scores 20+ points higher</li>
+            <li>Position score is ≥60 with no better alternative</li>
+          </ul>
+        </div>
+        <div class="decision-no">
+          <div class="head">EXIT — Sell if:</div>
+          <ul style="font-size:13px;list-style:disc;padding-left:16px;color:#935116">
+            <li>Within 1.5% of stop loss → exit early to protect capital</li>
+            <li>Score collapsed below adaptive threshold AND a better stock exists (20+ point gap)</li>
+            <li>Score dropped below 45 → flag for review</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <h3>The 20-Point Swap Rule</h3>
+    <p>A new candidate can only displace an existing position if it scores <strong>at least 20 points higher</strong> on the composite scale AND the current position is flat or down. This prevents the system from churning the portfolio every time a marginally better stock appears.</p>
+
+    <h3>Earnings Protection on Swaps</h3>
+    <p>Even if a new stock passes all other criteria, it will not be added to the plan as a swap target if it has earnings within 5 days. The swap is skipped and the current position is held.</p>
+  </div>
+
+  <!-- ── POSITION SIZING ── -->
+  <div class="section" id="sizing">
+    <h2>Position Sizing &amp; Capital Allocation</h2>
+
+    <h3>How position size is calculated</h3>
+    <ol>
+      <li><strong>Buying power</strong> is read live from Alpaca at plan-build time (currently $200K on paper — 2× cash due to margin account structure)</li>
+      <li><strong>Deployable capital</strong> = buying power × 50% = $100K maximum per plan</li>
+      <li><strong>Open slots</strong> = max positions (4) minus currently held positions</li>
+      <li><strong>Per-slot budget</strong> = min(deployable ÷ open slots, account equity × 10%) = min($25K, $10K) = <strong>$10K per position</strong></li>
+      <li><strong>Shares</strong> = floor($10,000 ÷ current price)</li>
+    </ol>
+
+    <h3>Example with 4 free slots and $100K paper account</h3>
+    <table class="schedule">
+      <thead><tr><th>Symbol</th><th>Price</th><th>Per-slot Budget</th><th>Shares</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr><td>CRM</td><td>$165</td><td>$10,000</td><td>60</td><td>$9,900</td></tr>
+        <tr><td>PLTR</td><td>$128</td><td>$10,000</td><td>78</td><td>$9,984</td></tr>
+        <tr><td>MSFT</td><td>$371</td><td>$10,000</td><td>26</td><td>$9,646</td></tr>
+        <tr><td>NVDA</td><td>$189</td><td>$10,000</td><td>52</td><td>$9,828</td></tr>
+        <tr><td colspan="3"><strong>Total deployed</strong></td><td></td><td><strong>$39,358</strong></td></tr>
+      </tbody>
+    </table>
+    <p>Remaining $60K+ stays in cash (satisfies the 20% cash buffer rule many times over at this account size).</p>
+
+    <h3>Stop Loss &amp; Target</h3>
+    <ul>
+      <li><strong>Stop loss:</strong> 5% below entry price, placed automatically as a stop order immediately after the buy fills</li>
+      <li><strong>Target:</strong> Analyst consensus price target if within 30% of current price; otherwise entry + 3× ATR (Average True Range)</li>
+      <li><strong>Risk/Reward:</strong> Minimum 1:1 expected; system prefers setups with R/R ≥ 2:1</li>
+      <li><strong>Hold duration:</strong> Default 3 days; 7–10 days for golden cross setups with strong fundamentals</li>
+    </ul>
+  </div>
+
+  <!-- ── TECH STACK ── -->
+  <div class="section" id="stack">
+    <h2>Technical Stack</h2>
+
+    <h3>Infrastructure</h3>
+    <ul>
+      <li><strong>Server:</strong> Dell mini PC at 192.168.1.156, Ubuntu 25.10</li>
+      <li><strong>Runtime:</strong> Node.js 20, systemd user service (<code>stocktrader.service</code>)</li>
+      <li><strong>Database:</strong> MySQL 8.4 — 8 tables: scan_sessions, candidates, trades, positions, daily_stats, news_cache, system_log, system_config</li>
+      <li><strong>Broker:</strong> Alpaca (paper account PA3S20RQWZGU, $100K virtual capital)</li>
+      <li><strong>Dashboard:</strong> <a href="http://192.168.1.156:3001/dashboard">http://192.168.1.156:3001/dashboard</a></li>
+      <li><strong>Email:</strong> Gmail SMTP — rrvenkatrama@gmail.com (send + receive)</li>
+    </ul>
+
+    <h3>Key Files</h3>
+    <table class="schedule">
+      <thead><tr><th>File</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>server.js</code></td><td>Express server, all routes, dashboard HTML renderer</td></tr>
+        <tr><td><code>config/params.js</code></td><td>All scoring/risk parameters — DB-backed, editable via /settings at runtime</td></tr>
+        <tr><td><code>config/sources.js</code></td><td>Runtime data source switching (reads/writes system_config table)</td></tr>
+        <tr><td><code>data/provider.js</code></td><td>Unified data router — always use this, never call data modules directly</td></tr>
+        <tr><td><code>screener/scan.js</code></td><td>Batch scanner — fetches data, scores all 30 symbols, saves candidates to DB</td></tr>
+        <tr><td><code>screener/universe.js</code></td><td>The 30-stock universe (expand when upgrading to Polygon paid tier)</td></tr>
+        <tr><td><code>analysis/technicals.js</code></td><td>RSI, MACD, Bollinger Bands, moving averages, ATR calculations</td></tr>
+        <tr><td><code>analysis/scorer.js</code></td><td>Composite score + probability + VIX-adaptive threshold logic</td></tr>
+        <tr><td><code>trader/portfolio.js</code></td><td>Plan builder — buy/hold/exit/swap logic with anti-churn rules</td></tr>
+        <tr><td><code>trader/guardrails.js</code></td><td>All pre-trade safety checks — called before every order</td></tr>
+        <tr><td><code>trader/executor.js</code></td><td>Alpaca order placement + stop loss placement + position sync</td></tr>
+        <tr><td><code>scheduler/cron.js</code></td><td>Pre-market, midday, 5-min sync, EOD cron jobs (ET timezone)</td></tr>
+        <tr><td><code>notifier/email.js</code></td><td>All email types — plan approval request, fill confirmation, EOD summary</td></tr>
+      </tbody>
+    </table>
+
+    <h3>The 30-Stock Universe</h3>
+    <p>Curated list of large-cap, highly liquid US stocks across key sectors. Chosen for data availability, tight spreads, and institutional coverage:</p>
+    <p>
+      <span class="pill">AAPL</span><span class="pill">MSFT</span><span class="pill">NVDA</span><span class="pill">GOOGL</span><span class="pill">AMZN</span><span class="pill">META</span><span class="pill">TSLA</span><span class="pill">AMD</span><span class="pill">AVGO</span><span class="pill">CRM</span>
+      <span class="pill">JPM</span><span class="pill">GS</span><span class="pill">V</span><span class="pill">MA</span>
+      <span class="pill">UNH</span><span class="pill">LLY</span><span class="pill">ABBV</span>
+      <span class="pill">WMT</span><span class="pill">COST</span><span class="pill">NKE</span>
+      <span class="pill">XOM</span><span class="pill">CVX</span>
+      <span class="pill">CAT</span><span class="pill">GE</span>
+      <span class="pill">NFLX</span><span class="pill">DIS</span>
+      <span class="pill">CRWD</span><span class="pill">PLTR</span><span class="pill">PANW</span><span class="pill">COIN</span>
+    </p>
+  </div>
+
+  <!-- ── PHASES ── -->
+  <div class="section" id="phases">
+    <h2>Development Phases</h2>
+
+    <div class="timeline">
+      <div class="tl-item done">
+        <div class="phase">Phase 1 — Core Build <span class="phase-status">✅ Complete</span></div>
+        <ul>
+          <li>Full data pipeline (Alpaca, Finnhub, Yahoo, StockTwits, SEC, Dataroma, Finviz)</li>
+          <li>Technical analysis engine (RSI, MACD, Bollinger, MA cross, ATR, volume)</li>
+          <li>4-dimension composite scorer with VIX-adaptive thresholds</li>
+          <li>Portfolio plan builder with anti-churn rules</li>
+          <li>Trade executor with guardrails and stop-loss placement</li>
+          <li>Email notifications (approval request, fill confirmation, EOD summary)</li>
+          <li>Express dashboard with plan approval UI</li>
+          <li>Systemd service with auto-restart and boot persistence</li>
+        </ul>
+      </div>
+
+      <div class="tl-item done">
+        <div class="phase">Phase 2 — Setup &amp; Paper Trading <span class="phase-status">✅ Complete</span></div>
+        <ul>
+          <li>All API keys configured (Alpaca, Finnhub, Alpha Vantage, Polygon)</li>
+          <li>MySQL database initialised — all 8 tables created</li>
+          <li>Full end-to-end flow tested: Scan → Plan → Approve → Execute (blocked correctly on weekend)</li>
+          <li>VIX=56 market: 28/30 symbols passing adaptive threshold, CRM/PLTR/MSFT top picks</li>
+          <li>Position sizing corrected to use actual Alpaca equity ($100K)</li>
+        </ul>
+      </div>
+
+      <div class="tl-item active">
+        <div class="phase">Phase 3 — Paper Trading &amp; Tuning <span class="phase-status">🔄 In Progress</span></div>
+        <ul>
+          <li>Monitor paper trades Monday onward — first live plan fires at 8:50 AM ET</li>
+          <li>Track win rate, average gain vs. loss, hold durations</li>
+          <li>Tune scoring weights if certain signal categories consistently underperform</li>
+          <li>Add backtesting module to validate historical signal performance</li>
+          <li>Performance chart on dashboard (daily P&amp;L line chart)</li>
+          <li>Target: 2–4 weeks consistent results before going live</li>
+        </ul>
+      </div>
+
+      <div class="tl-item">
+        <div class="phase">Phase 4 — Enhancements</div>
+        <ul>
+          <li>Expand universe to 100+ symbols (requires Polygon paid tier at $29/mo)</li>
+          <li>Backtesting module — validate signals against 2-year historical data</li>
+          <li>Earnings calendar integration — highlight upcoming earnings on dashboard</li>
+          <li>Sector rotation signals — detect money flow between sectors</li>
+          <li>Telegram/SMS as alternative notification channel</li>
+          <li>Mobile-friendly dashboard redesign</li>
+          <li>Position re-score shown daily on dashboard (hold/swap evaluation)</li>
+        </ul>
+      </div>
+
+      <div class="tl-item">
+        <div class="phase">Phase 5 — Go Live</div>
+        <ul>
+          <li>Prerequisite: paper win rate &gt;50%, avg gain &gt; avg loss over 2–4 weeks</li>
+          <li>Change <code>ALPACA_BASE_URL</code> to <code>https://api.alpaca.markets</code> in .env</li>
+          <li>Fund Alpaca account with $10,000 initial capital</li>
+          <li>Monitor first 2 weeks closely — reduce position size if drawdown exceeds 5%</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout success">
+      <div class="ci">✅</div>
+      <div class="ct"><strong>Current status:</strong> System is live on mini PC, paper trading active. Pre-market scan fires automatically at 8:50 AM ET Monday. First real orders will be proposed then — approve after 9:35 AM ET market open.</div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+</body>
+</html>

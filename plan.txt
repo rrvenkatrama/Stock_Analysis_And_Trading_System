@@ -1,0 +1,195 @@
+StockTrader — Build Plan & Recovery Point
+==========================================
+Last updated: 2026-04-16
+Status: Phase 1 COMPLETE | Phase 2 COMPLETE | Phase 3 active | My Stocks Dashboard FULLY OPERATIONAL
+
+─────────────────────────────────────────
+PHASE 1: CORE BUILD ✅ COMPLETE
+─────────────────────────────────────────
+
+[✅] Project scaffold (package.json, .env, .gitignore)
+[✅] Database schema + setup (db/schema.sql, db/setup.js)
+     Tables: scan_sessions, candidates, trades, positions,
+             daily_stats, news_cache, system_log, system_config
+[✅] Config + DB modules (config/env.js, db/db.js)
+[✅] Runtime source config (config/sources.js)
+[✅] Unified data provider (data/provider.js)
+[✅] Data pipeline (alpacaData, yahoo, finnhub, sentiment, institutional, marketContext)
+[✅] Analysis engine (technicals.js, scorer.js)
+[✅] Screener (universe.js 48 symbols, scan.js)
+[✅] Trade execution (guardrails.js, executor.js)
+[✅] Scheduler (scheduler/cron.js) — ET timezone
+[✅] Email notifier (notifier/email.js) — Gmail confirmed working
+[✅] Express server + dashboard (server.js, port 3001)
+[✅] systemd service file (stocktrader.service)
+[✅] CONTEXT.md, CLAUDE.md, plan.txt
+
+─────────────────────────────────────────
+PHASE 2: SETUP & PAPER TRADING ✅ COMPLETE
+─────────────────────────────────────────
+
+[✅] Alpaca paper account connected (PA3S20RQWZGU, $100K paper)
+[✅] All API keys in .env (Polygon, Finnhub, Alpha Vantage)
+[✅] MySQL on 192.168.1.156 — all tables created
+[✅] Email confirmed working (rrvenkatrama@gmail.com)
+[✅] VIX-adaptive thresholds active (VIX=56 → effective threshold 35)
+[✅] Debug scan: 28/30 symbols passing, CRM/PLTR/MSFT top picks
+[✅] Deployed to 192.168.1.156 as systemd service (port 3001)
+[✅] Full flow tested end-to-end: Scan → Plan → Approve → Execute
+
+─────────────────────────────────────────
+CURRENT DATA STACK (stored in system_config table)
+─────────────────────────────────────────
+
+priceData:     alpaca      ← Alpaca market data API, free, fast, no rate limits
+fundamentals:  finnhub     ← Switched from Yahoo (Yahoo blocked our IP)
+marketContext: alpaca       ← SPY/QQQ/VIXY bars via Alpaca
+vix:           yahoo        ← VIXY proxy used when Yahoo blocked
+news:          finnhub      ← Switched from Yahoo
+sentiment:     stocktwits   ← Free retail sentiment
+
+─────────────────────────────────────────
+PHASE 3: PAPER TRADING & TUNING 🔄 IN PROGRESS
+─────────────────────────────────────────
+
+[✅] Monday 8:50 AM scan confirmed fired
+[✅] 3 new scanner categories deployed (2026-04-14):
+     - breakout:       volume ≥ 2.5x, RSI 40-70, above 50MA
+     - dividend_value: ≥30% off 52wk high, PE ≤ 15, yield ≥ 3%
+     - strong_moat:    analyst buy% ≥ 75%, instOwn ≥ 60%, D/E < 1
+[✅] Universe expanded 30 → 48 symbols
+
+[ ] Monitor paper positions — check dashboard daily
+    http://192.168.1.156:3001/dashboard
+[ ] Track performance: win rate, avg gain vs avg loss, hold durations
+[ ] Tune scoring weights if signal categories consistently underperform
+[ ] Target: 2–4 weeks consistent results before going live
+
+─────────────────────────────────────────
+MY STOCKS DASHBOARD (port 8081) ✅ FULLY OPERATIONAL
+─────────────────────────────────────────
+
+[✅] Personal watchlist dashboard — separate from swing trader (port 3001)
+[✅] 113+ stocks seeded from spreadsheet
+[✅] Price history via Alpaca (no rate limits, parallel, 1 year stored)
+[✅] Fundamentals via Finnhub (PE, dividend, analyst, EPS/revenue growth, ROE, D/E, beta)
+     + Yahoo Finance (name, sector, fwdPE, recommendationMean, shortPercentOfFloat)
+[✅] 30+ signal scoring engine (portfolio_app/analyzer.js):
+     - MA crossovers (50/200 SMA golden/death cross)
+     - EMA 9/21 swing timing (bull/bear cross age stored in stock_signals)
+     - Volume confirmation (institutional buying signal)
+     - RSI, MACD, sector-relative valuation (PE/PS/PEG)
+     - Business quality (EPS/revenue/ROE/D-E), dividend income
+     - Analyst consensus (Finnhub counts + Yahoo recommendationMean)
+     - Short interest squeeze detection
+     - Market context (SPY 200MA)
+     Score: 0–100. BUY ≥50 | HOLD ≥10 | SELL <10
+[✅] 204-stock discovery universe (portfolio_app/universe.js)
+     - Scans S&P 100 + popular NASDAQ + sectors for BUY signals not in watchlist
+     - Technical-only scoring for non-watchlist stocks
+     - "+ Watch" button adds to watchlist, full data on next morning refresh
+[✅] Live Alpaca positions panel (replaced portfolio recommendations)
+     - Symbol | Signal·Price | Qty | Avg Entry | Current | Mkt Value | P&L | Trade
+     - "Buy More" + "Sell" buttons open modal (market/limit, qty, TIF, extended hours)
+[✅] Open orders panel with Cancel button
+[✅] 3-tier Auto-trading engine (portfolio_app/autotrader.js):
+     - Tier 3: Market regime (SPY above_200ma)
+     - Tier 2: Quality filter (score≥50, price≥$5, RSI≤65, not extended)
+     - Tier 1: Entry gate (score≥65, ≥2 confirmations, no earnings within 5d)
+     - Hard stop -8%, soft exits (score<25, RSI>75, EMA bear cross ≤3d, MACD bearish, 30-day time stop)
+     - Position sizing with 20% cash buffer
+[✅] Two-cron schedule:
+     - 8:30 AM ET: refresh + analyze + universe scan + evaluate(false) → digest email
+     - 9:35 AM ET: autoRun() → live execution when autorun_enabled='1'
+[✅] Autorun toggle button in dashboard header (plain <a href> — no JS for navigation)
+[✅] Email types: sendDailyDigest (4 params incl. autoResults), sendModeChangeEmail, sendAutotraderEmail
+[✅] News modal: Finnhub (cached news_cache) + SEC EDGAR Atom RSS tabs, per symbol
+[✅] DB migrations run on server:
+     - stock_signals: ema9_bull_cross_ago, ema9_bear_cross_ago columns added
+     - autotrader_trades table created
+     - system_config: autorun_enabled='0', autorun_max_positions='8' seeded
+[✅] Scoring methodology HTML rebuilt (30+ signals, autotrader section)
+[✅] product_requirements.md updated to v2.2
+
+Service: stocktrader_portfolio.service (port 8081)
+Dashboard: http://192.168.1.156:8081/
+Key files: server_portfolio.js, portfolio_app/*.js
+
+[ ] Monitor morning refresh — verify autotrader recommendations appear in digest email
+[ ] Test autorun ON flow in paper mode when market is open
+[ ] Tune: if too many BUY signals, raise score threshold; if too few, lower to 45
+
+─────────────────────────────────────────
+KNOWN ISSUES (April 2026)
+─────────────────────────────────────────
+
+1. Finnhub price target returns 403 (paid feature) — gracefully handled, targetMean = null
+2. VIXY proxy for VIX is approximate (VIXY × 1.8 + 2 ≈ VIX)
+3. Yahoo Finance rate-limits after ~10 rapid requests (clears in 30-60 min)
+4. MySQL 8.4 does NOT support ADD COLUMN IF NOT EXISTS — use information_schema check + PREPARE/EXECUTE pattern
+
+─────────────────────────────────────────
+PHASE 4: ENHANCEMENTS (FUTURE)
+─────────────────────────────────────────
+
+[✅] VIX-adaptive thresholds — already active
+[✅] Universe expanded to 48 symbols with category tagging
+[✅] Auto-trading engine (My Stocks)
+[✅] News modal (Finnhub + SEC EDGAR)
+[ ] Backtesting module
+[ ] Performance chart on dashboard (daily P&L line chart)
+[ ] Earnings calendar — highlight stocks with earnings upcoming
+[ ] Sector rotation signals
+[ ] Upgrade Polygon to $29/mo for full universe + real-time
+[ ] Mobile-friendly dashboard
+[ ] Telegram/SMS as alternative to email notifications
+[ ] Expand swing trader universe to 100+ symbols
+
+─────────────────────────────────────────
+PHASE 5: GO LIVE (AFTER PAPER SUCCESS)
+─────────────────────────────────────────
+
+[ ] Paper trade minimum 2-4 weeks with consistent results
+[ ] Win rate > 50%, avg gain > avg loss
+[ ] Change ALPACA_BASE_URL to https://api.alpaca.markets in .env
+[ ] Fund Alpaca account with $10,000
+[ ] Monitor first 2 weeks closely
+
+─────────────────────────────────────────
+KEY FILES CHEAT SHEET
+─────────────────────────────────────────
+
+Swing trader risk params:   .env + config/params.js
+Switch data source:         config/sources.js or /settings dashboard
+Swing trader symbols:       screener/universe.js
+Swing trader scoring:       analysis/scorer.js (W object at top)
+Swing trader schedule:      scheduler/cron.js
+Guardrails:                 trader/guardrails.js
+Data routing:               data/provider.js ← always use this
+
+My Stocks scoring:          portfolio_app/analyzer.js
+My Stocks autotrader:       portfolio_app/autotrader.js
+My Stocks schedule:         portfolio_app/scheduler.js
+My Stocks universe:         portfolio_app/universe.js
+
+─────────────────────────────────────────
+DEPLOYMENT COMMANDS
+─────────────────────────────────────────
+
+# Sync My Stocks
+scp portfolio_app/<file> rajramani@192.168.1.156:~/stocktrader/portfolio_app/<file>
+scp server_portfolio.js rajramani@192.168.1.156:~/stocktrader/
+ssh rajramani@192.168.1.156 "systemctl --user restart stocktrader_portfolio && sleep 3 && systemctl --user status stocktrader_portfolio --no-pager"
+
+# Sync swing trader
+scp <file> rajramani@192.168.1.156:~/stocktrader/<path>
+ssh rajramani@192.168.1.156 "systemctl --user restart stocktrader && sleep 3 && systemctl --user status stocktrader --no-pager"
+
+# Check logs
+ssh rajramani@192.168.1.156 "journalctl --user -u stocktrader_portfolio -n 30 --no-pager"
+ssh rajramani@192.168.1.156 "journalctl --user -u stocktrader -n 30 --no-pager"
+
+# Manual triggers
+curl http://192.168.1.156:8081/scan-now
+curl http://192.168.1.156:8081/scan-universe
+curl http://192.168.1.156:3001/api/scan

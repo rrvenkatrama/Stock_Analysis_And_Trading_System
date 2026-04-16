@@ -1,0 +1,17 @@
+[Unit]
+Description=My Stocks Research Dashboard
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/home/rajramani/stocktrader
+Environment=NODE_ENV=production
+ExecStartPre=/bin/sleep 5
+ExecStartPre=-/usr/bin/fuser -k 8081/tcp
+ExecStart=/usr/bin/node /home/rajramani/stocktrader/server_portfolio.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

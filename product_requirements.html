@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StockTrader — Product Requirements v2.2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f9fc;color:#1a202c;font-size:14px;line-height:1.6}
+a{color:#3182ce;text-decoration:none}a:hover{text-decoration:underline}
+.header{background:linear-gradient(135deg,#1a365d 0%,#2c5282 100%);padding:28px 40px;color:#bee3f8}
+.header h1{font-size:26px;font-weight:700;margin-bottom:4px}
+.header .sub{font-size:13px;color:#90cdf4;margin-top:6px}
+.version-badge{display:inline-block;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;color:#bee3f8;margin-left:12px}
+.layout{display:flex;min-height:calc(100vh - 100px)}
+.sidebar{width:260px;flex-shrink:0;background:#ffffff;border-right:1px solid #e2e8f0;padding:20px 0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar h3{font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.8px;padding:12px 20px 4px}
+.sidebar a{display:block;padding:5px 20px;font-size:12px;color:#4a5568;border-left:3px solid transparent}
+.sidebar a:hover{background:#f7fafc;color:#2c5282;text-decoration:none;border-left-color:#bee3f8}
+.sidebar a.active{background:#ebf8ff;color:#2b6cb0;border-left-color:#3182ce}
+.sidebar .indent{padding-left:32px}
+.content{flex:1;padding:32px 40px;max-width:960px}
+h2{font-size:20px;font-weight:700;color:#2c5282;border-bottom:2px solid #e2e8f0;padding-bottom:10px;margin:36px 0 16px}
+h2:first-child{margin-top:0}
+h3{font-size:15px;font-weight:700;color:#2d3748;margin:24px 0 10px}
+h4{font-size:13px;font-weight:700;color:#4a5568;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.5px}
+p{margin-bottom:12px;color:#2d3748}
+ul,ol{margin:8px 0 12px 20px}
+li{margin-bottom:4px}
+code{background:#edf2f7;color:#c53030;padding:1px 5px;border-radius:3px;font-size:12px;font-family:'SF Mono',Monaco,monospace}
+pre{background:#1a202c;color:#e2e8f0;padding:16px;border-radius:8px;overflow-x:auto;font-size:12px;margin:12px 0;line-height:1.5}
+pre code{background:none;color:inherit;padding:0}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th{background:#f0f4f8;color:#4a5568;text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #e2e8f0;white-space:nowrap}
+td{padding:8px 12px;border-bottom:1px solid #edf2f7;vertical-align:top}
+tr:hover td{background:#f7fafc}
+.card{background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.note{background:#fffff0;border:1px solid #f6e05e;border-radius:6px;padding:12px 16px;margin:12px 0;font-size:13px;color:#744210}
+.note strong{color:#5f370e}
+.warn{background:#fff5f5;border:1px solid #feb2b2;border-radius:6px;padding:12px 16px;margin:12px 0;font-size:13px;color:#9b2c2c}
+.info{background:#ebf8ff;border:1px solid #bee3f8;border-radius:6px;padding:12px 16px;margin:12px 0;font-size:13px;color:#2b6cb0}
+.green{color:#276749;font-weight:600}
+.red{color:#c53030;font-weight:600}
+.gray{color:#718096}
+.badge{display:inline-block;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:700}
+.badge-buy{background:#f0fff4;color:#276749;border:1px solid #9ae6b4}
+.badge-hold{background:#fffff0;color:#744210;border:1px solid #f6e05e}
+.badge-sell{background:#fff5f5;color:#9b2c2c;border:1px solid #feb2b2}
+.badge-new{background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8}
+.tier-box{border-radius:8px;padding:16px 20px;margin:12px 0}
+.tier1{background:#f0fff4;border:1px solid #9ae6b4}
+.tier2{background:#fffff0;border:1px solid #f6e05e}
+.tier3{background:#ebf8ff;border:1px solid #bee3f8}
+.tier-label{font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.tier1 .tier-label{color:#276749}
+.tier2 .tier-label{color:#744210}
+.tier3 .tier-label{color:#2b6cb0}
+.flow{background:#1a202c;border-radius:8px;padding:16px;font-family:'SF Mono',Monaco,monospace;font-size:12px;color:#e2e8f0;margin:12px 0;line-height:1.8}
+.flow .green{color:#68d391}
+.flow .yellow{color:#f6e05e}
+.flow .blue{color:#63b3ed}
+.flow .red{color:#fc8181}
+.swatch{display:inline-block;width:16px;height:16px;border-radius:3px;vertical-align:middle;margin-right:6px;border:1px solid rgba(0,0,0,.1)}
+@media(max-width:700px){.layout{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;border-right:none;border-bottom:1px solid #e2e8f0}.content{padding:20px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📊 StockTrader <span class="version-badge">v2.2</span></h1>
+  <div class="sub">Product Requirements Document · April 2026 · Rajesh Ramani</div>
+</div>
+
+<div class="layout">
+<nav class="sidebar">
+  <h3>Contents</h3>
+  <a href="#overview">1. System Overview</a>
+  <a href="#infra">2. Infrastructure</a>
+  <a href="#sources">3. Data Sources</a>
+  <a href="#schema">4. Database Schema</a>
+  <a href="#filemap">5. File Map</a>
+  <a href="#swing">6. Swing Trader (3001)</a>
+  <a href="#mystocks">7. My Stocks (8081)</a>
+  <a href="#theme" class="indent">7.1 UI Theme</a>
+  <a href="#header" class="indent">7.2 Header & Stat Bar</a>
+  <a href="#portfolio" class="indent">7.3 Portfolio Section</a>
+  <a href="#stocks" class="indent">7.4 Stocks Section</a>
+  <a href="#discover" class="indent">7.5 Discover Section</a>
+  <a href="#modals" class="indent">7.6 Modals</a>
+  <a href="#refresh" class="indent">7.7 Refresh Pipeline</a>
+  <a href="#scoring" class="indent">7.8 Scoring Engine</a>
+  <a href="#email" class="indent">7.9 Email</a>
+  <a href="#routes" class="indent">7.10 API Routes</a>
+  <a href="#autotrader">8. Auto-Trading System</a>
+  <a href="#toggle" class="indent">8.1 Autorun Toggle</a>
+  <a href="#tier3" class="indent">8.2 Tier 3 — Regime</a>
+  <a href="#tier2" class="indent">8.3 Tier 2 — Quality</a>
+  <a href="#tier1" class="indent">8.4 Tier 1 — Entry/Exit</a>
+  <a href="#guardrails" class="indent">8.5 Guardrails</a>
+  <a href="#autorun-off" class="indent">8.6 Autorun OFF</a>
+  <a href="#autorun-on" class="indent">8.7 Autorun ON</a>
+  <a href="#notifications" class="indent">8.8 Notifications</a>
+  <a href="#nfr">9. Non-Functional Req.</a>
+  <a href="#issues">10. Known Issues</a>
+  <a href="#decisions">11. Design Decisions</a>
+</nav>
+
+<main class="content">
+
+<!-- ═══ 1. OVERVIEW ═══════════════════════════════════════════════════════ -->
+<h2 id="overview">1. System Overview</h2>
+<p>StockTrader is a personal swing trading research and execution system with two independent dashboards sharing the same Alpaca brokerage account, MySQL database, and data layer.</p>
+
+<table>
+<tr><th>Dashboard</th><th>Port</th><th>Purpose</th></tr>
+<tr><td><strong>Swing Trader</strong></td><td><code>3001</code></td><td>Short-term scan-and-execute: universe scan, daily plan, human-approved trades</td></tr>
+<tr><td><strong>My Stocks</strong></td><td><code>8081</code></td><td>Personal watchlist research: 113+ stocks, long-hold scoring, Alpaca execution</td></tr>
+</table>
+
+<div class="info">The <strong>My Stocks dashboard (port 8081)</strong> is the primary focus of this document and the target for the Auto-Trading feature.</div>
+
+<!-- ═══ 2. INFRASTRUCTURE ══════════════════════════════════════════════════ -->
+<h2 id="infra">2. Infrastructure</h2>
+<table>
+<tr><th>Component</th><th>Value</th></tr>
+<tr><td>Server</td><td>Mini PC at 192.168.1.156</td></tr>
+<tr><td>OS</td><td>Ubuntu 25.10</td></tr>
+<tr><td>Runtime</td><td>Node.js 20</td></tr>
+<tr><td>Database</td><td>MySQL 8.4</td></tr>
+<tr><td>Broker</td><td>Alpaca (paper mode default; live switchable via .env)</td></tr>
+<tr><td>Services</td><td>systemd user services via <code>loginctl enable-linger</code></td></tr>
+<tr><td>Swing Trader service</td><td><code>stocktrader.service</code></td></tr>
+<tr><td>My Stocks service</td><td><code>stocktrader_portfolio.service</code> (port 8081)</td></tr>
+<tr><td>Timezone</td><td>America/New_York — all cron expressions use ET</td></tr>
+</table>
+
+<!-- ═══ 3. DATA SOURCES ══════════════════════════════════════════════════ -->
+<h2 id="sources">3. Data Sources</h2>
+<table>
+<tr><th>Data Type</th><th>Primary Source</th><th>Notes</th></tr>
+<tr><td>Price bars (OHLCV)</td><td>Alpaca Market Data</td><td>No rate limits; parallel batches of 5</td></tr>
+<tr><td>PE, EPS, ROE, D/E</td><td>Finnhub <code>/stock/metric</code></td><td>60 req/min free; 1200ms delay per symbol</td></tr>
+<tr><td>Analyst buy/sell/hold</td><td>Finnhub <code>/stock/recommendation</code></td><td>2nd Finnhub call per symbol</td></tr>
+<tr><td>Upgrades/downgrades</td><td>Finnhub <code>/stock/upgrade-downgrade</code></td><td>Free; refreshed weekly, max 20/run</td></tr>
+<tr><td>Name, sector, short interest</td><td>Yahoo Finance <code>quote()</code></td><td>Rate-limits after ~10 rapid requests; graceful degradation</td></tr>
+<tr><td>Price targets (mean/high/low)</td><td>Yahoo Finance <code>quote()</code></td><td>Free via <code>targetMeanPrice/High/Low</code> fields — zero extra calls</td></tr>
+<tr><td>Analyst consensus</td><td>Yahoo Finance <code>quote()</code></td><td><code>recommendationMean</code> + <code>numberOfAnalystOpinions</code></td></tr>
+<tr><td>VIX</td><td>Yahoo Finance (VIXY proxy)</td><td>VIXY × 1.8 + 2 ≈ VIX</td></tr>
+<tr><td>Market news</td><td>Finnhub <code>/company-news</code></td><td>Cached in <code>news_cache</code> table</td></tr>
+</table>
+
+<h3>Rate Limit Management</h3>
+<ul>
+  <li><strong>FUND_DELAY = 1200ms</strong> between symbols (2 Finnhub calls/symbol → safe at 60 req/min)</li>
+  <li><strong>QUOTE_DELAY = 800ms</strong> between Yahoo quote calls</li>
+  <li><strong>Upgrades:</strong> max 20 stale symbols per run, 2000ms delay; weekly cadence</li>
+  <li>Yahoo Finance blocks IP after ~10 rapid requests; clears in 30–60 min; switch to Finnhub via sources.js when blocked</li>
+</ul>
+
+<!-- ═══ 4. SCHEMA ══════════════════════════════════════════════════════════ -->
+<h2 id="schema">4. Database Schema</h2>
+
+<h3>Swing Trader Tables (9)</h3>
+<p class="gray"><code>scan_sessions</code>, <code>candidates</code>, <code>trades</code>, <code>positions</code>, <code>daily_stats</code>, <code>news_cache</code>, <code>system_log</code>, <code>system_config</code>, <code>portfolio_plans</code></p>
+
+<h3>My Stocks Tables</h3>
+
+<h4>watchlist</h4>
+<pre><code>symbol          VARCHAR(10) PRIMARY KEY
+name            VARCHAR(200)
+sector          VARCHAR(100)
+asset_type      ENUM('stock','etf','fund') DEFAULT 'stock'
+is_active       TINYINT(1) DEFAULT 1
+pe_trailing     DECIMAL(10,2)
+pe_forward      DECIMAL(10,2)
+div_yield       DECIMAL(8,4)
+ps_ratio        DECIMAL(10,2)
+analyst_buy     INT
+analyst_sell    INT
+analyst_hold    INT
+eps_growth      DECIMAL(8,4)
+revenue_growth  DECIMAL(8,4)
+debt_equity     DECIMAL(10,4)
+roe             DECIMAL(8,4)
+beta            DECIMAL(8,4)
+short_float     DECIMAL(8,4)
+rec_mean        DECIMAL(4,2)
+rec_count       INT
+target_mean     DECIMAL(10,2)
+target_high     DECIMAL(10,2)
+target_low      DECIMAL(10,2)
+fundamentals_at TIMESTAMP
+upgrades_at     TIMESTAMP NULL DEFAULT NULL</code></pre>
+
+<h4>price_history</h4>
+<pre><code>symbol      VARCHAR(10)
+trade_date  DATE
+open, high, low, close, adj_close   DECIMAL(12,4)
+volume      BIGINT
+PRIMARY KEY (symbol, trade_date)</code></pre>
+
+<h4>stock_signals</h4>
+<pre><code>symbol               VARCHAR(10) PRIMARY KEY
+score                INT
+recommendation       ENUM('BUY','HOLD','SELL')
+why                  TEXT                    -- pipe-delimited signal list
+price                DECIMAL(12,4)
+price_change_pct     DECIMAL(8,2)
+rsi                  DECIMAL(6,2)
+oversold             TINYINT(1)
+macd_trend           VARCHAR(20)             -- 'bullish'|'above_signal'|'bearish'|'below_signal'|'neutral'
+macd_cross_ago       INT
+macd_value, macd_signal_value, macd_histogram  DECIMAL(10,4)
+above_50ma           TINYINT(1)
+above_200ma          TINYINT(1)
+ma50, ma200, ema50, ema200  DECIMAL(12,4)
+cross_type           VARCHAR(20)
+golden_cross_ago, death_cross_ago  INT
+price_crossed_50ma_ago, price_crossed_200ma_ago  INT
+ema9_bull_cross_ago  INT                     -- sessions since EMA9 crossed above EMA21
+ema9_bear_cross_ago  INT                     -- sessions since EMA9 crossed below EMA21
+high_52w, low_52w    DECIMAL(12,4)
+pct_from_52high, pct_from_52low  DECIMAL(8,2)
+pe_trailing, pe_forward  DECIMAL(10,2)
+fwd_pe_improving     TINYINT(1)
+dividend_yield       DECIMAL(8,4)
+target_mean, target_high, target_low  DECIMAL(10,2)
+name                 VARCHAR(200)
+sector               VARCHAR(100)
+asset_type           VARCHAR(10)
+generated_at         TIMESTAMP</code></pre>
+
+<h4>autotrader_trades</h4>
+<pre><code>id               INT AUTO_INCREMENT PRIMARY KEY
+symbol           VARCHAR(10) NOT NULL
+action           ENUM('buy','sell') NOT NULL
+qty              INT NOT NULL
+price            DECIMAL(12,4) DEFAULT NULL
+exit_reason      VARCHAR(200) DEFAULT NULL
+sell_pct         INT DEFAULT NULL
+alpaca_order_id  VARCHAR(100) DEFAULT NULL
+executed_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+INDEX idx_sym (symbol), INDEX idx_at (executed_at)</code></pre>
+
+<h4>analyst_upgrades</h4>
+<pre><code>symbol, action, from_grade, to_grade, firm, grade_date, fetched_at
+UNIQUE KEY uniq_sym_firm_date (symbol, firm, grade_date)</code></pre>
+
+<h4>system_config (shared — data sources + autorun settings)</h4>
+<pre><code>config_group  VARCHAR(40) NOT NULL    -- e.g. 'sources', 'autotrader'
+config_key    VARCHAR(60) NOT NULL    -- e.g. 'fundamentals', 'autorun_enabled'
+config_value  VARCHAR(120) NOT NULL
+UNIQUE KEY (config_group, config_key)</code></pre>
+<p style="font-size:12px;color:#4a5568;margin-top:4px">Autorun rows: <code>config_group='autotrader'</code>, <code>config_key='autorun_enabled'</code> → <code>'0'</code> or <code>'1'</code>; <code>config_key='autorun_max_positions'</code> → <code>'8'</code><br>Query pattern: <code>SELECT config_value FROM system_config WHERE config_group='autotrader' AND config_key=?</code></p>
+
+<!-- ═══ 5. FILE MAP ═══════════════════════════════════════════════════════ -->
+<h2 id="filemap">5. File Map</h2>
+<pre><code>server.js                       Swing Trader Express app (port 3001)
+server_portfolio.js             My Stocks Express app (port 8081)  ← primary
+config/env.js                   All config from .env
+config/params.js                Scoring/risk params (DB-backed)
+config/sources.js               Runtime data source switching
+db/db.js                        MySQL pool helpers
+db/schema.sql                   All MySQL table definitions
+data/alpacaData.js              Alpaca Market Data — getDailyBars()
+data/finnhub.js                 Fundamentals, analyst, upgrades/downgrades
+data/yahoo.js                   Yahoo Finance quote() + withRetry()
+trader/executor.js              Alpaca order placement + position sync
+trader/guardrails.js            Pre-trade safety checks
+notifier/email.js               sendDailyDigest(), sendModeChangeEmail(), sendAutotraderEmail(), sendErrorAlert()
+portfolio_app/yahoo_history.js  Watchlist mgmt, Alpaca bars, Finnhub+Yahoo fundamentals
+portfolio_app/analyzer.js       My Stocks scoring engine (30+ signals, BUY/HOLD/SELL)
+portfolio_app/universe.js       204-stock discovery universe, scanUniverse(), getTopPicks()
+portfolio_app/scheduler.js      8:30 AM ET (refresh→analyze→universe→autoEvaluate→email)
+                                9:35 AM ET (autoRun() — executes if autorun_enabled='1')
+portfolio_app/autotrader.js     3-tier auto-trading engine (regime→quality→entry/exit)
+stocktrader_portfolio.service   systemd unit (My Stocks, port 8081)</code></pre>
+
+<!-- ═══ 6. SWING TRADER ═════════════════════════════════════════════════ -->
+<h2 id="swing">6. Swing Trader Dashboard (Port 3001)</h2>
+<p>Scans a ~30-symbol universe for short-term swing trade opportunities, builds a daily plan (BUY/HOLD/EXIT/SWAP), and requires <strong>human approval before any order is placed</strong>.</p>
+
+<div class="warn"><strong>Navigation rule:</strong> Approve, Reject, Scan Now use plain <code>&lt;a href&gt;</code> links — NOT JavaScript onclick. This was learned from production failures where JS buttons proved unreliable.</div>
+
+<table>
+<tr><th>Action</th><th>Route</th></tr>
+<tr><td>Approve Plan</td><td><code>GET /plan/:id/approve-now</code></td></tr>
+<tr><td>Reject Plan</td><td><code>GET /plan/:id/reject-now</code></td></tr>
+<tr><td>Scan Now</td><td><code>GET /scan-now</code></td></tr>
+</table>
+
+<!-- ═══ 7. MY STOCKS ══════════════════════════════════════════════════════ -->
+<h2 id="mystocks">7. My Stocks Dashboard (Port 8081)</h2>
+
+<h3 id="theme">7.1 UI Layout &amp; Theme</h3>
+<p>Light theme — white backgrounds, dark text, dark blue header bar retained for branding.</p>
+
+<table>
+<tr><th>Token</th><th>Hex</th><th>Usage</th></tr>
+<tr><td>Body background</td><td><span class="swatch" style="background:#f7f9fc"></span><code>#f7f9fc</code></td><td>Page background</td></tr>
+<tr><td>Card / table bg</td><td><span class="swatch" style="background:#ffffff;border-color:#ccc"></span><code>#ffffff</code></td><td>Cards, table rows</td></tr>
+<tr><td>Table header bg</td><td><span class="swatch" style="background:#f0f4f8"></span><code>#f0f4f8</code></td><td>th backgrounds + sticky column</td></tr>
+<tr><td>Border light</td><td><span class="swatch" style="background:#e2e8f0"></span><code>#e2e8f0</code></td><td>Cards, inputs, section borders</td></tr>
+<tr><td>Border lighter</td><td><span class="swatch" style="background:#edf2f7"></span><code>#edf2f7</code></td><td>Row separators</td></tr>
+<tr><td>Text primary</td><td><span class="swatch" style="background:#1a202c"></span><code>#1a202c</code></td><td>Body text</td></tr>
+<tr><td>Text secondary</td><td><span class="swatch" style="background:#718096"></span><code>#718096</code></td><td>Labels, metadata, subtitles</td></tr>
+<tr><td>Header gradient</td><td><code>#1a365d → #2c5282</code></td><td>Top nav bar</td></tr>
+<tr><td>Accent blue</td><td><span class="swatch" style="background:#3182ce"></span><code>#3182ce</code></td><td>Links, primary buttons, sort indicator</td></tr>
+<tr><td>Green (up/buy)</td><td><span class="swatch" style="background:#276749"></span><code>#276749</code></td><td>BUY badge text, positive P&L</td></tr>
+<tr><td>Red (down/sell)</td><td><span class="swatch" style="background:#c53030"></span><code>#c53030</code></td><td>SELL badge text, negative P&L</td></tr>
+<tr><td>Yellow (hold)</td><td><span class="swatch" style="background:#744210"></span><code>#744210</code></td><td>HOLD badge text</td></tr>
+<tr><td>Row hover</td><td><span class="swatch" style="background:#f7fafc"></span><code>#f7fafc</code></td><td>Table row hover + sticky td first-child hover</td></tr>
+</table>
+
+<h3 id="header">7.2 Header &amp; Stat Bar</h3>
+
+<div class="card">
+<h4>Header (div.header)</h4>
+<ul>
+  <li>Left: <strong>"📊 My Stocks Research"</strong> h1 in white/light blue</li>
+  <li>Badges: PAPER TRADE (blue) or LIVE TRADE (red) mode indicator; market open/closed</li>
+  <li>Action buttons (all plain <code>&lt;a href&gt;</code> styled as buttons):
+    <ul>
+      <li><strong>Refresh Now</strong> → <code>GET /refresh-now</code></li>
+      <li><strong>Scan Universe</strong> → <code>GET /scan-universe</code></li>
+      <li><strong>Add Ticker</strong> form → <code>POST /watchlist/add</code></li>
+      <li><span class="badge-new badge">NEW</span> <strong>Autorun: OFF / ON</strong> toggle → <code>GET /autorun/toggle</code></li>
+    </ul>
+  </li>
+</ul>
+
+<h4>Stat Bar (div.stat-bar)</h4>
+<p>Strip below header showing: Total Stocks · BUY signals · HOLD signals · SELL signals · Last Refresh timestamp · Market status</p>
+</div>
+
+<h3 id="portfolio">7.3 Portfolio Section</h3>
+<p><strong>Section header:</strong> <code>💼 My Portfolio · N positions · $X equity · $Y cash</code><br>
+Collapsible via <code>toggleSection('sec-portfolio')</code>. State persisted in localStorage.</p>
+
+<h4>Positions Table Columns</h4>
+<table>
+<tr><th>#</th><th>Column</th><th>Content</th></tr>
+<tr><td>1</td><td>Symbol · Trade</td><td><strong>Symbol</strong> bold + ETF badge + name (gray 11px) + <strong>Buy/Sell buttons inline below name</strong></td></tr>
+<tr><td>2</td><td>Signal · Price</td><td>BUY/HOLD/SELL badge + last analyzed price</td></tr>
+<tr><td>3</td><td>Why</td><td>"Why?" button → opens Why modal</td></tr>
+<tr><td>4</td><td>Sector</td><td>Sector name</td></tr>
+<tr><td>5</td><td>Price Target</td><td>Mean target + % upside/downside (color-coded) + range low–high</td></tr>
+<tr><td>6</td><td>Analyst Action</td><td>Most recent upgrade/downgrade: icon + grade + firm + days ago</td></tr>
+<tr><td>7</td><td>Performance · Chart</td><td>1D/1W/1M/1Y % gains in 2×2 grid + 📈 Chart button</td></tr>
+<tr><td>8</td><td>Qty</td><td>Integer share count</td></tr>
+<tr><td>9</td><td>Avg Entry</td><td>Average cost basis $/share</td></tr>
+<tr><td>10</td><td>Current</td><td>Current market price</td></tr>
+<tr><td>11</td><td>Mkt Value</td><td>Total market value</td></tr>
+<tr><td>12</td><td>Unrealized P&amp;L</td><td>$ and % gain/loss (green/red)</td></tr>
+</table>
+
+<h4>Open Orders Table Columns</h4>
+<p>Symbol | Side (badge) | Qty | Type + limit price | TIF | Status | Submitted ET | Cancel button</p>
+
+<h3 id="stocks">7.4 Stocks Section</h3>
+<p><strong>Section header:</strong> <code>📋 My Stocks · N symbols</code><br>
+Collapsible. Has filter bar (Signal dropdown + text search) above table.</p>
+
+<h4>Stocks Table Columns (<code>id="stocks-table"</code>, sortable)</h4>
+<table>
+<tr><th>#</th><th>Column</th><th>data-col</th><th>Content</th></tr>
+<tr><td>1</td><td>Symbol</td><td>sym</td><td><strong>Symbol</strong> + ETF/FUND badge + name + <strong>Buy/Remove buttons inline</strong> — <strong>sticky left column</strong></td></tr>
+<tr><td>2</td><td>Signal</td><td>rec</td><td>BUY/HOLD/SELL badge</td></tr>
+<tr><td>3</td><td>Score</td><td>score</td><td>Numeric + color-coded score bar (80px × 6px)</td></tr>
+<tr><td>4</td><td>Why</td><td>—</td><td>"Why?" button → Why modal</td></tr>
+<tr><td>5</td><td>Sector</td><td>sector</td><td>Sector name</td></tr>
+<tr><td>6</td><td>Price</td><td>price</td><td>Last close</td></tr>
+<tr><td>7</td><td>RSI</td><td>rsi</td><td>Value, green &lt;30, red &gt;70</td></tr>
+<tr><td>8</td><td>MACD</td><td>macd</td><td>signal-up / signal-down / signal-neu</td></tr>
+<tr><td>9</td><td>50MA</td><td>a50</td><td>✓ or ✗ (green/red)</td></tr>
+<tr><td>10</td><td>200MA</td><td>a200</td><td>✓ or ✗</td></tr>
+<tr><td>11</td><td>Cross</td><td>—</td><td>Tag: ☀ Golden cross (Nd ago) / ☀ Above GC / ↗ Approaching GC / ↓ Below GC / ☠ Death cross (Nd ago)</td></tr>
+<tr><td>12</td><td>52W</td><td>—</td><td>% from 52-week high (red) and low (green)</td></tr>
+<tr><td>13</td><td>PE</td><td>pe</td><td>Trailing PE or P/S (gray label)</td></tr>
+<tr><td>14</td><td>Div %</td><td>div</td><td>Dividend yield %</td></tr>
+<tr><td>15</td><td>Target</td><td>target</td><td>Analyst mean target + % upside + range</td></tr>
+<tr><td>16</td><td>Analyst</td><td>—</td><td>Last upgrade/downgrade: icon + grade + firm + days ago</td></tr>
+</table>
+
+<div class="note">
+<strong>Sticky Column:</strong> First column (<code>th:first-child</code>, <code>td:first-child</code>) uses <code>position:sticky; left:0</code> with explicit background colors (<code>#f0f4f8</code> for th, <code>#ffffff</code> for td, <code>#f7fafc</code> for hover). Required to prevent scrolling content showing through the transparent sticky cell.
+</div>
+
+<h4>Cross Tag Logic</h4>
+<table>
+<tr><th>Condition</th><th>Tag</th><th>Style</th></tr>
+<tr><td>golden_cross + ago ≤15</td><td>☀ Golden cross (Nd ago)</td><td>Yellow bg/text</td></tr>
+<tr><td>golden_cross (older)</td><td>☀ Above GC</td><td>Yellow bg/text</td></tr>
+<tr><td>death_cross + ago ≤15</td><td>☠ Death cross (Nd ago)</td><td>Red bg/text</td></tr>
+<tr><td>death_cross + 50MA within 2.5% of 200MA</td><td>↗ Approaching GC</td><td>Green bg/text</td></tr>
+<tr><td>death_cross (other)</td><td>↓ Below GC</td><td>Red bg/text</td></tr>
+<tr><td>No cross + approaching</td><td>↗ Approaching GC</td><td>Green bg/text</td></tr>
+</table>
+
+<h3 id="discover">7.5 Discover Section</h3>
+<p><strong>Section header:</strong> <code>🔍 Discover · Top picks from 204-stock universe</code><br>
+Collapsible. Scans ~204-stock universe (S&amp;P 100 + popular NASDAQ + sector ETFs) for BUY signals not already in watchlist. Technical-only scoring (no Finnhub fundamentals).</p>
+<ul>
+  <li><strong>"+ Watch"</strong> → <code>GET /watchlist/add/:symbol</code></li>
+  <li><strong>"Buy"</strong> → opens Buy modal directly</li>
+</ul>
+
+<h3 id="modals">7.6 Modals</h3>
+
+<div class="card">
+<h4>Why Modal</h4>
+<p>Triggered by <code>showWhy(sym, why)</code>. Splits <code>why</code> string on <code>' | '</code>. First part (Score:) → large blue heading. Lines starting with <code>+</code> → green. Lines starting with <code>-</code> → red. Neutral → dark text. Close via X button or Escape key.</p>
+</div>
+
+<div class="card">
+<h4>Buy Modal</h4>
+<p>Triggered by <code>openBuy(sym, price, name)</code>. Fields: Qty, Order Type (market/limit), Limit Price, TIF, Extended Hours. Shows paper/live badge, available buying power, open/closed status. Live cost estimate. Submit → <code>POST /order</code>.</p>
+</div>
+
+<div class="card">
+<h4>Sell Modal</h4>
+<p>Mirrors Buy modal. Qty capped at position size. Shows proceeds estimate. Submit → <code>POST /order</code>.</p>
+</div>
+
+<div class="card">
+<h4>News Modal <span class="badge-new badge">NEW</span></h4>
+<p>Triggered by a "📰 News" button per symbol row. Route: <code>GET /news/:symbol?source=finnhub|sec</code>. Two tabs:</p>
+<ul>
+  <li><strong>Finnhub tab</strong> — company news from <code>news_cache</code> table (cached from Finnhub <code>/company-news</code>). Shows headline, source, datetime, summary, and link.</li>
+  <li><strong>SEC EDGAR tab</strong> — fetches live from SEC EDGAR Atom RSS: <code>https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=SYMBOL&type=8-K&dateb=&owner=include&count=10&output=atom</code>. Shows filing type, date, and link to filing.</li>
+</ul>
+<p>Close via X button or Escape key.</p>
+</div>
+
+<div class="card">
+<h4>Chart Modal (Chart.js 4.4.2 from jsDelivr CDN)</h4>
+<p>Triggered by <code>openChart(sym, name)</code>. Period buttons: 1M/3M/6M/1Y/2Y/5Y. Benchmark toggles: SPY (S&amp;P 500), QQQ (Nasdaq 100), DIA (Dow Jones) — multi-select. All series normalized to 100 at period start. Y-axis shows % change. Data from <code>GET /position-chart/:symbol?period=1y&amp;benchmarks=SPY,QQQ</code>. Chart destroyed on close to prevent memory leaks.</p>
+<table>
+<tr><th>Series</th><th>Color</th><th>Style</th></tr>
+<tr><td>Stock</td><td><span class="swatch" style="background:#f6ad55"></span><code>#f6ad55</code></td><td>Solid 2.5px</td></tr>
+<tr><td>SPY</td><td><span class="swatch" style="background:#63b3ed"></span><code>#63b3ed</code></td><td>Dashed 1.5px</td></tr>
+<tr><td>QQQ</td><td><span class="swatch" style="background:#b794f4"></span><code>#b794f4</code></td><td>Dashed 1.5px</td></tr>
+<tr><td>DIA</td><td><span class="swatch" style="background:#68d391"></span><code>#68d391</code></td><td>Dashed 1.5px</td></tr>
+</table>
+</div>
+
+<h3 id="refresh">7.7 Data Refresh Pipeline</h3>
+<p>Runs daily at <strong>8:30 AM ET, Monday–Friday</strong>. Manual trigger: <code>GET /refresh-now</code>.</p>
+
+<div class="flow">
+<span class="blue">morningJob — 8:30 AM ET Mon–Fri</span><br>
+<span class="blue">Phase 1</span> — Price History (Alpaca, parallel batches of 5)<br>
+<span class="blue">Phase 2</span> — Fundamentals (Finnhub primary + Yahoo enrichment, serial 1200ms/symbol)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └─ getFundamentals() + getAnalystRatings() + yf.quote()<br>
+<span class="blue">Phase 3</span> — Upgrades/Downgrades (Finnhub, weekly, max 20 stale symbols, 2000ms delay)<br>
+<span class="blue">Phase 4</span> — analyzeAll() → scores all watchlist symbols → stock_signals table<br>
+<span class="blue">Phase 4.5</span> — <span class="green">autoEvaluate(false)</span> — always runs; generates recommendations for email, <strong>never places orders</strong><br>
+<span class="blue">Phase 5</span> — scanUniverse() → 204-stock discovery scan<br>
+<span class="blue">Phase 6</span> — sendDailyDigest(signals, positions, picks, autoResults) email<br>
+<span class="blue">Phase 7</span> — sendErrorAlert() if any phase collected errors<br>
+<br>
+<span class="blue">tradeJob — 9:35 AM ET Mon–Fri</span><br>
+<span class="green">autoRun()</span> — checks autorun_enabled='1' + market hours → calls evaluate(true) → places live orders → sendAutotraderEmail()
+</div>
+
+<h3 id="scoring">7.8 Scoring Engine</h3>
+<p>Score 0–100 (clamped). <span class="badge badge-buy">BUY ≥ 50</span> <span class="badge badge-hold">HOLD ≥ 10</span> <span class="badge badge-sell">SELL &lt; 10</span></p>
+
+<h4>MA Signals (50 vs 200 SMA)</h4>
+<table>
+<tr><th>Condition</th><th>Points</th></tr>
+<tr><td>Golden cross today</td><td><span class="green">+20</span></td></tr>
+<tr><td>Golden cross ≤5 sessions ago</td><td><span class="green">+14</span></td></tr>
+<tr><td>50MA actively above 200MA</td><td><span class="green">+8</span></td></tr>
+<tr><td>Price crossed above 200MA (≤5 sessions)</td><td><span class="green">+18</span></td></tr>
+<tr><td>Price crossed above 50MA (≤5 sessions)</td><td><span class="green">+15</span></td></tr>
+<tr><td>Price above 200MA</td><td><span class="green">+8</span></td></tr>
+<tr><td>Price above 50MA only</td><td><span class="green">+6</span></td></tr>
+<tr><td>Death cross ≤5 sessions</td><td><span class="red">−20</span></td></tr>
+<tr><td>50MA below 200MA (active death cross)</td><td><span class="red">−8</span></td></tr>
+<tr><td>Price below 50MA</td><td><span class="red">−8</span></td></tr>
+<tr><td>Price below 200MA</td><td><span class="red">−10</span></td></tr>
+</table>
+
+<h4>EMA 9/21 Short-Term Signals</h4>
+<table>
+<tr><th>Condition</th><th>Points</th></tr>
+<tr><td>EMA 9 crossed above EMA 21 (≤1 session)</td><td><span class="green">+12</span></td></tr>
+<tr><td>EMA 9/21 bull cross 2–5 sessions ago</td><td><span class="green">+8</span></td></tr>
+<tr><td>EMA 9 above EMA 21 (sustained)</td><td><span class="green">+4</span></td></tr>
+<tr><td>Full EMA bull stack (price &gt; EMA9 &gt; EMA21 &gt; EMA50)</td><td><span class="green">+10</span></td></tr>
+<tr><td>EMA 9 below EMA 21</td><td><span class="red">−5</span></td></tr>
+<tr><td>EMA 9 crossed below EMA 21 (≤3 sessions)</td><td><span class="red">−10</span></td></tr>
+<tr><td>Full EMA bear stack</td><td><span class="red">−10</span></td></tr>
+</table>
+
+<h4>Volume, RSI, MACD</h4>
+<table>
+<tr><th>Condition</th><th>Points</th></tr>
+<tr><td>Price up + volume ≥1.5x 20d avg</td><td><span class="green">+10</span></td></tr>
+<tr><td>Price up + volume 1.2–1.5x avg</td><td><span class="green">+4</span></td></tr>
+<tr><td>Price down + volume ≥1.5x avg</td><td><span class="red">−8</span></td></tr>
+<tr><td>RSI &lt; 30 (deeply oversold)</td><td><span class="green">+10</span></td></tr>
+<tr><td>RSI 30–45 (recovering)</td><td><span class="green">+15</span></td></tr>
+<tr><td>RSI 45–60 (neutral-bullish)</td><td><span class="green">+5</span></td></tr>
+<tr><td>RSI &gt; 70 (overbought)</td><td><span class="red">−15</span></td></tr>
+<tr><td>MACD bullish cross ≤1 session</td><td><span class="green">+12</span></td></tr>
+<tr><td>MACD bullish cross 2–5 sessions ago</td><td><span class="green">+7</span></td></tr>
+<tr><td>MACD above signal</td><td><span class="green">+4</span></td></tr>
+<tr><td>MACD below signal</td><td><span class="red">−4</span></td></tr>
+</table>
+
+<h4>Valuation &amp; Fundamentals</h4>
+<table>
+<tr><th>Condition</th><th>Points</th></tr>
+<tr><td>PE 40%+ below sector avg</td><td><span class="green">+12</span></td></tr>
+<tr><td>PE 20–40% below sector avg</td><td><span class="green">+8</span></td></tr>
+<tr><td>PE 10–20% below sector avg</td><td><span class="green">+5</span></td></tr>
+<tr><td>Forward PE &lt; trailing PE (accelerating earnings)</td><td><span class="green">+8</span></td></tr>
+<tr><td>PE 30%+ above sector avg</td><td><span class="red">−6</span></td></tr>
+<tr><td>Analyst mean target ≥30% upside</td><td><span class="green">+8</span></td></tr>
+<tr><td>Analyst mean target ≥15% upside</td><td><span class="green">+5</span></td></tr>
+<tr><td>Analyst mean target ≥10% downside</td><td><span class="red">−6</span></td></tr>
+<tr><td>EPS growth &gt;20%</td><td><span class="green">+8</span></td></tr>
+<tr><td>ROE &gt;20%</td><td><span class="green">+6</span></td></tr>
+<tr><td>Dividend yield ≥5%</td><td><span class="green">+12</span></td></tr>
+<tr><td>Dividend yield ≥3%</td><td><span class="green">+8</span></td></tr>
+<tr><td>Analyst ≥70% buy (Finnhub)</td><td><span class="green">+10</span></td></tr>
+<tr><td>Yahoo recMean ≤1.5 (Strong Buy, ≥5 analysts)</td><td><span class="green">+7</span></td></tr>
+<tr><td>&gt;20% short + price rising (squeeze)</td><td><span class="green">+6</span></td></tr>
+<tr><td>SPY above 200MA + MACD bullish</td><td><span class="green">+5</span></td></tr>
+<tr><td>SPY below 200MA</td><td><span class="red">−5</span></td></tr>
+</table>
+
+<h3 id="email">7.9 Email Notifications</h3>
+<p>All emails via Gmail SMTP (<code>rrvenkatrama@gmail.com</code>).</p>
+<table>
+<tr><th>Email</th><th>Subject</th><th>Trigger</th></tr>
+<tr><td>Daily Digest</td><td>📊 My Stocks Daily — N BUY signals · DD Mon YYYY</td><td>After each morning refresh</td></tr>
+<tr><td>Error Alert</td><td>⚠️ My Stocks — Errors in Daily Refresh</td><td>Any scheduler phase throws exception</td></tr>
+<tr><td>Auto-Trade Report <span class="badge-new badge">NEW</span></td><td>🤖 Autorun: N trades executed / Recommendations</td><td>After autotrader.run() completes</td></tr>
+<tr><td>Mode Change Alert <span class="badge-new badge">NEW</span></td><td>🤖 Autorun turned ON / OFF</td><td>On toggle</td></tr>
+</table>
+
+<h3 id="routes">7.10 API Routes</h3>
+<table>
+<tr><th>Method</th><th>Path</th><th>Description</th></tr>
+<tr><td>GET</td><td><code>/</code></td><td>Full dashboard HTML</td></tr>
+<tr><td>GET</td><td><code>/refresh-now</code></td><td>Trigger full refresh (background)</td></tr>
+<tr><td>GET</td><td><code>/scan-universe</code></td><td>Trigger universe scan (background)</td></tr>
+<tr><td>POST</td><td><code>/watchlist/add</code></td><td>Add ticker (form body)</td></tr>
+<tr><td>GET</td><td><code>/watchlist/add/:symbol</code></td><td>Add ticker (URL param, from Discover)</td></tr>
+<tr><td>GET</td><td><code>/watchlist/remove/:symbol</code></td><td>Soft-delete (is_active=0)</td></tr>
+<tr><td>GET</td><td><code>/analyze/:symbol</code></td><td>Re-analyze single symbol</td></tr>
+<tr><td>POST</td><td><code>/order</code></td><td>Place order via Alpaca</td></tr>
+<tr><td>GET</td><td><code>/order/:id/cancel</code></td><td>Cancel open order</td></tr>
+<tr><td>GET</td><td><code>/position-chart/:symbol</code></td><td>Chart data: <code>?period=1y&amp;benchmarks=SPY,QQQ</code></td></tr>
+<tr><td>GET</td><td><code>/autorun/toggle</code><span class="badge-new badge" style="margin-left:6px">NEW</span></td><td>Flip autorun on/off, redirect to /</td></tr>
+<tr><td>GET</td><td><code>/autorun/status</code><span class="badge-new badge" style="margin-left:6px">NEW</span></td><td>Return current autorun state (JSON)</td></tr>
+<tr><td>GET</td><td><code>/news/:symbol</code><span class="badge-new badge" style="margin-left:6px">NEW</span></td><td>Finnhub + SEC EDGAR news; <code>?source=finnhub|sec</code></td></tr>
+<tr><td>GET</td><td><code>/docs/scoring</code><span class="badge-new badge" style="margin-left:6px">NEW</span></td><td>Scoring methodology HTML</td></tr>
+</table>
+
+<!-- ═══ 8. AUTO-TRADING ═══════════════════════════════════════════════════ -->
+<h2 id="autotrader">8. Auto-Trading System <span class="badge-new badge">New Feature</span></h2>
+
+<div class="info">The auto-trading system adds a 3-tier decision engine on top of the existing scoring system. It does not replace any existing functionality — scores, signals, and the dashboard all remain unchanged.</div>
+
+<div class="flow">
+<span class="blue">8:30 AM ET — autoEvaluate(false)</span> → recommendations only, no orders<br>
+<span class="blue">9:35 AM ET — autoRun()</span> &nbsp;<span class="yellow">[only if autorun_enabled='1' + market hours 9:35–3:45 ET]</span><br>
+&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;├── 1. <span class="yellow">Tier 3</span>: Market Regime Filter<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── BEAR → log + email, skip buys, proceed to exits only<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── BULL → proceed to exits and entries<br>
+&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;├── 2. Evaluate EXIT conditions for ALL Alpaca positions<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(includes manually opened positions)<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Price 8%+ below entry &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="red">100%</span> (hard stop)<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Score &lt; 25 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── RSI &gt; 75 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── EMA 9 crossed below EMA 21 (≤3d ago) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── MACD turned bearish &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── Held ≥ 30 calendar days with no gain &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
+&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;├── 3. Check ENTRY conditions — <span class="green">watchlist only</span> (is_active=1)<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Skip: symbol already held (any qty &gt; 0) → diversify instead<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="yellow">Tier 2</span>: score ≥50, price ≥$5, RSI ≤65, not extended &gt;8% above 50MA<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="yellow">Tier 1</span>: score ≥65 + ≥2 technical confirmations + no earnings within 5d<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Position sizing: cashBuffer=equity×0.20, deployable=(BP−buffer)×0.50<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── Approved → place market buy → log to autotrader_trades<br>
+&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;└── 4. Log all decisions to system_log → sendAutotraderEmail()
+</div>
+
+<h3 id="toggle">8.1 Autorun Toggle</h3>
+
+<p><strong>Storage:</strong> <code>system_config</code> table · <code>config_group='autotrader'</code> · <code>config_key='autorun_enabled'</code> · <code>config_value='1'</code> or <code>'0'</code> · Default <code>'0'</code></p>
+
+<table>
+<tr><th>State</th><th>Button Appearance</th><th>On Click</th></tr>
+<tr><td>OFF (default)</td><td><code>⏸ Autorun: OFF</code> (gray, neutral)</td><td><code>GET /autorun/toggle</code> → flips to ON</td></tr>
+<tr><td>ON</td><td><code>▶ Autorun: ON</code> (green, pulsing dot)</td><td><code>GET /autorun/toggle</code> → flips to OFF</td></tr>
+</table>
+
+<p>Toggle route also: logs to system_log + sends mode-change email + redirects to <code>/</code>.</p>
+<div class="note"><strong>Timing rule:</strong> Turning Autorun ON triggers <em>no immediate orders</em>. Recommendations appear in the next 8:30 AM digest; execution happens at the next 9:35 AM cron. This gives the user time to review the 8:30 AM recommendations before any orders are placed.</div>
+<div class="note"><strong>First-run on Autorun ON:</strong> The next 8:30 AM run evaluates all current Alpaca positions — including any opened manually before Autorun was enabled — against the exit rules. No position is grandfathered in.</div>
+
+<h3 id="tier3">8.2 Tier 3 — Market Regime Filter</h3>
+
+<div class="tier-box tier3">
+<div class="tier-label">Tier 3 — Market Regime (Outermost Gate)</div>
+<p>Inputs: SPY daily bars from <code>price_history</code> table.</p>
+<table>
+<tr><th>Regime</th><th>Conditions</th><th>New Buys</th><th>Existing Positions</th></tr>
+<tr><td><span class="green">BULL</span></td><td>SPY above 200 SMA AND MACD bullish AND VIX &lt; 25</td><td>Allowed</td><td>Normal exit rules</td></tr>
+<tr><td><span class="red">BEAR</span></td><td>SPY below 200 SMA OR VIX ≥ 30</td><td>Blocked</td><td>Exit if score &lt; 25; hold dividend stocks</td></tr>
+</table>
+</div>
+
+<h3 id="tier2">8.3 Tier 2 — Quality + Mean Reversion Filter</h3>
+
+<div class="warn"><strong>Universe restriction:</strong> The autotrader operates exclusively on stocks in the personal watchlist (<code>watchlist</code> table, <code>is_active=1</code>). Discover universe stocks, manually typed symbols, and any external source are never auto-traded. To make a stock eligible, add it to the watchlist first via "+ Add" or "+ Watch".</div>
+
+<div class="tier-box tier2">
+<div class="tier-label">Tier 2 — Quality Gate (All Three Must Pass)</div>
+<ol>
+  <li><strong>Quality gate:</strong> Score ≥ 50 AND at least one of: ROE &gt; 15%, EPS growth &gt; 10%, div yield &gt; 1.5%, PE below sector avg. Price ≥ $5 (no penny stocks). asset_type = 'stock' only.</li>
+  <li><strong>Oversold filter:</strong> RSI &lt; 55 AND price not more than 5% above its 50-day SMA.</li>
+  <li><strong>Volume confirmation:</strong> Most recent bar volume ≥ 1.0x 20-day average.</li>
+</ol>
+</div>
+
+<h3 id="tier1">8.4 Tier 1 — Entry/Exit Execution Rules</h3>
+
+<div class="tier-box tier1">
+<div class="tier-label">Tier 1 — Entry/Exit Execution</div>
+
+<h4>Entry Conditions (ALL must be met)</h4>
+<ol>
+  <li>Score ≥ 65</li>
+  <li>At least 2 of: RSI 30–55 | price crossed above 50-SMA ≤3 sessions | MACD bull cross ≤5 sessions | volume ≥1.3x on up day</li>
+  <li><strong>No existing position in this symbol</strong> — if any shares are currently held in Alpaca (regardless of how they were opened), no additional shares are bought. Select a different stock to fill the slot instead.</li>
+  <li>Not at max positions (default <strong>8</strong>)</li>
+  <li>Sufficient buying power after 20% cash buffer</li>
+  <li>Not within 5 days of earnings</li>
+  <li>Market hours 9:35 AM – 3:45 PM ET</li>
+</ol>
+
+<div class="note"><strong>Re-entry rule:</strong> Once a position is fully closed (Alpaca qty = 0), the autotrader may repurchase that stock on any future run if entry conditions are met again. There is no permanent blacklist.</div>
+
+<h4>Exit Conditions and Sell Quantity</h4>
+<p>Exits are <strong>partial (50%) by default</strong> to reduce false-signal impact and preserve upside on recoveries. The hard stop-loss is the only full exit.</p>
+<table>
+<tr><th>Condition</th><th>Shares Sold</th><th>Rationale</th></tr>
+<tr><td>Price 8%+ below entry</td><td><span class="red"><strong>100% — full exit</strong></span></td><td>Hard stop — capital preservation, no partial</td></tr>
+<tr><td>Score &lt; 25</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Signal deteriorating — reduce exposure</td></tr>
+<tr><td>RSI &gt; 75</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Overbought — take partial profit, let rest run</td></tr>
+<tr><td>EMA 9 crossed below EMA 21 (≤3 sessions ago)</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Short-term reversal signal</td></tr>
+<tr><td>MACD turned bearish (macd_trend = 'bearish')</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Trend momentum turning negative</td></tr>
+<tr><td>Held ≥ 30 calendar days with no gain</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Time stop — trim dead weight, don't fully exit</td></tr>
+</table>
+<p style="font-size:12px;color:#718096;margin-top:6px">Rounding: <code>floor(currentQty × 0.5)</code>, min 1 share. If result = 0 (e.g. holding 1 share), sell the full position instead.</p>
+<div class="note"><strong>Manual positions:</strong> The autotrader evaluates and may sell positions opened manually via the Buy button, not only those it opened itself. Any position held in Alpaca is subject to exit rules once Autorun is ON.</div>
+
+<h4>Position Sizing</h4>
+<pre><code>cashBuffer     = accountEquity × 0.20
+deployable     = max(0, (buyingPower − cashBuffer) × 0.50)
+maxPerPosition = accountEquity × 0.10
+perSlot        = min(deployable / openSlots, maxPerPosition)
+shares         = floor(perSlot / currentPrice)
+// min 1 share; skip if perSlot < currentPrice</code></pre>
+</div>
+
+<h3 id="guardrails">8.5 Risk Management Guardrails</h3>
+
+<div class="warn">These apply in both Autorun ON and OFF modes. Any guardrail failure blocks the trade with a logged reason.</div>
+
+<table>
+<tr><th>Rule</th><th>Limit</th></tr>
+<tr><td>Max open positions</td><td><strong>8</strong> (configurable via system_config)</td></tr>
+<tr><td>Max per position</td><td>10% of account equity</td></tr>
+<tr><td>Cash buffer</td><td>20% always uninvested</td></tr>
+<tr><td>Max trades/day</td><td>8 (resets midnight ET)</td></tr>
+<tr><td>Hard stop loss</td><td>8% below entry — <strong>full exit (100%)</strong></td></tr>
+<tr><td>Time stop</td><td>30 calendar days held with no gain → 50% partial sell</td></tr>
+<tr><td>Partial exit sells</td><td>50% of held shares for all non-stop-loss exit conditions</td></tr>
+<tr><td>Watchlist-only</td><td>Only <code>watchlist</code> stocks (<code>is_active=1</code>) eligible for auto-trade</td></tr>
+<tr><td>One position per symbol</td><td>No adding to existing positions — diversify into new stocks</td></tr>
+<tr><td>Re-entry after full close</td><td>Allowed once Alpaca qty = 0 for that symbol</td></tr>
+<tr><td>Manual positions</td><td>Subject to exit rules once Autorun is ON</td></tr>
+<tr><td>Evaluation timing</td><td>Autorun ON never triggers immediate orders — first run is next 8:30 AM</td></tr>
+<tr><td>Earnings blackout</td><td>No buy within 5 calendar days of next earnings</td></tr>
+<tr><td>Market hours</td><td>9:35 AM – 3:45 PM ET only (entry and exit)</td></tr>
+<tr><td>No short selling</td><td>Long-only positions</td></tr>
+<tr><td>No options</td><td>Equities only</td></tr>
+<tr><td>No same-day close</td><td>No buy AND sell same symbol same trading day</td></tr>
+<tr><td>Penny stock filter</td><td>Price ≥ $5 required</td></tr>
+<tr><td>Daily drawdown pause</td><td>Account drops 3% in one day → pause new buys 48h</td></tr>
+</table>
+
+<h3 id="autorun-off">8.6 Autorun OFF Mode (Recommendation Only)</h3>
+<p>Default mode. Formalized behavior when <code>autorun_enabled = '0'</code>:</p>
+<ol>
+  <li>Full refresh runs normally (all phases)</li>
+  <li>Auto-trader evaluates all 3 tiers but <strong>does NOT place orders</strong></li>
+  <li>Daily digest gains a <strong>"Recommended Trades (Autorun OFF)"</strong> section:
+    <ul>
+      <li>BUY recommendations: symbol / score / reason / suggested position size</li>
+      <li>SELL recommendations: held symbols with exit rationale</li>
+      <li>Footer: "Autorun is OFF — enable to execute automatically"</li>
+    </ul>
+  </li>
+</ol>
+
+<h3 id="autorun-on">8.7 Autorun ON Mode (Auto-Execute)</h3>
+<p>When <code>autorun_enabled = '1'</code> — <code>tradeJob</code> cron fires at <strong>9:35 AM ET</strong> (separate from the 8:30 AM morning refresh):</p>
+<ol>
+  <li><code>autoRun()</code> re-checks <code>autorun_enabled='1'</code> and market hours (9:35 AM – 3:45 PM ET) before proceeding</li>
+  <li>Calls <code>evaluate(true)</code> — places real orders (vs <code>evaluate(false)</code> at 8:30 AM which only recommends)</li>
+  <li>Check Tier 3 (market regime)</li>
+  <li><strong>Exits first</strong>: evaluate all current Alpaca positions (including manually opened ones) — place partial or full market sell orders per exit table above</li>
+  <li><strong>Entries</strong>: filter watchlist-only BUY stocks through Tier 2 → Tier 1 → guardrails → place market buys. Skip any symbol already held.</li>
+  <li>All executed orders recorded in <code>autotrader_trades</code> table</li>
+  <li>All decisions logged to <code>system_log</code> (source = 'autotrader')</li>
+  <li><code>sendAutotraderEmail(results)</code> — execution summary with sells/buys and ✅/❌ status</li>
+</ol>
+
+<div class="note"><strong>Concurrency guard:</strong> <code>autorunning</code> flag prevents multiple simultaneous runs, same pattern as <code>refreshRunning</code> in scheduler.</div>
+
+<h3 id="notifications">8.8 Trade Notifications (Email)</h3>
+
+<p><strong>Daily digest addition (Autorun ON):</strong> "Today's Auto-Trades" section with:</p>
+<ul>
+  <li>Buys executed: Symbol | Shares | Price | Est. Cost | Top 3 signal reasons</li>
+  <li>Sells executed: Symbol | Shares Sold | % of Position | Price | Proceeds | Exit reason</li>
+  <li>Skipped (guardrail blocked): Symbol | Reason (e.g. "already held", "earnings in 3 days")</li>
+  <li>No trades: "No signals met all 3 tiers today"</li>
+</ul>
+
+<p><strong>Immediate error alert</strong> on any order failure: symbol, order details, error message.</p>
+<p><strong>Mode-change email</strong> on toggle: timestamp, mode entered, current positions list.</p>
+
+<!-- ═══ 9. NFR ══════════════════════════════════════════════════════════════ -->
+<h2 id="nfr">9. Non-Functional Requirements</h2>
+<table>
+<tr><th>Requirement</th><th>Target</th></tr>
+<tr><td>Dashboard load time</td><td>&lt; 3s full page render</td></tr>
+<tr><td>Refresh pipeline duration</td><td>&lt; 15 min for 113 symbols</td></tr>
+<tr><td>Order placement latency</td><td>&lt; 5s from decision to Alpaca API call</td></tr>
+<tr><td>Uptime</td><td>systemd restart-on-failure; auto-start on boot</td></tr>
+<tr><td>Email delivery</td><td>&lt; 5 min after refresh completes</td></tr>
+<tr><td>Data freshness</td><td>Price data ≤ 1 trading day old; fundamentals daily</td></tr>
+</table>
+
+<!-- ═══ 10. ISSUES ══════════════════════════════════════════════════════ -->
+<h2 id="issues">10. Known Issues &amp; Constraints</h2>
+<ol>
+  <li><strong>Finnhub /stock/price-target returns 403</strong> (paid). Workaround: use Yahoo Finance <code>yf.quote()</code> fields <code>targetMeanPrice/High/Low</code> — free, zero extra calls.</li>
+  <li><strong>Yahoo Finance rate-limits after ~10 rapid requests</strong> — clears in 30–60 min. Mitigated by 800ms delay + <code>withRetry()</code> exponential backoff.</li>
+  <li><strong>VIXY proxy for VIX is approximate</strong> — VIXY × 1.8 + 2 ≈ VIX. Acceptable for regime filter.</li>
+  <li><strong>price_history stores ~380 days only</strong> — 2Y/5Y gains show "—" in table. Chart modal fetches from Alpaca on-demand.</li>
+  <li><strong>No intraday monitoring</strong> — auto-trader runs once at 8:30 AM. Stop-loss checked on next day's open, not intraday. Intentional (swing, not day trading).</li>
+  <li><strong>Alpaca paper mode default</strong> — set <code>ALPACA_BASE_URL</code> in .env to go live.</li>
+  <li><strong>MySQL JSON column gotcha</strong> — <code>plan_json</code> and <code>reasons</code> returned as already-parsed objects by mysql2. Always guard: <code>typeof row.col === 'string' ? JSON.parse(row.col) : row.col</code>.</li>
+</ol>
+
+<!-- ═══ 11. DECISIONS ══════════════════════════════════════════════════ -->
+<h2 id="decisions">11. Design Decisions (Do Not Reverse Without Discussion)</h2>
+<ol>
+  <li><strong>Human control always available</strong> — Autorun OFF is the default and must remain functional. Toggle reachable in one click from header.</li>
+  <li><strong>Plain &lt;a href&gt; for navigation-critical actions</strong> — Toggle Autorun, Scan Now, Refresh Now, Add/Remove ticker. No JS onclick. Learned from production failures.</li>
+  <li><strong>No day trading</strong> — Minimum hold 1 trading day (no same-day close). Time stop at 30 calendar days with no gain (50% partial sell). Target: 5–20 day swing holds.</li>
+  <li><strong>No margin, no borrowing</strong> — instant settlement only. 20% cash buffer always enforced.</li>
+  <li><strong>Exit-first philosophy</strong> — in autotrader.run(), exits evaluated before entries. Freeing capital takes priority.</li>
+  <li><strong>All 3 tiers must agree</strong> — one tier veto blocks the trade. No partial overrides.</li>
+  <li><strong>Scoring engine unchanged</strong> — autotrader is a consumer of stock_signals. Existing 30+ signal engine runs unchanged; autotrader adds gating logic on top.</li>
+  <li><strong>Anti-churn</strong> — score drift (60→45) does NOT trigger a sell. Only sell at score &lt; 25 or hard exit conditions. Prevents unnecessary churn and taxes.</li>
+  <li><strong>Paper mode safe for autorun testing</strong> — Autorun ON in paper mode places paper orders, not live. Validate behavior before switching to live.</li>
+  <li><strong>Watchlist is the autotrader's universe</strong> — the autotrader never trades a stock not in the personal watchlist. Adding a stock to the watchlist is the explicit human act of authorising the autotrader to consider it.</li>
+  <li><strong>One position per symbol, no averaging down</strong> — if a symbol is held (any qty &gt; 0), the autotrader will not buy more regardless of score. A new slot must open first. Prevents concentration risk and forces diversification.</li>
+  <li><strong>Partial exits by default</strong> — selling half on non-stop-loss conditions preserves upside on recoveries. The hard stop (8% below entry) is the only full-exit trigger because capital preservation overrides upside preservation in a loss scenario.</li>
+  <li><strong>Re-entry is permitted</strong> — once fully out (qty = 0), a stock can be repurchased. No permanent blacklists. The scoring engine decides whether conditions warrant re-entry.</li>
+  <li><strong>Manual positions inherit exit rules on Autorun ON</strong> — the autotrader does not distinguish between positions it opened and positions opened manually. Once Autorun is ON, all held positions are subject to exit conditions at the next 8:30 AM run.</li>
+  <li><strong>No immediate execution on toggle</strong> — turning Autorun ON mid-day triggers no immediate orders. This prevents unintended trades on stale intraday data and gives the user time to reconsider before the next market open.</li>
+</ol>
+
+</main>
+</div>
+
+<script>
+// Highlight active sidebar link based on scroll position
+const sections = document.querySelectorAll('h2[id], h3[id]');
+const links = document.querySelectorAll('.sidebar a');
+function onScroll() {
+  let current = '';
+  sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) current = s.id; });
+  links.forEach(l => {
+    l.classList.toggle('active', l.getAttribute('href') === '#' + current);
+  });
+}
+window.addEventListener('scroll', onScroll, { passive: true });
+onScroll();
+</script>
+</body>
+</html>

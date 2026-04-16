@@ -1,0 +1,674 @@
+// Stock analysis engine for My Stocks dashboard
+// Computes composite score + BUY/HOLD/SELL + plain-English "Why" for each symbol
+
+const ti      = require('technicalindicators');
+const db      = require('../db/db');
+const { getBarsFromDB, getActiveSymbols, getFundamentalsFromDB } = require('./yahoo_history');
+const { getSectorPE, getSectorPS } = require('../data/finnhub');
+
+// ─── Simple helpers (mirrors analysis/technicals.js but standalone) ───────────
+function smaOf(values, period) {
+  if (values.length < period) return null;
+  const slice = values.slice(-period);
+  return slice.reduce((a, b) => a + b, 0) / period;
+}
+
+function emaOf(values, period) {
+  if (values.length < period) return null;
+  const result = ti.EMA.calculate({ period, values: values.slice(-Math.max(period * 3, 100)) });
+  return result.length ? result[result.length - 1] : null;
+}
+
+// Returns full EMA array (aligned from end — last element = most recent bar)
+function emaArrayOf(values, period) {
+  if (values.length < period) return [];
+  return ti.EMA.calculate({ period, values: values.slice(-Math.max(period * 3, 100)) });
+}
+
+// How many sessions ago did fast EMA cross above slow EMA (bull) or below (bear)?
+// Returns { bullCrossAgo, bearCrossAgo } — null if no cross within maxLookback
+function emaShortCrossAgo(closes, fastPeriod = 9, slowPeriod = 21, maxLookback = 5) {
+  const fast = emaArrayOf(closes, fastPeriod);
+  const slow = emaArrayOf(closes, slowPeriod);
+  const n = Math.min(fast.length, slow.length, maxLookback + 2);
+  if (n < 2) return { bullCrossAgo: null, bearCrossAgo: null };
+  let bullCrossAgo = null, bearCrossAgo = null;
+  for (let ago = 0; ago < n - 1; ago++) {
+    const cf = fast[fast.length - 1 - ago], pf = fast[fast.length - 2 - ago];
+    const cs = slow[slow.length - 1 - ago], ps = slow[slow.length - 2 - ago];
+    if (bullCrossAgo === null && pf <= ps && cf > cs) bullCrossAgo = ago;
+    if (bearCrossAgo === null && pf >= ps && cf < cs) bearCrossAgo = ago;
+    if (bullCrossAgo !== null && bearCrossAgo !== null) break;
+  }
+  return { bullCrossAgo, bearCrossAgo };
+}
+
+// Today's volume divided by the 20-day average (excluding today to avoid self-reference)
+function volumeRatioOf(bars, avgPeriod = 20) {
+  if (bars.length < avgPeriod + 1) return null;
+  const vols = bars.map(b => b.volume).filter(v => v > 0);
+  if (vols.length < avgPeriod + 1) return null;
+  const todayVol = vols[vols.length - 1];
+  const avg = vols.slice(-(avgPeriod + 1), -1).reduce((a, b) => a + b, 0) / avgPeriod;
+  return avg > 0 ? todayVol / avg : null;
+}
+
+function rsiOf(closes, period = 14) {
+  if (closes.length < period + 1) return null;
+  const result = ti.RSI.calculate({ period, values: closes.slice(-(period * 3)) });
+  return result.length ? result[result.length - 1] : null;
+}
+
+// ─── MACD — returns full result array (all history) ──────────────────────────
+function macdHistory(closes) {
+  if (closes.length < 35) return [];
+  return ti.MACD.calculate({
+    values:             closes,
+    fastPeriod:         12,
+    slowPeriod:         26,
+    signalPeriod:       9,
+    SimpleMAOscillator: false,
+    SimpleMASignal:     false,
+  });
+}
+
+// ─── How many sessions ago did MACD last turn bullish ────────────────────────
+function macdBullishCrossAgo(macdArr, maxLookback = 6) {
+  for (let i = macdArr.length - 1; i >= Math.max(1, macdArr.length - maxLookback); i--) {
+    const prev = macdArr[i - 1];
+    const curr = macdArr[i];
+    if (prev && curr && prev.MACD <= prev.signal && curr.MACD > curr.signal) {
+      return macdArr.length - 1 - i;
+    }
+  }
+  return null;
+}
+
+// ─── How many sessions ago did price cross above MA ──────────────────────────
+// Scans backwards up to maxLookback; returns session count or null
+function priceCrossedAboveMAago(closes, maPeriod, maxLookback = 5) {
+  if (closes.length < maPeriod + maxLookback) return null;
+  const priceNow = closes[closes.length - 1];
+  const maNow    = smaOf(closes, maPeriod);
+  if (!maNow || priceNow <= maNow) return null;  // not above MA today
+
+  for (let ago = 1; ago <= maxLookback; ago++) {
+    const pastCloses = closes.slice(0, closes.length - ago);
+    const pastPrice  = pastCloses[pastCloses.length - 1];
+    const pastMA     = smaOf(pastCloses, maPeriod);
+    if (!pastMA) continue;
+    if (pastPrice < pastMA) return ago; // was below MA `ago` sessions back
+  }
+  return null; // has been above MA for more than maxLookback sessions
+}
+
+// ─── Golden/death cross sessions ago (scan up to maxLookback days back) ──────
+function crossSessionsAgo(closes, maxLookback = 60) {
+  if (closes.length < 202) return { goldenAgo: null, deathAgo: null };
+  let goldenAgo = null, deathAgo = null;
+
+  for (let ago = 0; ago < maxLookback; ago++) {
+    const end  = closes.length - ago;
+    const ma50  = smaOf(closes.slice(0, end), 50);
+    const ma200 = smaOf(closes.slice(0, end), 200);
+    const ma50p = smaOf(closes.slice(0, end - 1), 50);
+    const ma200p= smaOf(closes.slice(0, end - 1), 200);
+    if (!ma50 || !ma200 || !ma50p || !ma200p) continue;
+
+    if (goldenAgo === null && ma50p <= ma200p && ma50 > ma200) goldenAgo = ago;
+    if (deathAgo  === null && ma50p >= ma200p && ma50 < ma200) deathAgo  = ago;
+    if (goldenAgo !== null && deathAgo !== null) break;
+  }
+  return { goldenAgo, deathAgo };
+}
+
+// ─── Scoring weights ──────────────────────────────────────────────────────────
+const W = {
+  // MA cross (50 vs 200)
+  goldenCrossToday:        20,
+  goldenCrossRecent:       14,
+  goldenCrossActive:        8,
+  deathCrossRecent:       -20,
+  deathCrossActive:        -8,
+
+  // Price vs MA
+  priceCrossed200MAago:    18,
+  priceCrossed50MAago:     15,
+  above50MA:                6,
+  above200MA:               8,
+  below50MA:               -8,
+  below200MA:             -10,
+
+  // EMA 9/21 short-term cross — swing entry timing
+  ema9CrossBullNow:        12,   // 9 EMA just crossed above 21 EMA (≤1 session)
+  ema9CrossBullRecent:      8,   // 9/21 bull cross 2–5 sessions ago
+  ema9AboveEma21:           4,   // 9 EMA > 21 EMA (sustained)
+  ema9BelowEma21:          -5,   // 9 EMA < 21 EMA
+  ema9CrossBearRecent:    -10,   // 9 EMA crossed below 21 EMA ≤3 sessions ago
+
+  // EMA stack alignment — all EMAs in bull order = strongest trend signal
+  emaStackBullish:         10,   // price > EMA9 > EMA21 > EMA50 (full bull alignment)
+  emaStackBearish:        -10,   // price < EMA9 < EMA21 < EMA50 (full bear alignment)
+
+  // Volume confirmation — confirms whether a move is real
+  volumeSurgeUp:           10,   // price up + volume ≥1.5x 20-day avg → institutional buying
+  volumeSurgeDown:         -8,   // price down + volume ≥1.5x 20-day avg → heavy selling
+  volumeConfirmUp:          4,   // price up + volume 1.2–1.5x avg → moderate confirmation
+
+  // RSI
+  rsiOversoldRecovery:     15,
+  rsiDeeplyOversold:       10,
+  rsiNeutralBullish:        5,
+  rsiOverbought:          -15,
+
+  // MACD
+  macdBullishCrossNow:     12,
+  macdBullishCrossRecent:   7,
+  macdTrendUp:              4,
+  macdTrendDown:           -4,
+
+  // Fundamentals — P/E vs sector
+  fwdPEImproving:           8,   // forward PE < trailing (earnings accelerating)
+  peBelowSector40pct:      12,   // PE ≥40% below sector avg → deep value
+  peBelowSector20pct:       8,   // PE 20–40% below sector avg
+  peBelowSector10pct:       5,   // PE 10–20% below sector avg
+  peAboveSector30pct:      -6,   // PE ≥30% above sector → overvalued
+
+  // P/S (used when no PE)
+  psBelowSector40pct:       8,
+  psBelowSector20pct:       5,
+  psAboveSector50pct:      -4,
+
+  // PEG ratio — PE relative to growth (Peter Lynch's metric)
+  pegBelow1:               10,   // PEG < 1 → undervalued vs growth (classic buy signal)
+  pegBelow2:                5,   // PEG 1–2 → fair value
+  pegAbove3:               -5,   // PEG > 3 → overvalued vs growth
+
+  // EPS & revenue growth (Finnhub 3Y CAGR, already in % form e.g. 18.5 = 18.5%)
+  epsGrowthHigh:            8,   // EPS growth > 20%
+  epsGrowthMod:             4,   // EPS growth 10–20%
+  epsGrowthNeg:            -6,   // EPS growth < 0
+
+  revenueGrowthHigh:        6,   // Revenue growth > 15%
+  revenueGrowthMod:         3,   // Revenue growth 5–15%
+
+  // Return on equity — business quality (Buffett proxy)
+  roeStrong:                6,   // ROE > 20%
+  roeGood:                  3,   // ROE 10–20%
+  roePoor:                 -3,   // ROE < 0
+
+  // Debt/equity — financial risk
+  debtLow:                  4,   // D/E < 0.3 → fortress balance sheet
+  debtHigh:                -4,   // D/E > 2   → overleveraged
+
+  // Short interest — squeeze potential or bear conviction
+  shortSqueeze:             6,   // Short % > 20% + price rising → squeeze potential
+  shortBear:               -4,   // Short % > 30% + price falling → bears winning
+
+  // Yahoo Finance recommendationMean (1=Strong Buy → 5=Strong Sell), ≥5 analysts required
+  recMeanStrongBuy:         7,   // mean ≤1.5 — Wall St. strong buy consensus
+  recMeanBuy:               4,   // mean 1.5–2.0 — buy consensus
+  recMeanSell:             -5,   // mean ≥4.0 — sell/strong sell consensus
+
+  // Dividend (tiered)
+  divHigh:                 12,   // ≥5%
+  divGood:                  8,   // 3–5%
+  divMid:                   4,   // 1.5–3%
+  divSmall:                 2,   // 0.5–1.5%
+
+  // Analyst sentiment
+  analystStrongBuy:        10,   // ≥70% buy ratings
+  analystPositive:          6,   // 50–70% buy ratings
+  analystNegative:         -8,   // ≥40% sell ratings
+
+  // Analyst price target upside vs current price (Yahoo Finance consensus)
+  targetUpside30:           8,   // consensus target ≥30% above current price
+  targetUpside15:           5,   // consensus target 15–30% above current price
+  targetDownside10:        -6,   // consensus target ≥10% below current price
+
+  // Market context
+  marketBullish:            5,   // SPY above 200MA & MACD bullish
+  marketBearish:           -5,   // SPY below 200MA
+};
+
+// ─── Compute score and generate reasons ──────────────────────────────────────
+function computeScore(signals) {
+  const reasons = [];
+  let score = 0;
+  const add = (pts, label) => { score += pts; reasons.push({ pts, label }); };
+
+  const {
+    rsi, aboveMa50, aboveMa200,
+    goldenAgo, deathAgo, isGoldenActive, isDeathActive,
+    priceCross50Ago, priceCross200Ago,
+    ema9, ema21, ema50ema,
+    ema9BullCrossAgo, ema9BearCrossAgo,
+    volRatio, priceChangePct,
+    macdTrend, macdCrossAgo,
+    peTrailing, peForward, divYield,
+    psRatio, sectorPE, sectorPS,
+    epsGrowth, revenueGrowth, debtEquity, roe, shortFloat,
+    recMean, recCount,
+    targetMean,
+    analystBuy, analystSell, analystHold,
+    marketBullish,
+    priceLatest, isStock,
+  } = signals;
+
+  // ── MA cross signals ──────────────────────────────────────────────────────
+  if (goldenAgo === 0)                        add(W.goldenCrossToday,   'Golden cross happened today');
+  else if (goldenAgo !== null && goldenAgo <= 5) add(W.goldenCrossRecent, `Golden cross ${goldenAgo}d ago`);
+  if (isGoldenActive)                         add(W.goldenCrossActive,  '50MA above 200MA (golden zone)');
+  if (deathAgo !== null && deathAgo <= 5)     add(W.deathCrossRecent,  `Death cross ${deathAgo}d ago`);
+  else if (isDeathActive)                     add(W.deathCrossActive,   '50MA below 200MA (death zone)');
+
+  // ── Price vs MA ──────────────────────────────────────────────────────────
+  if (priceCross200Ago !== null) add(W.priceCrossed200MAago, `Price crossed above 200MA ${priceCross200Ago}d ago`);
+  if (priceCross50Ago  !== null) add(W.priceCrossed50MAago,  `Price crossed above 50MA ${priceCross50Ago}d ago`);
+  if (aboveMa200)  add(W.above200MA, 'Above 200-day MA');
+  else if (aboveMa50) add(W.above50MA, 'Above 50-day MA');
+  if (!aboveMa50)  add(W.below50MA,  'Below 50-day MA');
+  if (!aboveMa200) add(W.below200MA, 'Below 200-day MA');
+
+  // ── EMA 9/21 short-term cross ─────────────────────────────────────────────
+  if (ema9BullCrossAgo !== null) {
+    if (ema9BullCrossAgo <= 1) add(W.ema9CrossBullNow,    'EMA 9 just crossed above EMA 21 — swing entry signal');
+    else                       add(W.ema9CrossBullRecent, `EMA 9/21 bull cross ${ema9BullCrossAgo}d ago`);
+  } else if (ema9BearCrossAgo !== null && ema9BearCrossAgo <= 3) {
+    add(W.ema9CrossBearRecent, `EMA 9 crossed below EMA 21 ${ema9BearCrossAgo}d ago`);
+  } else if (ema9 !== null && ema21 !== null) {
+    if (ema9 > ema21) add(W.ema9AboveEma21, 'EMA 9 above EMA 21 (short-term bullish)');
+    else              add(W.ema9BelowEma21, 'EMA 9 below EMA 21 (short-term bearish)');
+  }
+
+  // ── EMA stack alignment ───────────────────────────────────────────────────
+  if (priceLatest != null && ema9 != null && ema21 != null && ema50ema != null) {
+    if (priceLatest > ema9 && ema9 > ema21 && ema21 > ema50ema)
+      add(W.emaStackBullish, 'EMA stack fully aligned: price > EMA9 > EMA21 > EMA50');
+    else if (priceLatest < ema9 && ema9 < ema21 && ema21 < ema50ema)
+      add(W.emaStackBearish, 'EMA stack fully bearish: price < EMA9 < EMA21 < EMA50');
+  }
+
+  // ── Volume confirmation ───────────────────────────────────────────────────
+  if (volRatio !== null) {
+    if (volRatio >= 1.5 && priceChangePct > 0)
+      add(W.volumeSurgeUp,    `Volume surge ${volRatio.toFixed(1)}x avg — institutional buying`);
+    else if (volRatio >= 1.5 && priceChangePct <= 0)
+      add(W.volumeSurgeDown,  `Volume surge ${volRatio.toFixed(1)}x avg — heavy selling pressure`);
+    else if (volRatio >= 1.2 && priceChangePct > 0)
+      add(W.volumeConfirmUp,  `Above-avg volume (${volRatio.toFixed(1)}x) confirms up move`);
+  }
+
+  // ── RSI ──────────────────────────────────────────────────────────────────
+  if (rsi !== null) {
+    if (rsi < 30)      add(W.rsiDeeplyOversold,  `RSI deeply oversold (${rsi.toFixed(1)})`);
+    else if (rsi < 45) add(W.rsiOversoldRecovery, `RSI recovering from oversold (${rsi.toFixed(1)})`);
+    else if (rsi <= 60) add(W.rsiNeutralBullish,  `RSI neutral-bullish (${rsi.toFixed(1)})`);
+    else if (rsi > 70)  add(W.rsiOverbought,      `RSI overbought (${rsi.toFixed(1)})`);
+  }
+
+  // ── MACD ─────────────────────────────────────────────────────────────────
+  if (macdCrossAgo !== null) {
+    if (macdCrossAgo <= 1) add(W.macdBullishCrossNow,   'MACD just turned bullish');
+    else                   add(W.macdBullishCrossRecent, `MACD bullish cross ${macdCrossAgo}d ago`);
+  }
+  if (['bullish','above_signal'].includes(macdTrend)) add(W.macdTrendUp,   'MACD trending up');
+  if (['bearish','below_signal'].includes(macdTrend)) add(W.macdTrendDown, 'MACD trending down');
+
+  // ── P/E vs sector average ─────────────────────────────────────────────────
+  // Use trailing PE; fall back to forward PE if trailing unavailable
+  const effectivePE  = peTrailing || peForward;
+  const peLabel      = peTrailing ? 'trailing' : 'fwd';
+  if (peTrailing && peForward && peForward < peTrailing)
+    add(W.fwdPEImproving, `Earnings accelerating (fwd PE ${peForward.toFixed(1)} < trailing ${peTrailing.toFixed(1)})`);
+
+  if (effectivePE && sectorPE) {
+    const discount = (sectorPE - effectivePE) / sectorPE;
+    if (discount >= 0.40)      add(W.peBelowSector40pct, `${peLabel} PE ${effectivePE.toFixed(1)} is 40%+ below sector avg (${sectorPE}x)`);
+    else if (discount >= 0.20) add(W.peBelowSector20pct, `${peLabel} PE ${effectivePE.toFixed(1)} below sector avg (${sectorPE}x)`);
+    else if (discount >= 0.10) add(W.peBelowSector10pct, `${peLabel} PE slightly below sector avg (${sectorPE}x)`);
+    else if (discount < -0.30) add(W.peAboveSector30pct, `${peLabel} PE ${effectivePE.toFixed(1)} well above sector (${sectorPE}x)`);
+  }
+
+  // ── P/S ratio vs sector (fallback when no PE data) ────────────────────────
+  if (!effectivePE && psRatio && sectorPS) {
+    const psDisc = (sectorPS - psRatio) / sectorPS;
+    if (psDisc >= 0.40)      add(W.psBelowSector40pct, `P/S ${psRatio.toFixed(1)} well below sector avg (${sectorPS}x)`);
+    else if (psDisc >= 0.20) add(W.psBelowSector20pct, `P/S ${psRatio.toFixed(1)} below sector avg (${sectorPS}x)`);
+    else if (psDisc < -0.50) add(W.psAboveSector50pct, `P/S ${psRatio.toFixed(1)} above sector avg (${sectorPS}x)`);
+  }
+
+  // ── PEG ratio — PE relative to growth (Peter Lynch) ──────────────────────
+  // Finnhub epsGrowthPct is in % form (18.5 = 18.5%). PEG < 1 = undervalued vs growth.
+  if (effectivePE && epsGrowth && epsGrowth > 0) {
+    const peg = effectivePE / epsGrowth;
+    if (peg < 1)      add(W.pegBelow1,  `PEG ${peg.toFixed(2)} — undervalued vs ${epsGrowth.toFixed(0)}% growth`);
+    else if (peg < 2) add(W.pegBelow2,  `PEG ${peg.toFixed(2)} — fair value vs growth`);
+    else if (peg > 3) add(W.pegAbove3,  `PEG ${peg.toFixed(2)} — expensive vs growth`);
+  }
+
+  // ── EPS & revenue growth ──────────────────────────────────────────────────
+  if (isStock && epsGrowth !== null) {
+    if (epsGrowth > 20)       add(W.epsGrowthHigh, `Strong 3Y EPS growth ${epsGrowth.toFixed(0)}%`);
+    else if (epsGrowth > 10)  add(W.epsGrowthMod,  `Moderate 3Y EPS growth ${epsGrowth.toFixed(0)}%`);
+    else if (epsGrowth < 0)   add(W.epsGrowthNeg,  `Declining 3Y EPS ${epsGrowth.toFixed(0)}%`);
+  }
+  if (isStock && revenueGrowth !== null) {
+    if (revenueGrowth > 15)      add(W.revenueGrowthHigh, `Strong 3Y revenue growth ${revenueGrowth.toFixed(0)}%`);
+    else if (revenueGrowth > 5)  add(W.revenueGrowthMod,  `Moderate 3Y revenue growth ${revenueGrowth.toFixed(0)}%`);
+  }
+
+  // ── Return on equity — business quality ───────────────────────────────────
+  if (isStock && roe !== null) {
+    if (roe > 20)      add(W.roeStrong, `Strong ROE ${roe.toFixed(1)}% — high-quality business`);
+    else if (roe > 10) add(W.roeGood,   `Good ROE ${roe.toFixed(1)}%`);
+    else if (roe < 0)  add(W.roePoor,   `Negative ROE ${roe.toFixed(1)}%`);
+  }
+
+  // ── Debt/equity — balance sheet risk ──────────────────────────────────────
+  if (isStock && debtEquity !== null) {
+    if (debtEquity < 0.3)      add(W.debtLow,  `Low debt/equity ${debtEquity.toFixed(2)} — strong balance sheet`);
+    else if (debtEquity > 2.0) add(W.debtHigh, `High debt/equity ${debtEquity.toFixed(2)} — overleveraged`);
+  }
+
+  // ── Short interest ─────────────────────────────────────────────────────────
+  if (isStock && shortFloat !== null && shortFloat > 20) {
+    if (priceChangePct > 0)        add(W.shortSqueeze, `Short squeeze potential (${shortFloat.toFixed(1)}% of float short)`);
+    else if (shortFloat > 30)      add(W.shortBear,    `High short interest ${shortFloat.toFixed(1)}% with price falling`);
+  }
+
+  // ── Dividend yield (tiered) ───────────────────────────────────────────────
+  if (divYield && divYield > 0) {
+    if (divYield >= 5)        add(W.divHigh,  `High dividend yield ${divYield.toFixed(1)}%`);
+    else if (divYield >= 3)   add(W.divGood,  `Good dividend yield ${divYield.toFixed(1)}%`);
+    else if (divYield >= 1.5) add(W.divMid,   `Dividend yield ${divYield.toFixed(1)}%`);
+    else                      add(W.divSmall, `Small dividend yield ${divYield.toFixed(1)}%`);
+  }
+
+  // ── Yahoo consensus rating (1=Strong Buy → 5=Strong Sell) ────────────────
+  // Distinct from Finnhub buy/sell/hold counts — different source, complementary
+  if (isStock && recMean !== null && recCount >= 5) {
+    if (recMean <= 1.5)      add(W.recMeanStrongBuy, `Wall St. strong buy (mean ${recMean.toFixed(1)}, ${recCount} analysts)`);
+    else if (recMean <= 2.0) add(W.recMeanBuy,       `Wall St. buy consensus (mean ${recMean.toFixed(1)}, ${recCount} analysts)`);
+    else if (recMean >= 4.0) add(W.recMeanSell,      `Wall St. sell consensus (mean ${recMean.toFixed(1)}, ${recCount} analysts)`);
+  }
+
+  // ── Analyst sentiment ─────────────────────────────────────────────────────
+  const analystTotal = (analystBuy || 0) + (analystSell || 0) + (analystHold || 0);
+  if (analystTotal >= 3) {
+    const buyPct  = (analystBuy  || 0) / analystTotal;
+    const sellPct = (analystSell || 0) / analystTotal;
+    if (buyPct >= 0.70)
+      add(W.analystStrongBuy, `Strong analyst consensus: ${analystBuy} buy / ${analystSell} sell / ${analystHold} hold`);
+    else if (buyPct >= 0.50)
+      add(W.analystPositive,  `Positive analyst consensus: ${analystBuy} buy / ${analystSell} sell`);
+    else if (sellPct >= 0.40)
+      add(W.analystNegative,  `Negative analyst consensus: ${analystSell} sell / ${analystBuy} buy`);
+  }
+
+  // ── Analyst price target upside ───────────────────────────────────────────
+  if (isStock && targetMean && priceLatest > 0) {
+    const upside = ((targetMean - priceLatest) / priceLatest) * 100;
+    if (upside >= 30)
+      add(W.targetUpside30, `Analyst avg target $${targetMean.toFixed(0)} (+${upside.toFixed(0)}% upside)`);
+    else if (upside >= 15)
+      add(W.targetUpside15, `Analyst avg target $${targetMean.toFixed(0)} (+${upside.toFixed(0)}% upside)`);
+    else if (upside <= -10)
+      add(W.targetDownside10, `Analyst avg target $${targetMean.toFixed(0)} (${upside.toFixed(0)}% downside)`);
+  }
+
+  // ── Market context ────────────────────────────────────────────────────────
+  if (marketBullish === true)  add(W.marketBullish, 'Bullish market (SPY above 200MA)');
+  if (marketBullish === false) add(W.marketBearish, 'Bearish market (SPY below 200MA)');
+
+  // Clamp to 0–100
+  const finalScore = Math.max(0, Math.min(100, score));
+
+  const allSignals = reasons
+    .sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts))
+    .map(r => `${r.pts > 0 ? '+' : ''}${r.pts}: ${r.label}`)
+    .join(' | ');
+  const topReasons = `Score: ${finalScore}/100 | ${allSignals}`;
+
+  return { finalScore, reasons, topReasons };
+}
+
+// ─── Analyze a single symbol ──────────────────────────────────────────────────
+async function analyzeSymbol(symbol, quoteData = null) {
+  const bars = await getBarsFromDB(symbol, 280);
+  if (!bars || bars.length < 60) {
+    await db.log('warn', 'analyzer', `Not enough bars for ${symbol}: ${bars?.length || 0}`);
+    return null;
+  }
+
+  const closes  = bars.map(b => b.close);
+  const price   = closes[closes.length - 1];
+  const prevPrice = closes.length > 1 ? closes[closes.length - 2] : price;
+  const changePct = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
+
+  // 52-week range
+  const year    = closes.slice(-252);
+  const high52  = Math.max(...year);
+  const low52   = Math.min(...year);
+  const pctFrom52High = ((price - high52) / high52) * 100;
+  const pctFrom52Low  = ((price - low52)  / low52)  * 100;
+
+  // MAs
+  const ma50   = smaOf(closes, 50);
+  const ma200  = smaOf(closes, 200);
+  const ema50  = emaOf(closes, 50);
+  const ema200 = emaOf(closes, 200);
+  const aboveMa50  = ma50  ? price > ma50  : null;
+  const aboveMa200 = ma200 ? price > ma200 : null;
+
+  // Cross signals
+  const priceCross50Ago  = priceCrossedAboveMAago(closes, 50);
+  const priceCross200Ago = priceCrossedAboveMAago(closes, 200);
+  const { goldenAgo, deathAgo } = crossSessionsAgo(closes);
+  const isGoldenActive = ma50 && ma200 ? ma50 > ma200 : false;
+  const isDeathActive  = ma50 && ma200 ? ma50 < ma200 : false;
+
+  // MACD
+  const macdArr = macdHistory(closes);
+  const lastMacd = macdArr.length ? macdArr[macdArr.length - 1] : null;
+  let macdTrend = 'neutral';
+  if (lastMacd) {
+    const prev = macdArr[macdArr.length - 2];
+    if (prev && prev.MACD <= prev.signal && lastMacd.MACD > lastMacd.signal) macdTrend = 'bullish';
+    else if (prev && prev.MACD >= prev.signal && lastMacd.MACD < lastMacd.signal) macdTrend = 'bearish';
+    else if (lastMacd.MACD > lastMacd.signal) macdTrend = 'above_signal';
+    else if (lastMacd.MACD < lastMacd.signal) macdTrend = 'below_signal';
+  }
+  const macdCrossAgo = macdBullishCrossAgo(macdArr);
+
+  // RSI
+  const rsi = rsiOf(closes);
+  const oversold = rsi !== null && rsi < 35;
+
+  // EMA 9/21 short-term cross + stack alignment
+  const ema9  = emaOf(closes, 9);
+  const ema21 = emaOf(closes, 21);
+  const { bullCrossAgo: ema9BullCrossAgo, bearCrossAgo: ema9BearCrossAgo } =
+    emaShortCrossAgo(closes, 9, 21);
+
+  // Volume surge vs 20-day average
+  const volRatio = volumeRatioOf(bars);
+
+  // Fundamentals: use quoteData if passed, otherwise read from watchlist cache
+  const resolved   = quoteData || await getFundamentalsFromDB(symbol) || {};
+  const assetType  = resolved.assetType  || 'stock';
+  const isStock    = assetType === 'stock';
+  const peTrailing    = isStock ? (resolved.peTrailing    || null) : null;
+  const peForward     = isStock ? (resolved.peForward     || null) : null;
+  const divYield      = isStock ? (resolved.divYield      || null) : null;
+  const psRatio       = isStock ? (resolved.psRatio       || null) : null;
+  const analystBuy    = isStock ? (resolved.analystBuy    ?? null) : null;
+  const analystSell   = isStock ? (resolved.analystSell   ?? null) : null;
+  const analystHold   = isStock ? (resolved.analystHold   ?? null) : null;
+  const epsGrowth     = isStock ? (resolved.epsGrowth     ?? null) : null;
+  const revenueGrowth = isStock ? (resolved.revenueGrowth ?? null) : null;
+  const debtEquity    = isStock ? (resolved.debtEquity    ?? null) : null;
+  const roe           = isStock ? (resolved.roe           ?? null) : null;
+  const shortFloat    = isStock ? (resolved.shortFloat    ?? null) : null;
+  const recMean       = isStock ? (resolved.recMean       ?? null) : null;
+  const recCount      = isStock ? (resolved.recCount      ?? null) : null;
+  const targetMean    = isStock ? (resolved.targetMean    ?? null) : null;
+  const targetHigh    = isStock ? (resolved.targetHigh    ?? null) : null;
+  const targetLow     = isStock ? (resolved.targetLow     ?? null) : null;
+
+  // Sector benchmarks
+  const sector   = resolved.sector || null;
+  const sectorPE = isStock ? getSectorPE(sector) : null;
+  const sectorPS = isStock ? getSectorPS(sector) : null;
+
+  const signals = {
+    rsi, aboveMa50, aboveMa200,
+    goldenAgo, deathAgo, isGoldenActive, isDeathActive,
+    priceCross50Ago, priceCross200Ago,
+    ema9, ema21, ema50ema: ema50,
+    ema9BullCrossAgo, ema9BearCrossAgo,
+    volRatio, priceChangePct: changePct,
+    macdTrend, macdCrossAgo,
+    peTrailing, peForward, divYield, psRatio,
+    sectorPE, sectorPS,
+    epsGrowth, revenueGrowth, debtEquity, roe, shortFloat,
+    recMean, recCount, targetMean,
+    analystBuy, analystSell, analystHold,
+    marketBullish: analyzeSymbol._marketBullish ?? null,
+    priceLatest: price,
+    isStock,
+  };
+
+  const { finalScore, topReasons } = computeScore(signals);
+
+  const recommendation =
+    finalScore >= 50 ? 'BUY' :
+    finalScore >= 10 ? 'HOLD' : 'SELL';
+
+  const crossType =
+    isGoldenActive ? 'golden_cross' :
+    isDeathActive  ? 'death_cross'  : 'none';
+
+  // Upsert into stock_signals
+  await db.query(
+    `INSERT INTO stock_signals (
+      symbol, name, sector, asset_type, generated_at,
+      price, price_change_pct,
+      high_52w, low_52w, pct_from_52high, pct_from_52low,
+      ma50, ma200, ema50, ema200, above_50ma, above_200ma,
+      price_crossed_50ma_ago, price_crossed_200ma_ago,
+      cross_type, golden_cross_ago, death_cross_ago,
+      macd_value, macd_signal_value, macd_histogram, macd_trend, macd_cross_ago,
+      rsi, oversold,
+      pe_trailing, pe_forward, fwd_pe_improving, dividend_yield,
+      target_mean, target_high, target_low,
+      ema9_bull_cross_ago, ema9_bear_cross_ago,
+      score, recommendation, why
+    ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON DUPLICATE KEY UPDATE
+      name=VALUES(name), sector=VALUES(sector), asset_type=VALUES(asset_type),
+      generated_at=NOW(),
+      price=VALUES(price), price_change_pct=VALUES(price_change_pct),
+      high_52w=VALUES(high_52w), low_52w=VALUES(low_52w),
+      pct_from_52high=VALUES(pct_from_52high), pct_from_52low=VALUES(pct_from_52low),
+      ma50=VALUES(ma50), ma200=VALUES(ma200), ema50=VALUES(ema50), ema200=VALUES(ema200),
+      above_50ma=VALUES(above_50ma), above_200ma=VALUES(above_200ma),
+      price_crossed_50ma_ago=VALUES(price_crossed_50ma_ago),
+      price_crossed_200ma_ago=VALUES(price_crossed_200ma_ago),
+      cross_type=VALUES(cross_type), golden_cross_ago=VALUES(golden_cross_ago),
+      death_cross_ago=VALUES(death_cross_ago),
+      macd_value=VALUES(macd_value), macd_signal_value=VALUES(macd_signal_value),
+      macd_histogram=VALUES(macd_histogram), macd_trend=VALUES(macd_trend),
+      macd_cross_ago=VALUES(macd_cross_ago),
+      rsi=VALUES(rsi), oversold=VALUES(oversold),
+      pe_trailing=VALUES(pe_trailing), pe_forward=VALUES(pe_forward),
+      fwd_pe_improving=VALUES(fwd_pe_improving), dividend_yield=VALUES(dividend_yield),
+      target_mean=VALUES(target_mean), target_high=VALUES(target_high), target_low=VALUES(target_low),
+      ema9_bull_cross_ago=VALUES(ema9_bull_cross_ago), ema9_bear_cross_ago=VALUES(ema9_bear_cross_ago),
+      score=VALUES(score), recommendation=VALUES(recommendation), why=VALUES(why)`,
+    [
+      symbol,
+      resolved?.name   || null,
+      resolved?.sector || null,
+      assetType,
+      price,
+      Math.round(changePct * 100) / 100,
+      Math.round(high52  * 10000) / 10000,
+      Math.round(low52   * 10000) / 10000,
+      Math.round(pctFrom52High * 100) / 100,
+      Math.round(pctFrom52Low  * 100) / 100,
+      ma50   ? Math.round(ma50   * 100) / 100 : null,
+      ma200  ? Math.round(ma200  * 100) / 100 : null,
+      ema50  ? Math.round(ema50  * 100) / 100 : null,
+      ema200 ? Math.round(ema200 * 100) / 100 : null,
+      aboveMa50  ? 1 : 0,
+      aboveMa200 ? 1 : 0,
+      priceCross50Ago  ?? null,
+      priceCross200Ago ?? null,
+      crossType,
+      goldenAgo ?? null,
+      deathAgo  ?? null,
+      lastMacd ? Math.round(lastMacd.MACD      * 10000) / 10000 : null,
+      lastMacd ? Math.round(lastMacd.signal    * 10000) / 10000 : null,
+      lastMacd ? Math.round(lastMacd.histogram * 10000) / 10000 : null,
+      macdTrend,
+      macdCrossAgo ?? null,
+      rsi ? Math.round(rsi * 100) / 100 : null,
+      oversold ? 1 : 0,
+      peTrailing ? Math.round(peTrailing * 100) / 100 : null,
+      peForward  ? Math.round(peForward  * 100) / 100 : null,
+      (peTrailing && peForward && peForward < peTrailing) ? 1 : 0,
+      divYield ? Math.round(divYield * 100) / 100 : null,
+      targetMean ? Math.round(targetMean * 100) / 100 : null,
+      targetHigh ? Math.round(targetHigh * 100) / 100 : null,
+      targetLow  ? Math.round(targetLow  * 100) / 100 : null,
+      ema9BullCrossAgo ?? null,
+      ema9BearCrossAgo ?? null,
+      Math.round(finalScore * 100) / 100,
+      recommendation,
+      topReasons,
+    ]
+  );
+
+  return { symbol, score: finalScore, recommendation };
+}
+
+// ─── Analyze all active symbols ───────────────────────────────────────────────
+async function analyzeAll(quotes = {}) {
+  // Pre-compute market context from SPY bars (if available)
+  // This is attached as a static property so computeScore can read it without
+  // changing the signature of analyzeSymbol.
+  try {
+    const spyBars = await getBarsFromDB('SPY', 280);
+    if (spyBars && spyBars.length >= 60) {
+      const spyCloses = spyBars.map(b => b.close);
+      const spyMa200  = smaOf(spyCloses, 200);
+      const spyPrice  = spyCloses[spyCloses.length - 1];
+      const spyMacd   = macdHistory(spyCloses);
+      const spyLastMacd = spyMacd.length ? spyMacd[spyMacd.length - 1] : null;
+      const spyMacdBull = spyLastMacd ? spyLastMacd.MACD > spyLastMacd.signal : false;
+      analyzeSymbol._marketBullish = spyMa200
+        ? (spyPrice > spyMa200 && spyMacdBull ? true : spyPrice < spyMa200 ? false : null)
+        : null;
+      console.log(`[Analyzer] Market context: SPY ${spyMa200 ? (spyPrice > spyMa200 ? 'above' : 'below') : '?'} 200MA → ${analyzeSymbol._marketBullish === true ? 'bullish' : analyzeSymbol._marketBullish === false ? 'bearish' : 'neutral'}`);
+    }
+  } catch (_) {
+    analyzeSymbol._marketBullish = null;
+  }
+
+  const symbols = await getActiveSymbols();
+  console.log(`[Analyzer] Analyzing ${symbols.length} symbols`);
+  let done = 0;
+  for (const sym of symbols) {
+    try {
+      await analyzeSymbol(sym, quotes[sym] || null);
+    } catch (err) {
+      console.error(`[Analyzer] Failed ${sym}: ${err.message}`);
+    }
+    done++;
+    process.stdout.write(`\r[Analyzer] Progress: ${done}/${symbols.length}`);
+  }
+  console.log(`\n[Analyzer] Done`);
+}
+
+module.exports = { analyzeAll, analyzeSymbol };

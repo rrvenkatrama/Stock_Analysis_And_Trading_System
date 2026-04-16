@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Environment — NEVER commit API keys or secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code settings — may contain server credentials
+.claude/
+
+# Temp / build
+tmp/
+dist/
+*.tmp

@@ -1,0 +1,16 @@
+[Unit]
+Description=StockTrader — Swing Trading Research & Execution System
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/home/rajramani/stocktrader
+EnvironmentFile=/home/rajramani/stocktrader/.env
+ExecStartPre=/bin/sleep 5
+ExecStart=/usr/bin/node /home/rajramani/stocktrader/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
