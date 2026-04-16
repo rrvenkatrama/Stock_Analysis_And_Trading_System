@@ -488,7 +488,9 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
     const nameSafe = ((signalMap.get(p.symbol)?.name) || p.symbol).replace(/'/g, "\\'");
 
     const sig = signalMap.get(p.symbol);
-    const sigPrice = sig?.price ? `<br><span style="color:#718096;font-size:11px">$${parseFloat(sig.price).toFixed(2)}</span>` : '';
+    const sigChg = sig?.price_change_pct != null ? parseFloat(sig.price_change_pct) : null;
+    const sigPriceColor = sigChg !== null ? (sigChg >= 0 ? '#48bb78' : '#fc8181') : '#718096';
+    const sigPrice = sig?.price ? `<br><span style="font-weight:600;color:${sigPriceColor};font-size:11px">$${parseFloat(sig.price).toFixed(2)}</span>` : '';
     const recBadge = sig
       ? (sig.recommendation === 'BUY'  ? `<span class="badge badge-buy">▲ BUY</span>${sigPrice}`
        : sig.recommendation === 'SELL' ? `<span class="badge badge-sell">▼ SELL</span>${sigPrice}`
