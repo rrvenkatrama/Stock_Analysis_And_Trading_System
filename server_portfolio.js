@@ -470,9 +470,14 @@ function perfCell(p) {
 }
 
 function portfolioSection(positions, openOrders, account, signalMap, upgradeMap = new Map(), perfMap = new Map()) {
-  const totalValue = positions.reduce((s, p) => s + parseFloat(p.market_value || 0), 0);
-  const totalPnl   = positions.reduce((s, p) => s + parseFloat(p.unrealized_pl || 0), 0);
-  const pnlColor   = totalPnl >= 0 ? '#48bb78' : '#fc8181';
+  const totalValue    = positions.reduce((s, p) => s + parseFloat(p.market_value  || 0), 0);
+  const totalPnl      = positions.reduce((s, p) => s + parseFloat(p.unrealized_pl || 0), 0);
+  const totalCost     = positions.reduce((s, p) => s + parseFloat(p.cost_basis    || 0), 0);
+  const totalTodayPnl = positions.reduce((s, p) => s + parseFloat(p.unrealized_intraday_pl || 0), 0);
+  const pnlColor      = totalPnl >= 0 ? '#48bb78' : '#fc8181';
+  const totalPnlPct   = totalCost > 0 ? (totalPnl / totalCost) * 100 : null;
+  const totalTodayPct = (totalValue - totalTodayPnl) > 0 ? (totalTodayPnl / (totalValue - totalTodayPnl)) * 100 : null;
+  const todayColor    = totalTodayPnl >= 0 ? '#48bb78' : '#fc8181';
   const cashTxt    = account ? `$${parseFloat(account.cash||0).toLocaleString(undefined,{maximumFractionDigits:0})} cash` : '—';
   const equityTxt  = account ? `$${parseFloat(account.equity||account.portfolio_value||0).toLocaleString(undefined,{maximumFractionDigits:0})} equity` : '—';
 
@@ -572,6 +577,8 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
     <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:${positions.length?'12':'0'}px;align-items:center">
       <div class="stat"><div class="num" style="color:#63b3ed">$${totalValue.toLocaleString(undefined,{maximumFractionDigits:0})}</div><div class="lbl">Market Value</div></div>
       <div class="stat"><div class="num" style="color:${pnlColor}">${totalPnl>=0?'+':''}$${Math.abs(totalPnl).toFixed(0)}</div><div class="lbl">Unrealized P&L</div></div>
+      <div class="stat"><div class="num" style="color:${pnlColor}">${totalPnlPct !== null ? (totalPnlPct>=0?'+':'')+totalPnlPct.toFixed(2)+'%' : '—'}</div><div class="lbl">Total Return</div></div>
+      <div class="stat"><div class="num" style="color:${todayColor}">${totalTodayPct !== null ? (totalTodayPct>=0?'+':'')+totalTodayPct.toFixed(2)+'%' : '—'}</div><div class="lbl">Today's Gain</div></div>
       <div class="stat"><div class="num" style="color:#e2e8f0">${positions.length}</div><div class="lbl">Positions</div></div>
       <div class="stat"><div class="num" style="color:#3182ce">${openOrders.length}</div><div class="lbl">Open Orders</div></div>
     </div>
