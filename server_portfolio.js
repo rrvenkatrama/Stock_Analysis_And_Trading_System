@@ -481,8 +481,10 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
     const pnlPct = parseFloat(p.unrealized_plpc || 0) * 100;
     const pc     = pnl >= 0 ? '#48bb78' : '#fc8181';
     const sign   = pnl >= 0 ? '+' : '';
-    const qty    = parseInt(p.qty);
-    const price  = parseFloat(p.current_price || 0);
+    const qty      = parseInt(p.qty);
+    const price    = parseFloat(p.current_price || 0);
+    const posChgPct = p.unrealized_intraday_plpc != null ? parseFloat(p.unrealized_intraday_plpc) * 100 : null;
+    const posChgColor = posChgPct !== null ? (posChgPct >= 0 ? '#48bb78' : '#fc8181') : '#2d3748';
     const nameSafe = ((signalMap.get(p.symbol)?.name) || p.symbol).replace(/'/g, "\\'");
 
     const sig = signalMap.get(p.symbol);
@@ -531,11 +533,12 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
       <td>${posPerfCell}${chartBtn}</td>
       <td>${qty}</td>
       <td>$${parseFloat(p.avg_entry_price).toFixed(2)}</td>
-      <td>$${price.toFixed(2)}</td>
+      <td><span style="font-weight:600;color:${posChgColor}">$${price.toFixed(2)}</span></td>
+      <td><span style="font-weight:600;color:${posChgColor}">${posChgPct !== null ? (posChgPct>=0?'+':'')+posChgPct.toFixed(2)+'%' : '—'}</span></td>
       <td>$${parseFloat(p.market_value).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
       <td style="color:${pc};font-weight:600">${sign}$${Math.abs(pnl).toFixed(0)} (${sign}${pnlPct.toFixed(1)}%)</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="12" style="color:#718096;text-align:center;padding:12px 0">No open positions — use the Buy button on any stock below.</td></tr>`;
+  }).join('') : `<tr><td colspan="13" style="color:#718096;text-align:center;padding:12px 0">No open positions — use the Buy button on any stock below.</td></tr>`;
 
   const ordRows = openOrders.length ? openOrders.map(o => {
     const lp  = o.limit_price ? ` @ $${parseFloat(o.limit_price).toFixed(2)}` : '';
@@ -577,7 +580,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
       <th>Symbol · Trade</th><th>Signal · Price</th><th>Why</th><th>Sector</th>
       <th>Price Target</th><th>Analyst Action</th>
       <th>Performance · Chart</th>
-      <th>Qty</th><th>Avg Entry</th><th>Current</th>
+      <th>Qty</th><th>Avg Entry</th><th>Current</th><th>Chg%</th>
       <th>Mkt Value</th><th>Unrealized P&L</th>
     </tr></thead><tbody>${posRows}</tbody></table>
     </div>` : `<div style="color:#718096;font-size:12px;padding:4px 0">No open positions. Use the Buy button on any stock below.</div>`}
@@ -599,7 +602,7 @@ function stockRow(s, upgrade) {
                  :                               '<span class="badge badge-hold">● HOLD</span>';
   const scoreColor = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
   const scoreBar = `<div class="score-bar"><div class="score-fill" style="width:${s.score||0}%;background:${scoreColor}"></div></div>`;
-  const rsiColor = s.rsi < 30 ? '#48bb78' : s.rsi > 70 ? '#fc8181' : '#e2e8f0';
+  const rsiColor = s.rsi < 30 ? '#fc8181' : s.rsi > 70 ? '#3182ce' : '#48bb78';
   const rsiTxt   = s.rsi ? `<span style="color:${rsiColor}">${parseFloat(s.rsi).toFixed(1)}</span>` : '—';
   const macdCls  = ['bullish','above_signal'].includes(s.macd_trend) ? 'signal-up'
                  : ['bearish','below_signal'].includes(s.macd_trend) ? 'signal-down' : 'signal-neu';
@@ -637,9 +640,10 @@ function stockRow(s, upgrade) {
   const fpe   = s.pe_forward  ? parseFloat(s.pe_forward).toFixed(1)  : '—';
   const dyVal = s.dividend_yield != null ? parseFloat(s.dividend_yield) : null;
   const dy    = dyVal !== null && dyVal > 0 ? dyVal.toFixed(2)+'%' : '—';
-  const price = s.price ? `$${parseFloat(s.price).toFixed(2)}` : '—';
-  const chg   = s.price_change_pct ? parseFloat(s.price_change_pct) : null;
-  const chgTxt = chg !== null ? `<span class="${chg>=0?'signal-up':'signal-down'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>` : '—';
+  const chg      = s.price_change_pct != null ? parseFloat(s.price_change_pct) : null;
+  const priceColor = chg !== null ? (chg >= 0 ? '#48bb78' : '#fc8181') : '#2d3748';
+  const price    = s.price ? `<span style="font-weight:600;color:${priceColor}">$${parseFloat(s.price).toFixed(2)}</span>` : '—';
+  const chgTxt   = chg !== null ? `<span style="font-weight:600;color:${priceColor}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>` : '—';
   const nameSafe = (s.name || '').replace(/'/g, "\\'");
   const whySafe  = s.why ? s.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
   const whyBtn   = s.why ? `<button onclick="showWhy('${s.symbol}','${whySafe}')" class="btn btn-xs" style="background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8">Why?</button>` : '';
@@ -674,7 +678,8 @@ function stockRow(s, upgrade) {
            onclick="return confirm('Remove ${s.symbol}?')">✕</a>
       </div>
     </td>
-    <td data-val="${s.price||0}">${price}<br>${chgTxt}</td>
+    <td data-val="${s.price||0}">${price}</td>
+    <td data-val="${chg??-999}">${chgTxt}</td>
     <td>${recBadge}<br>${scoreBar}<span style="font-size:11px;color:${scoreColor}">${parseFloat(s.score||0).toFixed(0)}/100</span></td>
     <td>${whyBtn}</td>
     <td>${sectorTxt}</td>
@@ -764,13 +769,18 @@ app.get('/', async (req, res) => {
     const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol))).join('');
     const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap);
     const discoverRows = picks.map(s => {
-      const scoreColor = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
-      const whySafe    = s.why ? s.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
-      const whyBtn     = s.why ? `<button onclick="showWhy('${s.symbol}','${whySafe}')" class="btn btn-xs" style="background:#1a1540;color:#b794f4;border:1px solid #6b46c1">Why?</button>` : '';
-      const topSignals = (s.why||'').replace(/Score:\d+\/100 \| /,'').split(' | ').slice(0,2).join(' · ');
+      const scoreColor  = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
+      const whySafe     = s.why ? s.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
+      const whyBtn      = s.why ? `<button onclick="showWhy('${s.symbol}','${whySafe}')" class="btn btn-xs" style="background:#1a1540;color:#b794f4;border:1px solid #6b46c1">Why?</button>` : '';
+      const topSignals  = (s.why||'').replace(/Score:\d+\/100 \| /,'').split(' | ').slice(0,2).join(' · ');
+      const dChg        = s.price_change_pct != null ? parseFloat(s.price_change_pct) : null;
+      const dChgColor   = dChg !== null ? (dChg >= 0 ? '#48bb78' : '#fc8181') : '#2d3748';
+      const dPriceTxt   = `<span style="font-weight:600;color:${dChgColor}">$${parseFloat(s.price||0).toFixed(2)}</span>`;
+      const dChgTxt     = dChg !== null ? `<span style="font-weight:600;color:${dChgColor}">${dChg>=0?'+':''}${dChg.toFixed(2)}%</span>` : '—';
       return `<tr>
         <td><b style="color:#b794f4">${s.symbol}</b><br><span style="color:#718096;font-size:11px">${s.name||''}</span></td>
-        <td>$${parseFloat(s.price||0).toFixed(2)}</td>
+        <td>${dPriceTxt}</td>
+        <td>${dChgTxt}</td>
         <td><span style="font-weight:700;color:${scoreColor}">${Math.round(s.score)}</span>/100</td>
         <td>${whyBtn}</td>
         <td style="font-size:11px;color:#718096;max-width:250px">${topSignals}</td>
@@ -779,7 +789,7 @@ app.get('/', async (req, res) => {
           <a href="/watchlist/add-quick/${s.symbol}" class="btn btn-xs" style="background:#2d2040;color:#b794f4;border:1px solid #6b46c1;margin-left:4px">+ Watch</a>
         </td>
       </tr>`;
-    }).join('') || '<tr><td colspan="6" style="padding:12px;color:#718096;text-align:center">No new picks yet — universe scan runs at 8:30 AM ET. <a href="/scan-universe" style="color:#b794f4">Run Now</a></td></tr>';
+    }).join('') || '<tr><td colspan="7" style="padding:12px;color:#718096;text-align:center">No new picks yet — universe scan runs at 8:30 AM ET. <a href="/scan-universe" style="color:#b794f4">Run Now</a></td></tr>';
 
     res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <title>My Stocks Dashboard</title>${STYLE}
@@ -839,6 +849,7 @@ ${pfSection}
 <thead><tr>
   <th data-col="sym"    onclick="sortTable('sym')">Symbol / Name</th>
   <th data-col="price"  onclick="sortTable('price')">Price</th>
+  <th data-col="chg"    onclick="sortTable('chg')">Chg%</th>
   <th data-col="score"  onclick="sortTable('score')">Rec · Score</th>
   <th data-col="why">Why</th>
   <th data-col="sector">Sector</th>
@@ -874,6 +885,7 @@ ${pfSection}
 <thead><tr>
   <th>Symbol / Name</th>
   <th>Price</th>
+  <th>Chg%</th>
   <th>Score</th>
   <th>Why</th>
   <th>Key Signals</th>
