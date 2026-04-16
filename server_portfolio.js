@@ -350,6 +350,22 @@ function _renderChart(data){
     borderColor:_chartColors.stock,backgroundColor:'transparent',
     borderWidth:2.5,pointRadius:0,tension:0.1,spanGaps:true,
   }];
+
+  // 50d and 200d MAs — normalized using same base as price so crossovers are visible
+  const base=stockBars.find(b=>b.close!=null)?.close||1;
+  const ma50data=stockBars.map(b=>b.ma50!=null?Math.round(b.ma50/base*10000)/100:null);
+  const ma200data=stockBars.map(b=>b.ma200!=null?Math.round(b.ma200/base*10000)/100:null);
+  if(ma50data.some(v=>v!=null))datasets.push({
+    label:'50d MA',data:ma50data,
+    borderColor:'#f6e05e',backgroundColor:'transparent',
+    borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:0.1,spanGaps:true,
+  });
+  if(ma200data.some(v=>v!=null))datasets.push({
+    label:'200d MA',data:ma200data,
+    borderColor:'#fc8181',backgroundColor:'transparent',
+    borderWidth:1.5,borderDash:[6,4],pointRadius:0,tension:0.1,spanGaps:true,
+  });
+
   const benchLabels={SPY:'S&P 500',QQQ:'Nasdaq 100',DIA:'Dow Jones'};
   for(const b of _chartBenches){
     if(data[b]&&data[b].length)datasets.push({
@@ -1113,7 +1129,7 @@ app.get('/refresh-now', (req, res) => {
 });
 
 // ─── Performance chart data ───────────────────────────────────────────────────
-// Returns normalized OHLCV bars for a symbol + benchmarks (SPY/QQQ/DIA)
+// Returns bars for symbol + benchmarks. Symbol bars include ma50/ma200 fields.
 app.get('/position-chart/:symbol', async (req, res) => {
   const symbol = req.params.symbol.toUpperCase().replace(/[^A-Z0-9.]/g, '');
   const period  = req.query.period || '1y';
@@ -1121,20 +1137,50 @@ app.get('/position-chart/:symbol', async (req, res) => {
   const allowed = new Set(['SPY','QQQ','DIA']);
   const benchmarks = rawB ? rawB.split(',').map(s => s.toUpperCase()).filter(s => allowed.has(s)) : [];
 
-  // Calendar days to fetch (extra buffer for weekends/holidays)
+  // Calendar days for the display window + 300 extra trading days for SMA200 warmup
   const calDays = { '1m': 50, '3m': 100, '6m': 200, '1y': 390, '2y': 780, '5y': 1950 };
-  const days = calDays[period] || 390;
+  const displayDays = calDays[period] || 390;
+  const maDays = displayDays + 430; // enough history for SMA200 on any period
+
+  function sma(closes, period) {
+    return closes.map((_, i) => {
+      if (i < period - 1) return null;
+      let sum = 0;
+      for (let j = i - period + 1; j <= i; j++) sum += closes[j];
+      return sum / period;
+    });
+  }
 
   try {
-    const symbols = [symbol, ...benchmarks];
-    const results = await Promise.all(symbols.map(s => getDailyBars(s, days)));
+    const [symbolBars, ...benchResults] = await Promise.all([
+      getDailyBars(symbol, maDays),
+      ...benchmarks.map(s => getDailyBars(s, displayDays)),
+    ]);
+
+    // Compute MAs over full history, then slice to display window
+    const allCloses = symbolBars.map(b => b.close);
+    const ma50arr   = sma(allCloses, 50);
+    const ma200arr  = sma(allCloses, 200);
+    const sliceFrom = Math.max(0, symbolBars.length - displayDays);
+
     const out = {};
-    symbols.forEach((s, i) => {
-      out[s] = results[i].map(b => ({
+    out[symbol] = symbolBars.slice(sliceFrom).map((b, i) => {
+      const idx = sliceFrom + i;
+      return {
+        date:  new Date(b.date).toISOString().split('T')[0],
+        close: b.close,
+        ma50:  ma50arr[idx],
+        ma200: ma200arr[idx],
+      };
+    });
+
+    benchmarks.forEach((s, i) => {
+      out[s] = benchResults[i].map(b => ({
         date:  new Date(b.date).toISOString().split('T')[0],
         close: b.close,
       }));
     });
+
     res.json(out);
   } catch (err) {
     res.status(500).json({ error: err.message });
