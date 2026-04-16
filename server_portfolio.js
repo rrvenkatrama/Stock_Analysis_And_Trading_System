@@ -35,7 +35,7 @@ a{color:inherit;text-decoration:none}
 .header h1{font-size:18px;font-weight:700;color:#bee3f8;white-space:nowrap}
 .badge{display:inline-block;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:700;white-space:nowrap}
 .badge-buy{background:#f0fff4;color:#276749;border:1px solid #9ae6b4}
-.badge-hold{background:#fffff0;color:#744210;border:1px solid #f6e05e}
+.badge-hold{background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8}
 .badge-sell{background:#fff5f5;color:#9b2c2c;border:1px solid #feb2b2}
 .badge-etf{background:#faf5ff;color:#6b46c1;border:1px solid #d6bcfa}
 .badge-paper{background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8;font-size:11px;font-weight:700;padding:3px 10px;border-radius:5px}
@@ -57,7 +57,7 @@ th{background:#f0f4f8;color:#4a5568;text-align:left;padding:8px 10px;font-size:1
 th:hover{color:#2c5282}
 th.sort-asc::after{content:" ▲";color:#3182ce}
 th.sort-desc::after{content:" ▼";color:#3182ce}
-td{padding:7px 10px;border-bottom:1px solid #edf2f7;vertical-align:middle;background:#ffffff}
+td{padding:10px 10px;border-bottom:1px solid #edf2f7;vertical-align:middle;background:#ffffff}
 tr:hover td{background:#f7fafc}
 .score-bar{background:#e2e8f0;border-radius:4px;height:6px;width:80px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:6px}
 .score-fill{height:100%;border-radius:4px}
@@ -71,7 +71,7 @@ input[type=text]:focus,input[type=number]:focus,select:focus{border-color:#3182c
 .portfolio-wrap{padding:12px 24px 16px}
 .pnl-pos{color:#276749;font-weight:600}.pnl-neg{color:#c53030;font-weight:600}
 .tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600}
-.tag-golden{background:#fffff0;color:#744210;border:1px solid #f6e05e}
+.tag-golden{background:#fff7ed;color:#c05621;border:1px solid #f6ad55}
 .tag-death{background:#fff5f5;color:#9b2c2c;border:1px solid #feb2b2}
 .modal-bg{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center}
 .modal-box{background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;max-width:420px;width:92%;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.15)}
@@ -543,7 +543,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
       ? new Date(o.submitted_at).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
       : '';
     const sideBadge = o.side === 'buy' ? '<span class="badge badge-buy">Buy</span>' : '<span class="badge badge-sell">Sell</span>';
-    const statusColor = ['new','accepted','pending_new','held'].includes(o.status) ? '#ecc94b' : '#a0aec0';
+    const statusColor = ['new','accepted','pending_new','held'].includes(o.status) ? '#3182ce' : '#a0aec0';
     return `<tr>
       <td><b>${o.symbol}</b></td>
       <td>${sideBadge}</td>
@@ -568,7 +568,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
       <div class="stat"><div class="num" style="color:#63b3ed">$${totalValue.toLocaleString(undefined,{maximumFractionDigits:0})}</div><div class="lbl">Market Value</div></div>
       <div class="stat"><div class="num" style="color:${pnlColor}">${totalPnl>=0?'+':''}$${Math.abs(totalPnl).toFixed(0)}</div><div class="lbl">Unrealized P&L</div></div>
       <div class="stat"><div class="num" style="color:#e2e8f0">${positions.length}</div><div class="lbl">Positions</div></div>
-      <div class="stat"><div class="num" style="color:#ecc94b">${openOrders.length}</div><div class="lbl">Open Orders</div></div>
+      <div class="stat"><div class="num" style="color:#3182ce">${openOrders.length}</div><div class="lbl">Open Orders</div></div>
     </div>
     ${positions.length ? `
     <div style="font-size:11px;font-weight:700;color:#718096;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Positions</div>
@@ -597,7 +597,7 @@ function stockRow(s, upgrade) {
   const recBadge = s.recommendation === 'BUY'  ? '<span class="badge badge-buy">▲ BUY</span>'
                  : s.recommendation === 'SELL' ? '<span class="badge badge-sell">▼ SELL</span>'
                  :                               '<span class="badge badge-hold">● HOLD</span>';
-  const scoreColor = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#ecc94b' : '#fc8181';
+  const scoreColor = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
   const scoreBar = `<div class="score-bar"><div class="score-fill" style="width:${s.score||0}%;background:${scoreColor}"></div></div>`;
   const rsiColor = s.rsi < 30 ? '#48bb78' : s.rsi > 70 ? '#fc8181' : '#e2e8f0';
   const rsiTxt   = s.rsi ? `<span style="color:${rsiColor}">${parseFloat(s.rsi).toFixed(1)}</span>` : '—';
@@ -632,7 +632,7 @@ function stockRow(s, upgrade) {
     ? ' <span class="badge badge-etf" style="font-size:10px">ETF/FUND</span>' : '';
   const raw52h = s.pct_from_52high != null ? parseFloat(s.pct_from_52high) : null;
   const raw52l = s.pct_from_52low  != null ? parseFloat(s.pct_from_52low)  : null;
-  const h52Color = raw52h !== null ? (Math.abs(raw52h) < 10 ? '#48bb78' : Math.abs(raw52h) < 35 ? '#ecc94b' : '#fc8181') : '#718096';
+  const h52Color = raw52h !== null ? (Math.abs(raw52h) < 10 ? '#48bb78' : Math.abs(raw52h) < 35 ? '#3182ce' : '#fc8181') : '#718096';
   const pe    = s.pe_trailing ? parseFloat(s.pe_trailing).toFixed(1) : '—';
   const fpe   = s.pe_forward  ? parseFloat(s.pe_forward).toFixed(1)  : '—';
   const dyVal = s.dividend_yield != null ? parseFloat(s.dividend_yield) : null;
@@ -764,7 +764,7 @@ app.get('/', async (req, res) => {
     const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol))).join('');
     const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap);
     const discoverRows = picks.map(s => {
-      const scoreColor = s.score >= 60 ? '#48bb78' : '#ecc94b';
+      const scoreColor = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
       const whySafe    = s.why ? s.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
       const whyBtn     = s.why ? `<button onclick="showWhy('${s.symbol}','${whySafe}')" class="btn btn-xs" style="background:#1a1540;color:#b794f4;border:1px solid #6b46c1">Why?</button>` : '';
       const topSignals = (s.why||'').replace(/Score:\d+\/100 \| /,'').split(' | ').slice(0,2).join(' · ');
@@ -815,7 +815,7 @@ ${pfSection}
   <span id="chev-sec-stocks" style="font-size:11px;margin-right:4px;color:#718096">▼</span>
   <div class="stat"><div class="num" style="color:#2d3748">${signals.length}</div><div class="lbl">Tracked</div></div>
   <div class="stat"><div class="num" style="color:#276749">${buyCount}</div><div class="lbl">Buy</div></div>
-  <div class="stat"><div class="num" style="color:#b7791f">${holdCount}</div><div class="lbl">Hold</div></div>
+  <div class="stat"><div class="num" style="color:#3182ce">${holdCount}</div><div class="lbl">Hold</div></div>
   <div class="stat"><div class="num" style="color:#c53030">${sellCount}</div><div class="lbl">Sell</div></div>
   <div class="stat"><div class="num" style="color:#6b46c1">${picks.length}</div><div class="lbl">New Picks</div></div>
   <div style="flex:1"></div>
@@ -834,7 +834,7 @@ ${pfSection}
   </select>
 </div>
 
-<div class="tbl-wrap" style="max-height:600px">
+<div class="tbl-wrap" style="max-height:600px;margin:0 24px 16px">
 <table id="stocks-table">
 <thead><tr>
   <th data-col="sym"    onclick="sortTable('sym')">Symbol / Name</th>
@@ -869,7 +869,7 @@ ${pfSection}
   <a href="/scan-universe" class="btn btn-xs" style="background:#faf5ff;color:#6b46c1;border:1px solid #d6bcfa;margin-left:12px;font-size:11px" onclick="event.stopPropagation()">↻ Scan Now</a>
 </div>
 <div id="sec-discover">
-<div class="tbl-wrap" style="max-height:500px;padding:0 0 16px">
+<div class="tbl-wrap" style="max-height:500px;margin:0 24px 16px">
 <table>
 <thead><tr>
   <th>Symbol / Name</th>
