@@ -1,15 +1,17 @@
 // Daily scheduler for My Stocks dashboard
-// 8:30 AM ET: data refresh → analysis → universe scan → autotrader recommendations → email
-// 9:35 AM ET: autotrader execution (only when autorun_enabled='1')
+// 8:30 AM ET: data refresh → Alpha analysis → Phoenix scoring → universe scan → recommendations → email
+// 9:35 AM ET: Alpha autotrader execution + Phoenix autotrader execution (each when enabled)
 
 const { CronJob } = require('cron');
-const { refreshAll }                         = require('./yahoo_history');
-const { analyzeAll }                         = require('./analyzer');
-const { scanUniverse }                       = require('./universe');
-const { evaluate: autoEvaluate, run: autoRun } = require('./autotrader');
+const { refreshAll }                              = require('./yahoo_history');
+const { analyzeAll }                              = require('./analyzer');
+const { scanUniverse }                            = require('./universe');
+const { evaluate: alphaEvaluate, run: alphaRun }    = require('./autotrader');
+const { evaluate: phoenixEvaluate, run: phoenixRun } = require('./phoenix_autotrader');
+const { scoreAll: runPhoenixScreener }               = require('./phoenix_screener');
 const { sendDailyDigest, sendErrorAlert, sendAutotraderEmail } = require('../notifier/email');
-const { getAlpacaPositions }                 = require('../trader/executor');
-const db                                     = require('../db/db');
+const { getAlpacaPositions }                      = require('../trader/executor');
+const db                                          = require('../db/db');
 
 let refreshRunning = false;
 
@@ -52,23 +54,42 @@ async function runDailyRefresh(fullYear = false) {
       errors.push({ phase: 'Universe Scan', message: e.message });
     }
 
-    // Phase 4.5: Autotrader — generate recommendations (execute=false, always runs)
-    // Actual execution happens at 9:35 AM in the separate cron below
+    // Phase 4.5a: Phoenix screener — score all watchlist symbols for deep value
+    let phoenixResults = null;
+    try {
+      await runPhoenixScreener();
+      console.log(`[Scheduler] Phoenix screener complete`);
+    } catch (e) {
+      console.error('[Scheduler] Phoenix screener failed:', e.message);
+      errors.push({ phase: 'Phoenix Screener', message: e.message });
+    }
+
+    // Phase 4.5b: Alpha autotrader — generate recommendations (execute=false)
     let autoResults = null;
     try {
-      autoResults = await autoEvaluate(false);
+      autoResults = await alphaEvaluate(false);
       const { exits, entries } = autoResults;
-      console.log(`[Scheduler] Autotrader recommendations: ${entries.length} entries, ${exits.length} exits`);
+      console.log(`[Scheduler] Alpha recommendations: ${entries.length} entries, ${exits.length} exits`);
     } catch (e) {
-      console.error('[Scheduler] Autotrader evaluate failed:', e.message);
-      errors.push({ phase: 'Autotrader Recommendations', message: e.message });
+      console.error('[Scheduler] Alpha evaluate failed:', e.message);
+      errors.push({ phase: 'Alpha Recommendations', message: e.message });
+    }
+
+    // Phase 4.5c: Phoenix autotrader — generate recommendations (execute=false)
+    try {
+      phoenixResults = await phoenixEvaluate(false);
+      const { exits, entries } = phoenixResults;
+      console.log(`[Scheduler] Phoenix recommendations: ${entries.length} entries, ${exits.length} exits`);
+    } catch (e) {
+      console.error('[Scheduler] Phoenix evaluate failed:', e.message);
+      errors.push({ phase: 'Phoenix Recommendations', message: e.message });
     }
 
     // Phase 5: Send daily digest email
     try {
       const signals   = await db.query(`SELECT * FROM stock_signals ORDER BY score DESC`);
       const positions = await getAlpacaPositions().catch(() => []);
-      await sendDailyDigest(signals, positions, picks, autoResults);
+      await sendDailyDigest(signals, positions, picks, autoResults, phoenixResults);
     } catch (e) {
       console.error('[Scheduler] Email failed:', e.message);
       errors.push({ phase: 'Daily Digest Email', message: e.message });
@@ -106,27 +127,44 @@ function startScheduler() {
     runDailyRefresh(false);
   }, null, true, 'America/New_York');
 
-  // 9:35 AM ET Monday–Friday — execute autotrader trades (only when autorun_enabled='1')
+  // 9:35 AM ET Monday–Friday — execute Alpha + Phoenix trades (each when enabled)
   const tradeJob = new CronJob('0 35 9 * * 1-5', async () => {
-    console.log('[Portfolio Scheduler] Cron fired — 9:35 AM ET (autotrader execution window)');
+    console.log('[Portfolio Scheduler] Cron fired — 9:35 AM ET (Alpha + Phoenix execution window)');
+
+    // Alpha runs first
+    let alphaResults = null;
     try {
-      const results = await autoRun();
-      if (!results) {
-        console.log('[Portfolio Scheduler] Autorun OFF or outside hours — no trades placed');
-        return;
-      }
-      console.log(`[Portfolio Scheduler] Autotrader: ${results.entries.length} buys, ${results.exits.length} sells`);
-      try {
-        await sendAutotraderEmail(results);
-      } catch (e) {
-        console.error('[Portfolio Scheduler] Autotrader email failed:', e.message);
+      alphaResults = await alphaRun();
+      if (alphaResults) {
+        console.log(`[Portfolio Scheduler] Alpha: ${alphaResults.entries.length} buys, ${alphaResults.exits.length} sells`);
+        try { await sendAutotraderEmail(alphaResults, 'Alpha'); } catch (e) {
+          console.error('[Portfolio Scheduler] Alpha email failed:', e.message);
+        }
+      } else {
+        console.log('[Portfolio Scheduler] Alpha: autorun OFF or outside hours');
       }
     } catch (e) {
-      console.error('[Portfolio Scheduler] Autotrader run failed:', e.message);
+      console.error('[Portfolio Scheduler] Alpha run failed:', e.message);
+    }
+
+    // Phoenix runs second (exits don't conflict since they track own positions)
+    let phoenixResults = null;
+    try {
+      phoenixResults = await phoenixRun();
+      if (phoenixResults) {
+        console.log(`[Portfolio Scheduler] Phoenix: ${phoenixResults.entries.length} buys, ${phoenixResults.exits.length} sells`);
+        try { await sendAutotraderEmail(phoenixResults, 'Phoenix'); } catch (e) {
+          console.error('[Portfolio Scheduler] Phoenix email failed:', e.message);
+        }
+      } else {
+        console.log('[Portfolio Scheduler] Phoenix: disabled or outside hours');
+      }
+    } catch (e) {
+      console.error('[Portfolio Scheduler] Phoenix run failed:', e.message);
     }
   }, null, true, 'America/New_York');
 
-  console.log('[Portfolio Scheduler] Scheduled: 8:30 AM refresh + 9:35 AM autotrader (Mon-Fri ET)');
+  console.log('[Portfolio Scheduler] Scheduled: 8:30 AM refresh + 9:35 AM Alpha+Phoenix (Mon-Fri ET)');
   return { morningJob, tradeJob };
 }
 

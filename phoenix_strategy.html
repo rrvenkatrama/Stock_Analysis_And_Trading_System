@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phoenix Strategy — Deep Value Contrarian</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #f5f7fa; color: #2c3e50; line-height: 1.7; }
+
+  nav { background: #1a252f; color: #fff; padding: 0 32px; display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.3); flex-wrap: wrap; }
+  nav .brand { font-size: 17px; font-weight: 700; padding: 14px 0; white-space: nowrap; color: #f39c12; }
+  nav a { color: #bdc3c7; text-decoration: none; font-size: 12px; padding: 16px 4px; border-bottom: 3px solid transparent; white-space: nowrap; transition: color .2s, border-color .2s; }
+  nav a:hover { color: #fff; border-bottom-color: #f39c12; }
+
+  .page { max-width: 1020px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .hero { background: linear-gradient(135deg, #1a252f 0%, #2d1b4e 50%, #7b2d8b 100%); color: #fff; border-radius: 12px; padding: 44px 40px; margin-bottom: 36px; }
+  .hero h1 { font-size: 30px; font-weight: 800; margin-bottom: 8px; }
+  .hero .sub { font-size: 14px; color: #d6bcfa; margin-bottom: 20px; }
+  .hero .badges { display: flex; flex-wrap: wrap; gap: 10px; }
+  .badge { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); border-radius: 20px; padding: 4px 13px; font-size: 12px; }
+  .badge.amber  { background: rgba(245,158,11,.25); border-color: #f59e0b; color: #fde68a; }
+  .badge.purple { background: rgba(139,92,246,.25); border-color: #8b5cf6; color: #ddd6fe; }
+  .badge.green  { background: rgba(16,185,129,.25); border-color: #10b981; color: #a7f3d0; }
+  .badge.red    { background: rgba(239,68,68,.25); border-color: #ef4444; color: #fca5a5; }
+
+  .section { background: #fff; border-radius: 10px; padding: 30px 34px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  h2 { font-size: 20px; font-weight: 700; color: #1a252f; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #f0f2f5; }
+  h3 { font-size: 15px; font-weight: 700; color: #2c3e50; margin: 22px 0 8px; }
+  p  { margin-bottom: 12px; color: #34495e; font-size: 14px; }
+  ul, ol { padding-left: 20px; margin-bottom: 12px; }
+  li { margin-bottom: 5px; color: #34495e; font-size: 13px; }
+  code { background: #f0f2f5; border-radius: 4px; padding: 2px 6px; font-size: 12px; font-family: 'Menlo','Courier New',monospace; color: #c0392b; }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 13px; }
+  thead th { background: #1a252f; color: #ecf0f1; padding: 9px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  tbody tr:nth-child(even) { background: #f8f9fb; }
+  tbody td { padding: 8px 12px; border-bottom: 1px solid #edf0f2; vertical-align: top; }
+  .pts-pos { color: #27ae60; font-weight: 700; font-family: monospace; white-space: nowrap; }
+  .pts-neg { color: #e74c3c; font-weight: 700; font-family: monospace; white-space: nowrap; }
+
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .strategy-card { border-radius: 10px; padding: 20px 22px; }
+  .alpha-card { background: #ebf8ff; border: 2px solid #3182ce; }
+  .phoenix-card { background: #faf5ff; border: 2px solid #8b5cf6; }
+  .strategy-card .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .alpha-card .label { color: #2b6cb0; }
+  .phoenix-card .label { color: #6d28d9; }
+  .strategy-card .name { font-size: 17px; font-weight: 800; margin-bottom: 10px; }
+  .alpha-card .name { color: #1a365d; }
+  .phoenix-card .name { color: #2e1065; }
+  .strategy-card ul { padding-left: 16px; }
+  .strategy-card li { font-size: 13px; color: #34495e; margin-bottom: 4px; }
+
+  .gate { border-radius: 8px; padding: 18px 22px; margin-bottom: 12px; }
+  .gate-hard { background: #fff5f5; border: 2px solid #fc8181; }
+  .gate-score { background: #f0fff4; border: 2px solid #68d391; }
+  .gate-exit  { background: #fffbeb; border: 2px solid #f6e05e; }
+  .gate .gate-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; color: #744210; }
+  .gate-hard .gate-label { color: #9b2c2c; }
+  .gate-score .gate-label { color: #276749; }
+  .gate-exit .gate-label { color: #744210; }
+  .gate .gate-name { font-size: 15px; font-weight: 700; color: #1a252f; margin-bottom: 8px; }
+
+  .confluence { background: linear-gradient(135deg, #ebf8ff, #faf5ff); border: 2px solid #805ad5; border-radius: 10px; padding: 22px 26px; margin: 20px 0; }
+  .confluence h3 { color: #553c9a; margin-top: 0; }
+
+  .note-box { background: #fffbeb; border-left: 4px solid #f6ad55; border-radius: 0 6px 6px 0; padding: 12px 16px; margin: 12px 0; font-size: 13px; color: #744210; }
+  .warn-box  { background: #fff5f5; border-left: 4px solid #fc8181; border-radius: 0 6px 6px 0; padding: 12px 16px; margin: 12px 0; font-size: 13px; color: #9b2c2c; }
+
+  .example { background: #f8f9fb; border: 1px solid #e0e4ea; border-radius: 8px; padding: 18px 22px; margin: 14px 0; font-family: 'Menlo','Courier New',monospace; font-size: 12px; line-height: 2; }
+  .example .title { font-family: -apple-system, sans-serif; font-size: 14px; font-weight: 700; color: #1a252f; margin-bottom: 10px; border-bottom: 1px solid #e0e4ea; padding-bottom: 8px; }
+  .ex-pos { color: #27ae60; font-weight: 700; }
+  .ex-neg { color: #e74c3c; font-weight: 700; }
+  .ex-zero { color: #718096; }
+
+  footer { text-align: center; font-size: 12px; color: #95a5a6; margin-top: 48px; line-height: 1.9; }
+  @media(max-width:640px) { .compare-grid { grid-template-columns: 1fr; } .hero { padding: 28px 20px; } .section { padding: 20px 18px; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">📈 My Stocks</span>
+  <a href="http://192.168.1.156:8081/">Dashboard</a>
+  <a href="scoringmethodology.html">Alpha Scoring</a>
+  <a href="phoenix_strategy.html" style="color:#fff;border-bottom-color:#f59e0b">Phoenix Strategy</a>
+  <a href="product_requirements.html">Product Spec</a>
+</nav>
+
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>🔥 Phoenix Strategy</h1>
+    <div class="sub">Deep Value Contrarian · portfolio_app/phoenix_autotrader.js · v1.0 · 2026-04-17</div>
+    <div class="badges">
+      <span class="badge amber">≥40% below 52wk high required</span>
+      <span class="badge purple">Fundamentals-first scoring</span>
+      <span class="badge green">Earnings growth mandatory</span>
+      <span class="badge red">No technical timing</span>
+    </div>
+  </div>
+
+  <!-- Strategy Comparison -->
+  <div class="section">
+    <h2>Two Strategies, One Portfolio</h2>
+    <p>
+      The My Stocks dashboard runs two independent auto-trading engines simultaneously, each managing its own cash pool
+      (50% of portfolio equity each). They operate on the same Alpaca account but track positions separately via a
+      <code>strategy</code> tag in <code>autotrader_trades</code>.
+    </p>
+
+    <div class="compare-grid">
+      <div class="strategy-card alpha-card">
+        <div class="label">Strategy A</div>
+        <div class="name">⚡ Alpha</div>
+        <ul>
+          <li>Buys quality stocks at <strong>technically optimal moments</strong></li>
+          <li>RSI in healthy range, MACD bullish, above 50DMA</li>
+          <li>30+ signal composite score ≥ 65</li>
+          <li>Can buy anywhere on the 52wk range</li>
+          <li>Hold: days to weeks (swing trade)</li>
+          <li>Exits on signal deterioration or 30-day time stop</li>
+        </ul>
+      </div>
+      <div class="strategy-card phoenix-card">
+        <div class="label">Strategy B</div>
+        <div class="name">🔥 Phoenix</div>
+        <ul>
+          <li>Buys fundamentally excellent companies at <strong>deep price discounts</strong></li>
+          <li>Deliberately buys when technicals look bad (fear discount)</li>
+          <li>Requires 40%+ below 52-week high</li>
+          <li>Earnings and revenue growth still intact</li>
+          <li>Hold: weeks to months (recovery trade)</li>
+          <li>Exits on fundamental deterioration or 60-day time stop</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="confluence">
+      <h3>⭐ Confluence Signal — Highest Conviction</h3>
+      <p>
+        When a stock receives a <strong>BUY from both Alpha and Phoenix simultaneously</strong>, that is a rare high-conviction signal.
+        It means the stock is: (1) technically set up for a move right now, AND (2) deeply discounted with intact fundamentals.
+        These stocks are highlighted in gold in the dashboard Stocks table and receive priority in both autotrader queues.
+      </p>
+      <p style="font-size:13px;color:#553c9a">
+        Example: A stock 45% below its 52-week high, EPS growing 25%, RSI just recovering to 42, MACD turning bullish — this stock
+        qualifies for both Alpha (technical setup) and Phoenix (fundamental value). That combination is rare and worth acting on aggressively.
+      </p>
+    </div>
+  </div>
+
+  <!-- Philosophy -->
+  <div class="section" id="philosophy">
+    <h2>Phoenix Philosophy</h2>
+    <p>
+      Markets regularly over-punish stocks due to fear, macro narratives, sector rotation, or short-term earnings misses —
+      even when the underlying business remains strong. The Phoenix strategy deliberately targets these situations.
+    </p>
+    <p>
+      The name reflects the thesis: <em>companies beaten down by fear, not by fundamental damage, that recover and rise again.</em>
+      The key insight is distinguishing a <strong>value trap</strong> (cheap for good reason — business is deteriorating)
+      from a <strong>genuine opportunity</strong> (cheap due to sentiment, business intact or growing).
+    </p>
+
+    <h3>What Phoenix looks for</h3>
+    <ul>
+      <li><strong>Price dislocation:</strong> stock is ≥40% below its 52-week high — deep enough that fear, not fundamentals, is driving it</li>
+      <li><strong>Year-over-year decline:</strong> price today is below price 1 year ago — confirms sustained downtrend, not a recent blip</li>
+      <li><strong>Earnings intact:</strong> positive EPS growth — the business is still making more money, not less</li>
+      <li><strong>Revenue growth:</strong> top line still expanding — growth story not broken</li>
+      <li><strong>Value on forward metrics:</strong> forward P/E or P/S below sector average — you are paying less than peers for the same earnings</li>
+      <li><strong>Management confidence:</strong> stock buybacks signal insiders believe the stock is undervalued at current prices</li>
+      <li><strong>Analyst support:</strong> even after the drawdown, analysts still see upside — consensus hasn't turned negative</li>
+    </ul>
+
+    <h3>What Phoenix deliberately ignores</h3>
+    <ul>
+      <li>RSI level — it will be low, that's the point</li>
+      <li>MACD — will likely be bearish or neutral during the accumulation phase</li>
+      <li>Whether the stock is above or below its 50DMA — it's almost certainly below</li>
+      <li>Short-term momentum — we are buying before the recovery, not after</li>
+    </ul>
+
+    <div class="note-box">
+      <strong>NOW (ServiceNow) as the archetype:</strong> a company with 25%+ EPS growth, strong ROE, active buybacks, fortress balance sheet —
+      yet down 40-45% from its 52-week high due to AI disruption fears and broad SaaS selloff. The business hasn't changed.
+      The price has. Phoenix buys that gap.
+    </div>
+  </div>
+
+  <!-- Hard Gates -->
+  <div class="section" id="gates">
+    <h2>Entry Gates — All Must Pass</h2>
+    <p>Phoenix applies hard gates before scoring. A stock failing any gate is excluded entirely, regardless of score.</p>
+
+    <div class="gate gate-hard">
+      <div class="gate-label">Hard Gate 1</div>
+      <div class="gate-name">Deep Price Dislocation</div>
+      <ul>
+        <li>Current price ≤ 52-week high × 0.60 (i.e., ≥40% below 52-week high)</li>
+        <li>Current price &lt; price 1 year ago (year-over-year decline confirmed)</li>
+      </ul>
+      <p style="font-size:12px;color:#9b2c2c;margin-top:8px">
+        The 40% threshold is intentional. A 20% drawdown can happen in any normal correction.
+        40%+ signals genuine fear-driven overselling — the rubber band is stretched far enough that
+        mean reversion becomes a high-probability thesis.
+      </p>
+    </div>
+
+    <div class="gate gate-hard">
+      <div class="gate-label">Hard Gate 2</div>
+      <div class="gate-name">Earnings Growth Intact</div>
+      <ul>
+        <li>EPS growth (3-year trailing) &gt; 0% — earnings are still growing, not contracting</li>
+        <li>Revenue growth (3-year trailing) &gt; 0% — top line still expanding</li>
+      </ul>
+      <p style="font-size:12px;color:#9b2c2c;margin-top:8px">
+        This is the value-trap filter. A stock can be cheap and getting cheaper if the business is deteriorating.
+        Positive EPS and revenue growth confirm the company is still on an upward trajectory — the price drop is sentiment, not fundamentals.
+      </p>
+    </div>
+
+    <div class="gate gate-hard">
+      <div class="gate-label">Hard Gate 3</div>
+      <div class="gate-name">Valuation Check</div>
+      <ul>
+        <li>Forward P/E &lt; sector average <strong>OR</strong> Forward P/S &lt; sector average</li>
+        <li>(If neither P/E nor P/S available: skip this gate — some growth companies don't have earnings yet)</li>
+      </ul>
+      <p style="font-size:12px;color:#9b2c2c;margin-top:8px">
+        Not enough to be cheap on absolute terms — must be cheap relative to peers.
+        This ensures we're buying genuine value, not a sector that is expensive across the board.
+      </p>
+    </div>
+
+    <div class="gate gate-score">
+      <div class="gate-label">Minimum Score Gate</div>
+      <div class="gate-name">Phoenix Score ≥ 60</div>
+      <p>After passing all hard gates, the stock must score ≥ 60 on the Phoenix scoring engine (see below).</p>
+    </div>
+  </div>
+
+  <!-- Scoring -->
+  <div class="section" id="scoring">
+    <h2>Phoenix Scoring Engine (0–100)</h2>
+    <p>Fundamentals-heavy scoring. No technical timing signals. Recommendation: <strong>BUY ≥ 60 | WATCH 35–59 | PASS &lt; 35</strong></p>
+
+    <h3>Earnings Quality (max 40 pts)</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td>EPS growth &gt; 20%</td><td class="pts-pos">+20</td><td>Exceptional earnings acceleration despite price collapse — strongest indicator business is intact</td></tr>
+        <tr><td>EPS growth 10–20%</td><td class="pts-pos">+12</td><td>Solid double-digit growth</td></tr>
+        <tr><td>EPS growth 5–10%</td><td class="pts-pos">+6</td><td>Modest but positive</td></tr>
+        <tr><td>EPS growth 0–5%</td><td class="pts-pos">+2</td><td>Barely positive — passes gate, minimal points</td></tr>
+        <tr><td>Revenue growth &gt; 15%</td><td class="pts-pos">+12</td><td>Top-line acceleration confirms demand not impacted</td></tr>
+        <tr><td>Revenue growth 5–15%</td><td class="pts-pos">+6</td><td>Healthy growth</td></tr>
+        <tr><td>Revenue growth 0–5%</td><td class="pts-pos">+2</td><td>Minimal but positive</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Business Quality (max 24 pts)</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td>ROE &gt; 20%</td><td class="pts-pos">+10</td><td>Management generating strong returns on equity — durable competitive advantage</td></tr>
+        <tr><td>ROE 10–20%</td><td class="pts-pos">+5</td><td>Above-average capital efficiency</td></tr>
+        <tr><td>ROE &lt; 0</td><td class="pts-neg">−5</td><td>Destroying shareholder value</td></tr>
+        <tr><td>Debt/equity &lt; 0.5</td><td class="pts-pos">+8</td><td>Strong balance sheet — can survive a prolonged downturn without diluting shareholders</td></tr>
+        <tr><td>Debt/equity 0.5–1.5</td><td class="pts-pos">+4</td><td>Manageable leverage</td></tr>
+        <tr><td>Debt/equity &gt; 2.0</td><td class="pts-neg">−6</td><td>High leverage + price collapse = elevated distress risk</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Valuation vs Sector (max 27 pts)</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td>Forward P/E ≥ 40% below sector avg</td><td class="pts-pos">+15</td><td>Paying dramatically less than peers for equivalent earnings power</td></tr>
+        <tr><td>Forward P/E 20–40% below sector avg</td><td class="pts-pos">+8</td><td>Meaningfully cheap vs peers</td></tr>
+        <tr><td>Forward P/E 10–20% below sector avg</td><td class="pts-pos">+4</td><td>Mild discount</td></tr>
+        <tr><td>Forward P/S ≥ 40% below sector avg (fallback)</td><td class="pts-pos">+12</td><td>Revenue multiple cheap vs peers (used when P/E unavailable)</td></tr>
+        <tr><td>Forward P/S 20–40% below sector avg</td><td class="pts-pos">+7</td><td>Revenue cheap</td></tr>
+        <tr><td>Depth of drawdown 60%+ below 52wk high</td><td class="pts-pos">+10</td><td>Extreme dislocation — maximum fear discount priced in</td></tr>
+        <tr><td>Depth of drawdown 40–60% below 52wk high</td><td class="pts-pos">+5</td><td>Significant but not extreme</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Management Confidence &amp; Analyst Sentiment (max 18 pts)</h3>
+    <table>
+      <thead><tr><th>Signal</th><th>Points</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td>Stock buybacks active (shares outstanding declined &gt;2% YoY)</td><td class="pts-pos">+10</td><td>Insiders putting company cash into buying their own stock — strongest vote of confidence at beaten-down prices</td></tr>
+        <tr><td>Buybacks moderate (shares declined 1–2% YoY)</td><td class="pts-pos">+5</td><td>Modest buyback program active</td></tr>
+        <tr><td>Analyst buy% ≥ 60% (Finnhub consensus)</td><td class="pts-pos">+8</td><td>Analysts still bullish despite price collapse — Wall Street sees upside</td></tr>
+        <tr><td>Analyst buy% 40–60%</td><td class="pts-pos">+4</td><td>Mixed but not negative consensus</td></tr>
+        <tr><td>Analyst buy% &lt; 20% (mostly sell/hold)</td><td class="pts-neg">−6</td><td>Even analysts have given up — risk of further downgrades</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note-box">
+      <strong>Score interpretation:</strong>
+      80–100 = Exceptional opportunity — all fundamentals intact, extreme discount, management buying back.
+      60–79 = Strong candidate — passes all gates with good fundamentals.
+      35–59 = WATCH — passes hard gates but not enough conviction to buy yet; monitor for improvement.
+      Below 35 = PASS — insufficient fundamental quality to justify the risk.
+    </div>
+  </div>
+
+  <!-- Exit Rules -->
+  <div class="section" id="exits">
+    <h2>Exit Conditions</h2>
+    <p>
+      Phoenix holds longer than Alpha — exits are fundamentals-driven, not technical. The strategy is designed to tolerate
+      continued price weakness while the fundamental recovery thesis plays out. Time stop is 60 days (vs 30 for Alpha).
+    </p>
+
+    <div class="gate gate-exit">
+      <div class="gate-label">Exit Rule — Hard Stop</div>
+      <div class="gate-name">Price −15% from Entry → 100% Sell</div>
+      <p style="font-size:13px">
+        Wider than Alpha's −8% because Phoenix intentionally buys into weakness. A stock can dip further before recovering.
+        However, a −15% move from entry price (on top of the 40%+ drawdown already priced in) suggests the thesis may be breaking.
+        Full exit — no partial.
+      </p>
+    </div>
+
+    <table>
+      <thead><tr><th>Condition</th><th>Action</th><th>Rationale</th></tr></thead>
+      <tbody>
+        <tr><td>Price −15% from entry (hard stop)</td><td><strong>100% sell</strong></td><td>Thesis potentially broken — stock down 50%+ from highs and still falling hard</td></tr>
+        <tr><td>EPS growth turns negative</td><td>50% sell</td><td>Value trap confirmed — earnings deteriorating, not just price</td></tr>
+        <tr><td>Phoenix score drops below 30</td><td>50% sell</td><td>Fundamental quality deteriorating</td></tr>
+        <tr><td>Analyst consensus flips to mostly sell (&lt;20% buy)</td><td>50% sell</td><td>Even patient analysts losing conviction</td></tr>
+        <tr><td>Held ≥ 60 days with no gain ≥ 5%</td><td>50% sell</td><td>Time stop — capital tied up with no recovery in sight; free the slot</td></tr>
+        <tr><td>Price recovers to within 15% of 52-week high</td><td>50% sell</td><td>Take partial profit — Phoenix thesis largely realised; let the rest run</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note-box">
+      <strong>No RSI or MACD exits for Phoenix.</strong> These signals will look bad throughout the holding period — that's expected.
+      Selling on a bad RSI would defeat the entire strategy.
+    </div>
+  </div>
+
+  <!-- Position Sizing -->
+  <div class="section" id="sizing">
+    <h2>Position Sizing &amp; Cash Partition</h2>
+    <p>
+      Each strategy manages 50% of total portfolio equity. Alpaca does not support sub-accounts, so the partition is
+      virtual — tracked via the <code>strategy</code> column in <code>autotrader_trades</code>.
+    </p>
+
+    <h3>Cash pool calculation (per strategy)</h3>
+    <ul>
+      <li><code>strategyEquity  = totalEquity × 0.50</code></li>
+      <li><code>strategyHeld    = market value of positions tagged 'phoenix' in autotrader_trades</code></li>
+      <li><code>strategyBudget  = strategyEquity − strategyHeld</code></li>
+      <li><code>cashBuffer      = strategyEquity × 0.20</code></li>
+      <li><code>deployable      = max(0, (strategyBudget − cashBuffer) × 0.50)</code></li>
+      <li><code>maxPerPos       = strategyEquity × 0.10 × vixMultiplier</code></li>
+      <li><code>shares          = floor(min(deployable / openSlots, maxPerPos) / price)</code></li>
+    </ul>
+
+    <h3>VIX position size multiplier</h3>
+    <table>
+      <thead><tr><th>VIX level</th><th>Multiplier</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td>Below 20</td><td>1.00×</td><td>Normal size</td></tr>
+        <tr><td>20–30</td><td>0.75×</td><td>Size down 25%</td></tr>
+        <tr><td>Above 30</td><td>0.50×</td><td>Size down 50%</td></tr>
+      </tbody>
+    </table>
+
+    <div class="warn-box">
+      <strong>Confluence override:</strong> When a stock has BUY from both Alpha and Phoenix, both strategies may attempt
+      to buy it. The first strategy to execute wins the position (tagged to that strategy). The second strategy skips it
+      (already held). This prevents doubling up on a single name accidentally.
+    </div>
+  </div>
+
+  <!-- Universe -->
+  <div class="section" id="universe">
+    <h2>Screening Universe</h2>
+    <p>
+      Phoenix screens from the full <strong>watchlist</strong> (where complete fundamental data is available from Finnhub).
+      Stocks without Finnhub fundamentals (EPS growth, ROE, D/E) cannot be scored and are skipped.
+    </p>
+    <p>
+      To expand the Phoenix universe: add stocks to your watchlist. The morning refresh
+      (8:30 AM) pulls full fundamentals for all watchlist stocks, which Phoenix then scores at 9:35 AM.
+    </p>
+
+    <h3>Schedule</h3>
+    <ul>
+      <li><strong>8:30 AM ET:</strong> <code>phoenix_screener.scoreAll()</code> runs after morning refresh → results in daily digest email</li>
+      <li><strong>9:35 AM ET:</strong> <code>phoenix_autotrader.run()</code> executes alongside Alpha — exits first, then entries</li>
+    </ul>
+
+    <h3>Dashboard</h3>
+    <ul>
+      <li><strong>Stocks table</strong> — Phoenix signal column added next to Alpha signal. Gold row highlight when both = BUY.</li>
+      <li><strong>Phoenix panel</strong> — dedicated section showing all Phoenix BUY/WATCH candidates with scores, drawdown, EPS growth, buybacks</li>
+      <li><strong>Autotrader history</strong> — Strategy column shows Alpha or Phoenix for every trade</li>
+    </ul>
+  </div>
+
+  <!-- Example -->
+  <div class="section" id="example">
+    <h2>Score Example — NOW (ServiceNow)</h2>
+    <div class="example">
+      <div class="title">NOW — ServiceNow Inc · Phoenix Score: 73/100 → BUY</div>
+      <span class="ex-pos">+20</span>  EPS growth ~25% (>20% tier)<br>
+      <span class="ex-pos">+12</span>  Revenue growth ~22% (>15% tier)<br>
+      <span class="ex-pos">+10</span>  ROE >20% (fortress profitability)<br>
+      <span class="ex-pos">+ 8</span>  Debt/equity &lt;0.5 (strong balance sheet)<br>
+      <span class="ex-pos">+ 8</span>  Fwd P/E ~20% below sector avg<br>
+      <span class="ex-pos">+ 5</span>  Drawdown 40–60% below 52wk high<br>
+      <span class="ex-pos">+10</span>  Active buybacks (&gt;2% shares reduced)<br>
+      <span class="ex-pos">+ 8</span>  Analyst buy% ≥60%<br>
+      <span class="ex-zero">────────────────────</span><br>
+      <span class="ex-pos">= 81</span>  (clamped to 100 max)<br>
+      <br>
+      Hard gates: ✅ 45% below 52wk high · ✅ Price below 1yr ago · ✅ EPS growth >0 · ✅ Revenue growth >0 · ✅ Fwd P/E &lt; sector avg<br>
+      Recommendation: <span class="ex-pos">BUY (Phoenix)</span>
+    </div>
+
+    <h2 style="margin-top:24px">Score Example — Distressed Company (Value Trap)</h2>
+    <div class="example">
+      <div class="title">XYZ Corp · Phoenix Score: 18/100 → PASS (fails hard gate)</div>
+      <span class="ex-neg">FAIL</span> Hard Gate 2: EPS growth = −12% (negative) → <span class="ex-neg">EXCLUDED before scoring</span><br>
+      <br>
+      Even if XYZ is 60% below its 52wk high, negative EPS growth means the business is deteriorating.
+      This is a value trap — it may keep falling as earnings erode.<br>
+      Phoenix does not buy it.
+    </div>
+  </div>
+
+  <footer>
+    My Stocks Dashboard · Phoenix Strategy v1.0 · Screener: <code>portfolio_app/phoenix_screener.js</code> · Autotrader: <code>portfolio_app/phoenix_autotrader.js</code><br>
+    Alpha Strategy docs: <a href="scoringmethodology.html" style="color:#95a5a6">scoringmethodology.html</a> ·
+    Last updated: 2026-04-17
+  </footer>
+
+</div>
+</body>
+</html>

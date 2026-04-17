@@ -12,6 +12,9 @@ const {
 } = require('./trader/executor');
 const { getDailyBars } = require('./data/alpacaData');
 const { getTopPicks } = require('./portfolio_app/universe');
+const { run: autoRun } = require('./portfolio_app/autotrader');
+const { run: phoenixRun, evaluate: phoenixEvaluate } = require('./portfolio_app/phoenix_autotrader');
+const { getPhoenixSignals } = require('./portfolio_app/phoenix_screener');
 
 const PORT = parseInt(process.env.PORTFOLIO_PORT) || 8081;
 const app  = express();
@@ -621,10 +624,21 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
 }
 
 // ─── Stock table row ──────────────────────────────────────────────────────────
-function stockRow(s, upgrade) {
+function stockRow(s, upgrade, phxSig) {
   const recBadge = s.recommendation === 'BUY'  ? '<span class="badge badge-buy">▲ BUY</span>'
                  : s.recommendation === 'SELL' ? '<span class="badge badge-sell">▼ SELL</span>'
                  :                               '<span class="badge badge-hold">● HOLD</span>';
+
+  // Phoenix cross-reference badge
+  let phxBadge = '<span style="color:#4a5568;font-size:11px">—</span>';
+  const isConfluence = phxSig && s.recommendation === 'BUY' && phxSig.recommendation === 'BUY';
+  if (phxSig) {
+    if (phxSig.recommendation === 'BUY') {
+      phxBadge = `<span title="Phoenix score: ${phxSig.score}" style="display:inline-block;background:#2d1b4e;color:#e9d8fd;border:1px solid #805ad5;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700;cursor:help">🔥 BUY ${phxSig.score}</span>`;
+    } else if (phxSig.recommendation === 'WATCH') {
+      phxBadge = `<span title="Phoenix score: ${phxSig.score}" style="display:inline-block;background:#1a1540;color:#b794f4;border:1px solid #6b46c1;border-radius:4px;padding:2px 6px;font-size:11px;cursor:help">👁 WATCH ${phxSig.score}</span>`;
+    }
+  }
   const scoreColor = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
   const scoreBar = `<div class="score-bar"><div class="score-fill" style="width:${s.score||0}%;background:${scoreColor}"></div></div>`;
   const rsiColor = s.rsi < 30 ? '#fc8181' : s.rsi > 70 ? '#3182ce' : '#48bb78';
@@ -694,8 +708,9 @@ function stockRow(s, upgrade) {
       targetCell += `<br><span style="font-size:10px;color:#718096">$${tgtLow.toFixed(0)}–$${tgtHigh.toFixed(0)}</span>`;
   }
 
-  return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}">
-    <td><b>${s.symbol}</b>${assetTag}<br><span style="color:#718096;font-size:11px">${s.name||''}</span>
+  const rowStyle = isConfluence ? 'style="background:linear-gradient(90deg,rgba(234,179,8,.08),transparent)"' : '';
+  return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" ${rowStyle}>
+    <td><b>${s.symbol}</b>${isConfluence ? ' <span title="Both Alpha and Phoenix signal BUY" style="color:#d69e2e;font-size:12px">⭐</span>' : ''}${assetTag}<br><span style="color:#718096;font-size:11px">${s.name||''}</span>
       <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">
         ${buyBtn}
         <button onclick="openNews('${s.symbol}','${nameSafe}')" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d">News</button>
@@ -706,6 +721,7 @@ function stockRow(s, upgrade) {
     <td data-val="${s.price||0}">${price}</td>
     <td data-val="${chg??-999}">${chgTxt}</td>
     <td>${recBadge}<br>${scoreBar}<span style="font-size:11px;color:${scoreColor}">${parseFloat(s.score||0).toFixed(0)}/100</span></td>
+    <td>${phxBadge}</td>
     <td>${whyBtn}</td>
     <td>${sectorTxt}</td>
     <td>${targetCell}</td>
@@ -785,14 +801,64 @@ app.get('/', async (req, res) => {
       ? '<span class="badge-paper">📄 PAPER</span>'
       : '<span class="badge-live">💰 LIVE</span>';
 
-    const autorunRow   = await db.queryOne(`SELECT config_value FROM system_config WHERE config_group='autotrader' AND config_key='autorun_enabled'`);
-    const autorunOn    = autorunRow?.config_value === '1';
-    const autorunBtn   = autorunOn
-      ? `<a href="/autorun/toggle" class="btn btn-sm" style="background:#276749;color:#f0fff4;border:1px solid #48bb78" onclick="return confirm('Turn Autorun OFF? No trades will execute until re-enabled.')">▶ Autorun: ON</a>`
-      : `<a href="/autorun/toggle" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#a0aec0" onclick="return confirm('Turn Autorun ON? The system will place real trades at 9:35 AM tomorrow.')">⏸ Autorun: OFF</a>`;
+    const autorunRow    = await db.queryOne(`SELECT config_value FROM system_config WHERE config_group='autotrader' AND config_key='autorun_enabled'`);
+    const autorunOn     = autorunRow?.config_value === '1';
+    const phoenixRow    = await db.queryOne(`SELECT config_value FROM system_config WHERE config_group='phoenix' AND config_key='phoenix_enabled'`);
+    const phoenixOn     = phoenixRow?.config_value === '1';
 
-    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol))).join('');
+    const alphaBtn = autorunOn
+      ? `<a href="/autorun/toggle" class="btn btn-sm" style="background:#1a365d;color:#bee3f8;border:1px solid #3182ce" onclick="return confirm('Turn Alpha OFF?')">⚡ Alpha: ON</a>`
+      : `<a href="/autorun/toggle" class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#718096;border:1px solid #4a5568" onclick="return confirm('Turn Alpha ON? Trades execute at 9:35 AM.')">⚡ Alpha: OFF</a>`;
+    const phoenixBtn = phoenixOn
+      ? `<a href="/phoenix/toggle" class="btn btn-sm" style="background:#2d1b4e;color:#e9d8fd;border:1px solid #805ad5" onclick="return confirm('Turn Phoenix OFF?')">🔥 Phoenix: ON</a>`
+      : `<a href="/phoenix/toggle" class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#718096;border:1px solid #4a5568" onclick="return confirm('Turn Phoenix ON? Trades execute at 9:35 AM.')">🔥 Phoenix: OFF</a>`;
+
+    // Phoenix signals (BUY + WATCH) for cross-referencing in Stocks table
+    const phoenixSigs    = await getPhoenixSignals('WATCH').catch(() => []);
+    const phoenixSigMap  = new Map(phoenixSigs.map(p => [p.symbol, p]));
+
+    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol))).join('');
     const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap);
+    // Phoenix panel rows
+    const phoenixPanelRows = phoenixSigs.filter(p => p.recommendation === 'BUY' || p.recommendation === 'WATCH').map(p => {
+      const alpSig      = signalMap.get(p.symbol);
+      const alpRec      = alpSig?.recommendation || null;
+      const alpBadge    = alpRec === 'BUY'  ? `<span class="badge badge-buy" style="font-size:10px">⚡ BUY</span>`
+                        : alpRec === 'HOLD' ? `<span class="badge badge-hold" style="font-size:10px">⚡ HOLD</span>`
+                        : alpRec === 'SELL' ? `<span class="badge badge-sell" style="font-size:10px">⚡ SELL</span>` : '—';
+      const isConfl     = alpRec === 'BUY' && p.recommendation === 'BUY';
+      const phxBadge    = p.recommendation === 'BUY'
+        ? `<span style="background:#2d1b4e;color:#e9d8fd;border:1px solid #805ad5;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700">🔥 BUY</span>`
+        : `<span style="background:#1a1540;color:#b794f4;border:1px solid #6b46c1;border-radius:4px;padding:2px 6px;font-size:11px">👁 WATCH</span>`;
+      const rowStyle    = isConfl ? 'style="background:linear-gradient(90deg,rgba(234,179,8,.08),transparent)"' : '';
+      const pChg        = p.price_change_pct != null ? parseFloat(p.price_change_pct) : null;
+      const pChgColor   = pChg !== null ? (pChg >= 0 ? '#48bb78' : '#fc8181') : '#718096';
+      const priceTxt    = `<span style="color:${pChgColor};font-weight:600">$${parseFloat(p.price||0).toFixed(2)}</span>`;
+      const chgTxt      = pChg !== null ? `<span style="color:${pChgColor};font-weight:600">${pChg>=0?'+':''}${pChg.toFixed(2)}%</span>` : '—';
+      const pct52       = p.pct_from_52high != null ? parseFloat(p.pct_from_52high) : null;
+      const pct52Txt    = pct52 !== null ? `<span style="color:#fc8181;font-weight:600">${pct52.toFixed(1)}%</span>` : '—';
+      const pct1y       = p.price_change_1y != null ? parseFloat(p.price_change_1y) : null;
+      const pct1yTxt    = pct1y !== null ? `<span style="color:#fc8181">${pct1y.toFixed(1)}%</span>` : '—';
+      const epsTxt      = p.eps_growth != null ? `<span style="color:#48bb78">+${parseFloat(p.eps_growth).toFixed(0)}%</span>` : '—';
+      const buybackTxt  = p.shares_buyback_pct != null && parseFloat(p.shares_buyback_pct) < 0
+        ? `<span style="color:#48bb78">✓ ${Math.abs(parseFloat(p.shares_buyback_pct)).toFixed(1)}%</span>`
+        : `<span style="color:#718096">—</span>`;
+      const pScore      = `<span style="font-weight:700;color:${p.score>=60?'#e9d8fd':'#b794f4'}">${Math.round(p.score)}</span>`;
+      const nameSafe    = (p.name||'').replace(/'/g,"\\'");
+      return `<tr ${rowStyle}>
+        <td><b style="color:${isConfl?'#d69e2e':'#b794f4'}">${p.symbol}</b>${isConfl?' ⭐':''}${alpSig?'':' <span style="font-size:10px;color:#718096">(not in watchlist)</span>'}<br><span style="color:#718096;font-size:11px">${p.name||''}</span></td>
+        <td>${priceTxt}</td><td>${chgTxt}</td>
+        <td>${phxBadge}<br><span style="font-size:11px;color:#b794f4">${pScore}/100</span></td>
+        <td>${alpBadge}</td>
+        <td>${pct52Txt}</td>
+        <td>${pct1yTxt}</td>
+        <td>${epsTxt}</td>
+        <td>${buybackTxt}</td>
+        <td style="font-size:11px;color:#718096;max-width:200px">${(p.why||'').split(' · ').slice(0,3).join(' · ')}</td>
+        <td><button onclick="openBuy('${p.symbol}','${p.price||0}','${nameSafe}')" class="btn btn-xs" style="background:#2d1b4e;color:#e9d8fd;border:1px solid #805ad5">Buy</button></td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="11" style="padding:16px;text-align:center;color:#718096">No Phoenix candidates yet — screener runs at 8:30 AM ET or <a href="/refresh-now" style="color:#b794f4">refresh now</a></td></tr>`;
+
     const discoverRows = picks.map(s => {
       const scoreColor  = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
       const whySafe     = s.why ? s.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
@@ -839,10 +905,73 @@ window._buyingPower = ${buyingPower.toFixed(2)};
     <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
   </form>
   <a href="/refresh-now" class="btn btn-primary btn-sm">↻ Refresh Now</a>
-  ${autorunBtn}
-  <a href="/docs/scoring" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#bee3f8">📖 Scoring Guide</a>
+  <span style="display:flex;align-items:center;gap:4px">
+    ${alphaBtn}
+    <button onclick="showStrategyInfo('alpha')" style="background:none;border:none;color:#718096;cursor:pointer;font-size:14px;padding:0 2px" title="About Alpha strategy">ℹ</button>
+  </span>
+  <span style="display:flex;align-items:center;gap:4px">
+    ${phoenixBtn}
+    <button onclick="showStrategyInfo('phoenix')" style="background:none;border:none;color:#718096;cursor:pointer;font-size:14px;padding:0 2px" title="About Phoenix strategy">ℹ</button>
+  </span>
+  <a href="/docs/scoring" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#bee3f8">📖 Alpha Guide</a>
+  <a href="/docs/phoenix" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#e9d8fd">🔥 Phoenix Guide</a>
   <a href="http://192.168.1.156:3001/dashboard" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#bee3f8">↗ Swing Trader</a>
 </div>
+
+<!-- Strategy Info Modal -->
+<div id="strategy-info-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#1a1f2e;border-radius:12px;padding:32px;max-width:520px;width:90%;border:1px solid #2d3748;position:relative">
+    <button onclick="document.getElementById('strategy-info-modal').style.display='none'" style="position:absolute;top:12px;right:16px;background:none;border:none;color:#718096;font-size:20px;cursor:pointer">×</button>
+    <div id="strategy-info-content"></div>
+  </div>
+</div>
+<script>
+function showStrategyInfo(type) {
+  const modal = document.getElementById('strategy-info-modal');
+  const content = document.getElementById('strategy-info-content');
+  if (type === 'alpha') {
+    content.innerHTML = \`
+      <div style="color:#63b3ed;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Strategy A</div>
+      <div style="color:#fff;font-size:20px;font-weight:800;margin-bottom:14px">⚡ Alpha — Quality Growth Timing</div>
+      <p style="color:#a0aec0;font-size:13px;line-height:1.7;margin-bottom:10px">
+        Buys fundamentally strong stocks at <strong style="color:#bee3f8">technically optimal entry moments</strong>.
+        Uses 30+ signals across technicals (RSI, MACD, moving averages, volume), fundamentals (PE, EPS growth, ROE),
+        analyst consensus, and short interest.
+      </p>
+      <ul style="color:#a0aec0;font-size:13px;padding-left:18px;line-height:2">
+        <li>Score ≥ 65 on composite 30+ signal engine</li>
+        <li>RSI in 30–65 range (healthy entry zone, not overbought)</li>
+        <li>Price above 50-day moving average</li>
+        <li>Not &gt;8% extended above 50DMA (not chasing)</li>
+        <li>MACD bullish or above signal line</li>
+        <li>SPY must be above both 200DMA and 50DMA (bull regime)</li>
+      </ul>
+      <p style="color:#718096;font-size:12px;margin-top:10px">Hold: days to weeks · Hard stop: −8% · Exit on signal deterioration</p>
+      <a href="/docs/scoring" style="display:inline-block;margin-top:12px;color:#63b3ed;font-size:13px">📖 Full Alpha Scoring Guide →</a>
+    \`;
+  } else {
+    content.innerHTML = \`
+      <div style="color:#b794f4;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Strategy B</div>
+      <div style="color:#fff;font-size:20px;font-weight:800;margin-bottom:14px">🔥 Phoenix — Deep Value Contrarian</div>
+      <p style="color:#a0aec0;font-size:13px;line-height:1.7;margin-bottom:10px">
+        Buys fundamentally excellent companies that have been <strong style="color:#e9d8fd">deeply discounted by market fear</strong>,
+        not by fundamental damage. Deliberately buys when technicals look bad — that's the fear discount.
+      </p>
+      <ul style="color:#a0aec0;font-size:13px;padding-left:18px;line-height:2">
+        <li>≥ 40% below 52-week high (deep fear discount required)</li>
+        <li>Price below where it was 1 year ago (confirmed downtrend)</li>
+        <li>EPS growth &gt; 0% — earnings still growing (not a value trap)</li>
+        <li>Revenue growth &gt; 0% — top line intact</li>
+        <li>Forward P/E or P/S below sector average (objectively cheap)</li>
+        <li>Bonus: stock buybacks, analyst buy consensus, strong ROE</li>
+      </ul>
+      <p style="color:#718096;font-size:12px;margin-top:10px">Hold: weeks to months · Hard stop: −15% · Exit on fundamental deterioration</p>
+      <a href="/docs/phoenix" style="display:inline-block;margin-top:12px;color:#b794f4;font-size:13px">🔥 Full Phoenix Strategy Guide →</a>
+    \`;
+  }
+  modal.style.display = 'flex';
+}
+</script>
 
 ${pfSection}
 
@@ -875,7 +1004,8 @@ ${pfSection}
   <th data-col="sym"    onclick="sortTable('sym')">Symbol / Name</th>
   <th data-col="price"  onclick="sortTable('price')">Price</th>
   <th data-col="chg"    onclick="sortTable('chg')">Chg%</th>
-  <th data-col="score"  onclick="sortTable('score')">Rec · Score</th>
+  <th data-col="score"  onclick="sortTable('score')">⚡ Alpha</th>
+  <th data-col="phx">🔥 Phoenix</th>
   <th data-col="why">Why</th>
   <th data-col="sector">Sector</th>
   <th data-col="target">Price Target</th>
@@ -917,6 +1047,32 @@ ${pfSection}
   <th></th>
 </tr></thead>
 <tbody>${discoverRows}</tbody>
+</table>
+</div>
+</div>
+
+<!-- Phoenix section -->
+<div class="section-hdr" style="margin-top:20px;cursor:pointer;user-select:none;background:linear-gradient(135deg,#1a1540,#2d1b4e)" onclick="toggleSection('sec-phoenix')">
+  <span id="chev-sec-phoenix" style="font-size:11px;margin-right:6px">▼</span>🔥 Phoenix — Deep Value Contrarian
+  <span class="section-sub" style="color:#b794f4">${phoenixSigs.filter(p=>p.recommendation==='BUY').length} BUY · ${phoenixSigs.filter(p=>p.recommendation==='WATCH').length} WATCH · fundamentally strong, deeply discounted</span>
+  <button onclick="showStrategyInfo('phoenix');event.stopPropagation()" style="background:none;border:1px solid #805ad5;color:#b794f4;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:12px">ℹ What is Phoenix?</button>
+</div>
+<div id="sec-phoenix">
+<div class="tbl-wrap" style="max-height:500px;margin:0 24px 16px">
+<table>
+<thead><tr style="background:#1a1540">
+  <th>Symbol / Name</th>
+  <th>Price</th><th>Chg%</th>
+  <th>🔥 Phoenix</th>
+  <th>⚡ Alpha</th>
+  <th>vs 52wk High</th>
+  <th>1Y Price Chg</th>
+  <th>EPS Growth</th>
+  <th>Buybacks</th>
+  <th>Why</th>
+  <th></th>
+</tr></thead>
+<tbody>${phoenixPanelRows}</tbody>
 </table>
 </div>
 </div>
@@ -1122,6 +1278,38 @@ app.get('/watchlist/add-quick/:symbol', async (req, res) => {
   res.redirect('/');
 });
 
+// ─── Phoenix toggle ───────────────────────────────────────────────────────────
+app.get('/phoenix/toggle', async (req, res) => {
+  try {
+    const row     = await db.queryOne(`SELECT config_value FROM system_config WHERE config_group='phoenix' AND config_key='phoenix_enabled'`);
+    const current = row?.config_value === '1';
+    await db.query(
+      `INSERT INTO system_config (config_group, config_key, config_value)
+       VALUES ('phoenix', 'phoenix_enabled', ?)
+       ON DUPLICATE KEY UPDATE config_value=VALUES(config_value)`,
+      [current ? '0' : '1']
+    );
+    await db.log('info', 'phoenix', `Phoenix toggled ${current ? 'ON→OFF' : 'OFF→ON'}`);
+    res.redirect('/');
+  } catch (e) {
+    res.status(500).send(e.message);
+  }
+});
+
+// ─── Phoenix docs ─────────────────────────────────────────────────────────────
+app.get('/docs/phoenix', (req, res) => {
+  const fs = require('fs');
+  const f  = require('path').join(__dirname, 'phoenix_strategy.html');
+  if (fs.existsSync(f)) res.sendFile(f);
+  else res.status(404).send('Phoenix strategy doc not found');
+});
+
+// ─── Phoenix manual execute ───────────────────────────────────────────────────
+app.get('/phoenix/execute-now', async (req, res) => {
+  res.json({ status: 'started', message: 'Phoenix autotrader executing — check /autotrader/history and email' });
+  try { await phoenixRun(); } catch (e) { console.error('[Manual Phoenix]', e.message); }
+});
+
 // ─── Manual refresh ───────────────────────────────────────────────────────────
 app.get('/refresh-now', (req, res) => {
   res.redirect('/');
@@ -1220,6 +1408,15 @@ app.get('/autorun/toggle', async (req, res) => {
 app.get('/autorun/status', async (req, res) => {
   const row = await db.queryOne(`SELECT config_value FROM system_config WHERE config_group='autotrader' AND config_key='autorun_enabled'`);
   res.json({ autorun: row?.config_value === '1' });
+});
+
+app.get('/autorun/execute-now', async (req, res) => {
+  res.json({ status: 'started', message: 'Autotrader executing — check /autotrader/history and email for results' });
+  try {
+    await autoRun();
+  } catch (e) {
+    console.error('[Manual autoRun] Error:', e.message);
+  }
 });
 
 // ─── Place order (buy or sell) ────────────────────────────────────────────────

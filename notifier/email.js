@@ -331,7 +331,7 @@ async function sendModeChangeEmail(mode) {
 
 // ─── Autotrader Execution Email ───────────────────────────────────────────────
 // Sent after the 9:35 AM execution window when autorun is ON
-async function sendAutotraderEmail(results) {
+async function sendAutotraderEmail(results, strategyLabel = 'Alpha') {
   if (!cfg.email.user || !cfg.email.to) return;
   if (!results) return;
 
@@ -351,13 +351,20 @@ async function sendAutotraderEmail(results) {
     </tr>`;
   }).join('');
 
+  const isPhoenix   = strategyLabel === 'Phoenix';
+  const headerColor = isPhoenix ? '#805ad5' : '#63b3ed';
+  const headerBg    = isPhoenix ? '#1a1540' : '#1a1f35';
+  const stratIcon   = isPhoenix ? '🔥' : '⚡';
+
   const entryRows = entries.map(a => `
     <tr style="border-bottom:1px solid #eee">
       <td style="padding:8px;font-weight:bold">${a.symbol}</td>
       <td style="padding:8px;color:#27ae60">BUY</td>
       <td style="padding:8px">${a.qty} shares @ ~$${a.price?.toFixed(2)}</td>
       <td style="padding:8px">${scoreBar(a.score)}</td>
-      <td style="padding:8px;color:#718096;font-size:12px">${a.confirmations} confirmations · vol ${a.volRatio ?? '—'}x</td>
+      <td style="padding:8px;color:#718096;font-size:12px">${isPhoenix
+        ? `${Math.abs(a.pctFrom52h||0).toFixed(0)}% below 52wk high · EPS ${a.epsGrowth||'?'}%`
+        : `${a.confirmations} confirmations · vol ${a.volRatio ?? '—'}x`}</td>
       <td style="padding:8px">${a.executed ? '✅' : (a.error ? '❌' : '—')}</td>
     </tr>`).join('');
 
@@ -369,12 +376,12 @@ async function sendAutotraderEmail(results) {
   await transporter.sendMail({
     from:    `My Stocks <${cfg.email.user}>`,
     to:      cfg.email.to,
-    subject: `▶ Autotrader Executed — ${entries.length} buy${entries.length !== 1 ? 's' : ''}, ${exits.length} sell${exits.length !== 1 ? 's' : ''}`,
+    subject: `${stratIcon} ${strategyLabel} Executed — ${entries.length} buy${entries.length !== 1 ? 's' : ''}, ${exits.length} sell${exits.length !== 1 ? 's' : ''}`,
     html: `
 <div style="font-family:Arial,sans-serif;max-width:700px;background:#fff;border:1px solid #ddd;border-radius:8px;overflow:hidden">
-  <div style="background:#1a1f35;padding:20px 24px">
-    <h1 style="color:#63b3ed;margin:0;font-size:18px">▶ Autotrader — Today's Trades</h1>
-    <div style="color:#718096;margin-top:6px;font-size:12px">${new Date().toLocaleString('en-US',{timeZone:'America/New_York'})} ET · Market Regime: ${regime || 'unknown'}</div>
+  <div style="background:${headerBg};padding:20px 24px">
+    <h1 style="color:${headerColor};margin:0;font-size:18px">${stratIcon} ${strategyLabel} — Today's Trades</h1>
+    <div style="color:#718096;margin-top:6px;font-size:12px">${new Date().toLocaleString('en-US',{timeZone:'America/New_York'})} ET${regime ? ` · Regime: ${regime}` : ''}</div>
   </div>
   <div style="padding:20px 24px">
     ${exits.length ? `
