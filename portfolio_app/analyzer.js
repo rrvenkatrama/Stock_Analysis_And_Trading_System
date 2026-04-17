@@ -308,12 +308,17 @@ function computeScore(signals) {
   }
 
   // ── MACD ─────────────────────────────────────────────────────────────────
+  // Cross bonus and trend bonus are mutually exclusive to avoid double-counting.
+  // A bullish cross fires macdBullishCrossNow/Recent (+12/+7) AND sets trend='bullish'.
+  // Applying macdTrendUp (+4) on top would double-count the same signal.
   if (macdCrossAgo !== null) {
     if (macdCrossAgo <= 1) add(W.macdBullishCrossNow,   'MACD just turned bullish');
     else                   add(W.macdBullishCrossRecent, `MACD bullish cross ${macdCrossAgo}d ago`);
+  } else {
+    // Only apply trend signal when there is no recent cross (cross already rewarded above)
+    if (['bullish','above_signal'].includes(macdTrend)) add(W.macdTrendUp,   'MACD trending up');
+    if (['bearish','below_signal'].includes(macdTrend)) add(W.macdTrendDown, 'MACD trending down');
   }
-  if (['bullish','above_signal'].includes(macdTrend)) add(W.macdTrendUp,   'MACD trending up');
-  if (['bearish','below_signal'].includes(macdTrend)) add(W.macdTrendDown, 'MACD trending down');
 
   // ── P/E vs sector average ─────────────────────────────────────────────────
   // Use trailing PE; fall back to forward PE if trailing unavailable
@@ -563,8 +568,9 @@ async function analyzeSymbol(symbol, quoteData = null) {
       pe_trailing, pe_forward, fwd_pe_improving, dividend_yield,
       target_mean, target_high, target_low,
       ema9_bull_cross_ago, ema9_bear_cross_ago,
+      analyst_buy, analyst_sell, analyst_hold,
       score, recommendation, why
-    ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON DUPLICATE KEY UPDATE
       name=COALESCE(VALUES(name),name), sector=COALESCE(VALUES(sector),sector),
       asset_type=COALESCE(VALUES(asset_type),asset_type),
@@ -590,6 +596,9 @@ async function analyzeSymbol(symbol, quoteData = null) {
       target_high=COALESCE(VALUES(target_high),target_high),
       target_low=COALESCE(VALUES(target_low),target_low),
       ema9_bull_cross_ago=VALUES(ema9_bull_cross_ago), ema9_bear_cross_ago=VALUES(ema9_bear_cross_ago),
+      analyst_buy=COALESCE(VALUES(analyst_buy),analyst_buy),
+      analyst_sell=COALESCE(VALUES(analyst_sell),analyst_sell),
+      analyst_hold=COALESCE(VALUES(analyst_hold),analyst_hold),
       score=VALUES(score), recommendation=VALUES(recommendation), why=VALUES(why)`,
     [
       symbol,
@@ -629,6 +638,9 @@ async function analyzeSymbol(symbol, quoteData = null) {
       targetLow  ? Math.round(targetLow  * 100) / 100 : null,
       ema9BullCrossAgo ?? null,
       ema9BearCrossAgo ?? null,
+      analystBuy  ?? null,
+      analystSell ?? null,
+      analystHold ?? null,
       Math.round(finalScore * 100) / 100,
       recommendation,
       topReasons,

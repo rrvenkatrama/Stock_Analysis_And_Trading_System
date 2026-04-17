@@ -82,13 +82,18 @@ function applyHardGates(fund, sig, sectorPeAvg, sectorPsAvg) {
     return { pass: false, reason: `Revenue growth ${rev.toFixed(1)}% ≤ 0` };
   }
 
-  // Gate 5: Valuation check (at least one of P/E or P/S must be below sector avg)
+  // Gate 5: at least one of fwd P/E or P/S must be BELOW sector avg (actually cheap vs peers)
+  // If PE=null but we have P/S data, we still enforce P/S < sector avg.
   const pe = fund.peForward ? parseFloat(fund.peForward) : null;
   const ps = fund.psRatio   ? parseFloat(fund.psRatio)   : null;
-  if (pe !== null && sectorPeAvg !== null && pe >= sectorPeAvg) {
-    if (ps !== null && sectorPsAvg !== null && ps >= sectorPsAvg) {
-      return { pass: false, reason: `Fwd P/E ${pe.toFixed(1)} ≥ sector avg ${sectorPeAvg.toFixed(1)} AND P/S ${ps.toFixed(2)} ≥ sector avg ${sectorPsAvg.toFixed(2)}` };
-    }
+  const hasValuation  = (pe !== null && sectorPeAvg !== null) || (ps !== null && sectorPsAvg !== null);
+  const peBelowSector = pe !== null && sectorPeAvg !== null && pe < sectorPeAvg;
+  const psBelowSector = ps !== null && sectorPsAvg !== null && ps < sectorPsAvg;
+  if (hasValuation && !peBelowSector && !psBelowSector) {
+    const parts = [];
+    if (pe !== null && sectorPeAvg !== null) parts.push(`Fwd P/E ${pe.toFixed(1)} ≥ sector ${sectorPeAvg.toFixed(1)}`);
+    if (ps !== null && sectorPsAvg !== null) parts.push(`P/S ${ps.toFixed(2)} ≥ sector ${sectorPsAvg.toFixed(2)}`);
+    return { pass: false, reason: parts.join(' AND ') };
   }
 
   return { pass: true, reason: '' };
@@ -192,17 +197,10 @@ async function scoreSymbol(symbol) {
   sig.price_1y_ago       = yearAgoRow ? parseFloat(yearAgoRow.close) : null;
   sig.shares_buyback_pct = sig.shares_buyback_pct ?? null;
 
-  // Sector averages (Finnhub, with fallback to hardcoded defaults)
-  const sector     = fund.sector || sig.sector || null;
-  let sectorPeAvg  = null;
-  let sectorPsAvg  = null;
-  try {
-    sectorPeAvg = sector ? (await getSectorPE(sector)  ?? sectorPeDefault(sector)) : null;
-    sectorPsAvg = sector ? (await getSectorPS(sector)  ?? sectorPsDefault(sector)) : null;
-  } catch (_) {
-    sectorPeAvg = sectorPeDefault(sector);
-    sectorPsAvg = sectorPsDefault(sector);
-  }
+  // Sector averages from Finnhub (synchronous — hardcoded defaults inside getSectorPE/PS)
+  const sector    = fund.sector || null;
+  const sectorPeAvg = sector ? getSectorPE(sector) : null;
+  const sectorPsAvg = sector ? getSectorPS(sector) : null;
 
   const gate = applyHardGates(fund, sig, sectorPeAvg, sectorPsAvg);
   if (!gate.pass) {

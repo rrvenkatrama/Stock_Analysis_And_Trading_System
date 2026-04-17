@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>StockTrader — Product Requirements v2.2</title>
+<title>StockTrader — Product Requirements v3.0</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f9fc;color:#1a202c;font-size:14px;line-height:1.6}
@@ -39,6 +39,8 @@ tr:hover td{background:#f7fafc}
 .note strong{color:#5f370e}
 .warn{background:#fff5f5;border:1px solid #feb2b2;border-radius:6px;padding:12px 16px;margin:12px 0;font-size:13px;color:#9b2c2c}
 .info{background:#ebf8ff;border:1px solid #bee3f8;border-radius:6px;padding:12px 16px;margin:12px 0;font-size:13px;color:#2b6cb0}
+.phoenix-info{background:#faf5ff;border:1px solid #d6bcfa;border-radius:6px;padding:12px 16px;margin:12px 0;font-size:13px;color:#553c9a}
+.phoenix-info strong{color:#44337a}
 .green{color:#276749;font-weight:600}
 .red{color:#c53030;font-weight:600}
 .gray{color:#718096}
@@ -47,27 +49,40 @@ tr:hover td{background:#f7fafc}
 .badge-hold{background:#fffff0;color:#744210;border:1px solid #f6e05e}
 .badge-sell{background:#fff5f5;color:#9b2c2c;border:1px solid #feb2b2}
 .badge-new{background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8}
+.badge-phoenix{background:#faf5ff;color:#553c9a;border:1px solid #d6bcfa}
+.badge-gold{background:#fffff0;color:#744210;border:1px solid #ecc94b;font-size:11px}
 .tier-box{border-radius:8px;padding:16px 20px;margin:12px 0}
 .tier1{background:#f0fff4;border:1px solid #9ae6b4}
 .tier2{background:#fffff0;border:1px solid #f6e05e}
 .tier3{background:#ebf8ff;border:1px solid #bee3f8}
+.phoenix-box{background:#faf5ff;border:1px solid #d6bcfa;border-radius:8px;padding:16px 20px;margin:12px 0}
 .tier-label{font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
 .tier1 .tier-label{color:#276749}
 .tier2 .tier-label{color:#744210}
 .tier3 .tier-label{color:#2b6cb0}
+.phoenix-box .tier-label{color:#553c9a}
 .flow{background:#1a202c;border-radius:8px;padding:16px;font-family:'SF Mono',Monaco,monospace;font-size:12px;color:#e2e8f0;margin:12px 0;line-height:1.8}
 .flow .green{color:#68d391}
 .flow .yellow{color:#f6e05e}
 .flow .blue{color:#63b3ed}
 .flow .red{color:#fc8181}
+.flow .purple{color:#d6bcfa}
 .swatch{display:inline-block;width:16px;height:16px;border-radius:3px;vertical-align:middle;margin-right:6px;border:1px solid rgba(0,0,0,.1)}
-@media(max-width:700px){.layout{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;border-right:none;border-bottom:1px solid #e2e8f0}.content{padding:20px}}
+.strategy-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.strategy-card{border-radius:8px;padding:16px 20px;border:1px solid}
+.strategy-alpha{background:#ebf8ff;border-color:#bee3f8}
+.strategy-phoenix{background:#faf5ff;border-color:#d6bcfa}
+.strategy-card h4{margin-top:0;font-size:13px}
+.strategy-alpha h4{color:#2b6cb0}
+.strategy-phoenix h4{color:#553c9a}
+.confluence-row{background:#fffff0 !important;border-left:3px solid #ecc94b}
+@media(max-width:700px){.layout{flex-direction:column}.sidebar{width:100%;height:auto;position:relative;border-right:none;border-bottom:1px solid #e2e8f0}.content{padding:20px}.strategy-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>📊 StockTrader <span class="version-badge">v2.2</span></h1>
+  <h1>📊 StockTrader <span class="version-badge">v3.0</span></h1>
   <div class="sub">Product Requirements Document · April 2026 · Rajesh Ramani</div>
 </div>
 
@@ -82,7 +97,7 @@ tr:hover td{background:#f7fafc}
   <a href="#swing">6. Swing Trader (3001)</a>
   <a href="#mystocks">7. My Stocks (8081)</a>
   <a href="#theme" class="indent">7.1 UI Theme</a>
-  <a href="#header" class="indent">7.2 Header & Stat Bar</a>
+  <a href="#header" class="indent">7.2 Header &amp; Stat Bar</a>
   <a href="#portfolio" class="indent">7.3 Portfolio Section</a>
   <a href="#stocks" class="indent">7.4 Stocks Section</a>
   <a href="#discover" class="indent">7.5 Discover Section</a>
@@ -92,14 +107,21 @@ tr:hover td{background:#f7fafc}
   <a href="#email" class="indent">7.9 Email</a>
   <a href="#routes" class="indent">7.10 API Routes</a>
   <a href="#autotrader">8. Auto-Trading System</a>
-  <a href="#toggle" class="indent">8.1 Autorun Toggle</a>
-  <a href="#tier3" class="indent">8.2 Tier 3 — Regime</a>
-  <a href="#tier2" class="indent">8.3 Tier 2 — Quality</a>
-  <a href="#tier1" class="indent">8.4 Tier 1 — Entry/Exit</a>
-  <a href="#guardrails" class="indent">8.5 Guardrails</a>
-  <a href="#autorun-off" class="indent">8.6 Autorun OFF</a>
-  <a href="#autorun-on" class="indent">8.7 Autorun ON</a>
-  <a href="#notifications" class="indent">8.8 Notifications</a>
+  <a href="#strategies" class="indent">8.1 Dual Strategy Overview</a>
+  <a href="#toggle" class="indent">8.2 Autorun Toggles</a>
+  <a href="#alpha-flow" class="indent">8.3 Alpha Strategy Flow</a>
+  <a href="#tier3" class="indent">8.4 Tier 3 — Regime</a>
+  <a href="#tier2" class="indent">8.5 Tier 2 — Quality</a>
+  <a href="#tier1" class="indent">8.6 Tier 1 — Entry/Exit</a>
+  <a href="#phoenix" class="indent">8.7 Phoenix Strategy</a>
+  <a href="#phoenix-gates" class="indent">8.8 Phoenix Hard Gates</a>
+  <a href="#phoenix-scoring" class="indent">8.9 Phoenix Scoring</a>
+  <a href="#phoenix-exits" class="indent">8.10 Phoenix Exits</a>
+  <a href="#confluence" class="indent">8.11 Confluence Signal</a>
+  <a href="#guardrails" class="indent">8.12 Guardrails</a>
+  <a href="#autorun-off" class="indent">8.13 Autorun OFF</a>
+  <a href="#autorun-on" class="indent">8.14 Autorun ON</a>
+  <a href="#notifications" class="indent">8.15 Notifications</a>
   <a href="#nfr">9. Non-Functional Req.</a>
   <a href="#issues">10. Known Issues</a>
   <a href="#decisions">11. Design Decisions</a>
@@ -114,10 +136,12 @@ tr:hover td{background:#f7fafc}
 <table>
 <tr><th>Dashboard</th><th>Port</th><th>Purpose</th></tr>
 <tr><td><strong>Swing Trader</strong></td><td><code>3001</code></td><td>Short-term scan-and-execute: universe scan, daily plan, human-approved trades</td></tr>
-<tr><td><strong>My Stocks</strong></td><td><code>8081</code></td><td>Personal watchlist research: 113+ stocks, long-hold scoring, Alpaca execution</td></tr>
+<tr><td><strong>My Stocks</strong></td><td><code>8081</code></td><td>Personal watchlist research: 113+ stocks, long-hold scoring, dual auto-trading strategies</td></tr>
 </table>
 
 <div class="info">The <strong>My Stocks dashboard (port 8081)</strong> is the primary focus of this document and the target for the Auto-Trading feature.</div>
+
+<div class="info"><strong>v3.0 addition:</strong> The <strong>Phoenix Strategy</strong> is a second independent auto-trading engine running alongside the existing Alpha Strategy. Both share watchlist data, positions, and the Alpaca account, but operate with separate logic, signals, and configuration.</div>
 
 <!-- ═══ 2. INFRASTRUCTURE ══════════════════════════════════════════════════ -->
 <h2 id="infra">2. Infrastructure</h2>
@@ -139,11 +163,11 @@ tr:hover td{background:#f7fafc}
 <table>
 <tr><th>Data Type</th><th>Primary Source</th><th>Notes</th></tr>
 <tr><td>Price bars (OHLCV)</td><td>Alpaca Market Data</td><td>No rate limits; parallel batches of 5</td></tr>
-<tr><td>PE, EPS, ROE, D/E</td><td>Finnhub <code>/stock/metric</code></td><td>60 req/min free; 1200ms delay per symbol</td></tr>
+<tr><td>PE, EPS, ROE, D/E</td><td>Finnhub <code>/stock/metric</code></td><td>60 req/min free; 2000ms delay per symbol</td></tr>
 <tr><td>Analyst buy/sell/hold</td><td>Finnhub <code>/stock/recommendation</code></td><td>2nd Finnhub call per symbol</td></tr>
-<tr><td>Upgrades/downgrades</td><td>Finnhub <code>/stock/upgrade-downgrade</code></td><td>Free; refreshed weekly, max 20/run</td></tr>
+<tr><td>Upgrades/downgrades</td><td>Finnhub <code>/stock/upgrade-downgrade</code></td><td>Free; refreshed weekly, max 60/run</td></tr>
 <tr><td>Name, sector, short interest</td><td>Yahoo Finance <code>quote()</code></td><td>Rate-limits after ~10 rapid requests; graceful degradation</td></tr>
-<tr><td>Price targets (mean/high/low)</td><td>Yahoo Finance <code>quote()</code></td><td>Free via <code>targetMeanPrice/High/Low</code> fields — zero extra calls</td></tr>
+<tr><td>Price targets (mean/high/low)</td><td>Yahoo Finance <code>quote()</code></td><td>Free via <code>targetMeanPrice/High/Low</code> fields; slow-fetch via <code>/refresh-targets</code> (12s/symbol, 15/run)</td></tr>
 <tr><td>Analyst consensus</td><td>Yahoo Finance <code>quote()</code></td><td><code>recommendationMean</code> + <code>numberOfAnalystOpinions</code></td></tr>
 <tr><td>VIX</td><td>Yahoo Finance (VIXY proxy)</td><td>VIXY × 1.8 + 2 ≈ VIX</td></tr>
 <tr><td>Market news</td><td>Finnhub <code>/company-news</code></td><td>Cached in <code>news_cache</code> table</td></tr>
@@ -151,9 +175,10 @@ tr:hover td{background:#f7fafc}
 
 <h3>Rate Limit Management</h3>
 <ul>
-  <li><strong>FUND_DELAY = 1200ms</strong> between symbols (2 Finnhub calls/symbol → safe at 60 req/min)</li>
+  <li><strong>FUND_DELAY = 2000ms</strong> between symbols (3 Finnhub calls/symbol run in parallel via <code>Promise.allSettled</code>)</li>
   <li><strong>QUOTE_DELAY = 800ms</strong> between Yahoo quote calls</li>
-  <li><strong>Upgrades:</strong> max 20 stale symbols per run, 2000ms delay; weekly cadence</li>
+  <li><strong>Upgrades:</strong> max 60 stale symbols per run, 2000ms delay; weekly cadence</li>
+  <li><strong>Price targets:</strong> slow background pass via <code>GET /refresh-targets</code> — 12s/symbol, 15 symbols per run — avoids Yahoo rate limits</li>
   <li>Yahoo Finance blocks IP after ~10 rapid requests; clears in 30–60 min; switch to Finnhub via sources.js when blocked</li>
 </ul>
 
@@ -166,31 +191,33 @@ tr:hover td{background:#f7fafc}
 <h3>My Stocks Tables</h3>
 
 <h4>watchlist</h4>
-<pre><code>symbol          VARCHAR(10) PRIMARY KEY
-name            VARCHAR(200)
-sector          VARCHAR(100)
-asset_type      ENUM('stock','etf','fund') DEFAULT 'stock'
-is_active       TINYINT(1) DEFAULT 1
-pe_trailing     DECIMAL(10,2)
-pe_forward      DECIMAL(10,2)
-div_yield       DECIMAL(8,4)
-ps_ratio        DECIMAL(10,2)
-analyst_buy     INT
-analyst_sell    INT
-analyst_hold    INT
-eps_growth      DECIMAL(8,4)
-revenue_growth  DECIMAL(8,4)
-debt_equity     DECIMAL(10,4)
-roe             DECIMAL(8,4)
-beta            DECIMAL(8,4)
-short_float     DECIMAL(8,4)
-rec_mean        DECIMAL(4,2)
-rec_count       INT
-target_mean     DECIMAL(10,2)
-target_high     DECIMAL(10,2)
-target_low      DECIMAL(10,2)
-fundamentals_at TIMESTAMP
-upgrades_at     TIMESTAMP NULL DEFAULT NULL</code></pre>
+<pre><code>symbol             VARCHAR(10) PRIMARY KEY
+name               VARCHAR(200)
+sector             VARCHAR(100)
+asset_type         ENUM('stock','etf','fund') DEFAULT 'stock'
+is_active          TINYINT(1) DEFAULT 1
+pe_trailing        DECIMAL(10,2)
+pe_forward         DECIMAL(10,2)
+div_yield          DECIMAL(8,4)
+ps_ratio           DECIMAL(10,2)
+analyst_buy        INT
+analyst_sell       INT
+analyst_hold       INT
+eps_growth         DECIMAL(8,4)
+revenue_growth     DECIMAL(8,4)
+debt_equity        DECIMAL(10,4)
+roe                DECIMAL(8,4)
+beta               DECIMAL(8,4)
+short_float        DECIMAL(8,4)
+rec_mean           DECIMAL(4,2)
+rec_count          INT
+target_mean        DECIMAL(10,2)
+target_high        DECIMAL(10,2)
+target_low         DECIMAL(10,2)
+shares_buyback_pct DECIMAL(5,2)       -- v3.0: annual buyback rate (always NULL on Finnhub free tier)
+shares_outstanding BIGINT             -- v3.0: for buyback calculation
+fundamentals_at    TIMESTAMP
+upgrades_at        TIMESTAMP NULL DEFAULT NULL</code></pre>
 
 <h4>price_history</h4>
 <pre><code>symbol      VARCHAR(10)
@@ -239,42 +266,79 @@ price            DECIMAL(12,4) DEFAULT NULL
 exit_reason      VARCHAR(200) DEFAULT NULL
 sell_pct         INT DEFAULT NULL
 alpaca_order_id  VARCHAR(100) DEFAULT NULL
+strategy         VARCHAR(20) DEFAULT 'alpha'   -- v3.0: 'alpha' or 'phoenix'
 executed_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 INDEX idx_sym (symbol), INDEX idx_at (executed_at)</code></pre>
+
+<div class="note"><strong>strategy column (v3.0):</strong> Added to allow each strategy to track its own positions independently. Alpha trades record <code>'alpha'</code>; Phoenix trades record <code>'phoenix'</code>. Both query only their own rows when checking position history and time stops. Migration: <code>db/migrate_phoenix.sql</code>.</div>
+
+<h4>phoenix_signals <span class="badge badge-phoenix" style="margin-left:6px">v3.0 NEW</span></h4>
+<pre><code>symbol             VARCHAR(10) PRIMARY KEY
+name               VARCHAR(200)
+sector             VARCHAR(100)
+price              DECIMAL(12,4)
+price_change_pct   DECIMAL(8,2)
+high_52w           DECIMAL(12,4)
+low_52w            DECIMAL(12,4)
+pct_from_52high    DECIMAL(8,2)
+price_1y_ago       DECIMAL(12,4)
+price_change_1y    DECIMAL(8,2)
+eps_growth         DECIMAL(8,4)
+revenue_growth     DECIMAL(8,4)
+roe                DECIMAL(8,4)
+debt_equity        DECIMAL(10,4)
+pe_forward         DECIMAL(10,2)
+ps_ratio           DECIMAL(10,2)
+dividend_yield     DECIMAL(8,4)
+analyst_buy        INT
+analyst_sell       INT
+analyst_hold       INT
+shares_buyback_pct DECIMAL(5,2)
+score              DECIMAL(6,2)
+recommendation     ENUM('BUY','WATCH','PASS')
+why                TEXT
+generated_at       TIMESTAMP</code></pre>
 
 <h4>analyst_upgrades</h4>
 <pre><code>symbol, action, from_grade, to_grade, firm, grade_date, fetched_at
 UNIQUE KEY uniq_sym_firm_date (symbol, firm, grade_date)</code></pre>
 
 <h4>system_config (shared — data sources + autorun settings)</h4>
-<pre><code>config_group  VARCHAR(40) NOT NULL    -- e.g. 'sources', 'autotrader'
-config_key    VARCHAR(60) NOT NULL    -- e.g. 'fundamentals', 'autorun_enabled'
+<pre><code>config_group  VARCHAR(40) NOT NULL    -- e.g. 'sources', 'autotrader', 'phoenix'
+config_key    VARCHAR(60) NOT NULL    -- e.g. 'fundamentals', 'autorun_enabled', 'phoenix_enabled'
 config_value  VARCHAR(120) NOT NULL
 UNIQUE KEY (config_group, config_key)</code></pre>
-<p style="font-size:12px;color:#4a5568;margin-top:4px">Autorun rows: <code>config_group='autotrader'</code>, <code>config_key='autorun_enabled'</code> → <code>'0'</code> or <code>'1'</code>; <code>config_key='autorun_max_positions'</code> → <code>'8'</code><br>Query pattern: <code>SELECT config_value FROM system_config WHERE config_group='autotrader' AND config_key=?</code></p>
+<p style="font-size:12px;color:#4a5568;margin-top:4px">
+  Alpha rows: <code>config_group='autotrader'</code> · <code>autorun_enabled</code> → <code>'0'/'1'</code> · <code>autorun_max_positions</code> → <code>'4'</code><br>
+  Phoenix rows <span class="badge badge-phoenix" style="font-size:10px">v3.0</span>: <code>config_group='phoenix'</code> · <code>phoenix_enabled</code> → <code>'0'/'1'</code> · <code>phoenix_max_positions</code> → <code>'4'</code><br>
+  Query pattern: <code>SELECT config_value FROM system_config WHERE config_group=? AND config_key=?</code>
+</p>
 
 <!-- ═══ 5. FILE MAP ═══════════════════════════════════════════════════════ -->
 <h2 id="filemap">5. File Map</h2>
-<pre><code>server.js                       Swing Trader Express app (port 3001)
-server_portfolio.js             My Stocks Express app (port 8081)  ← primary
-config/env.js                   All config from .env
-config/params.js                Scoring/risk params (DB-backed)
-config/sources.js               Runtime data source switching
-db/db.js                        MySQL pool helpers
-db/schema.sql                   All MySQL table definitions
-data/alpacaData.js              Alpaca Market Data — getDailyBars()
-data/finnhub.js                 Fundamentals, analyst, upgrades/downgrades
-data/yahoo.js                   Yahoo Finance quote() + withRetry()
-trader/executor.js              Alpaca order placement + position sync
-trader/guardrails.js            Pre-trade safety checks
-notifier/email.js               sendDailyDigest(), sendModeChangeEmail(), sendAutotraderEmail(), sendErrorAlert()
-portfolio_app/yahoo_history.js  Watchlist mgmt, Alpaca bars, Finnhub+Yahoo fundamentals
-portfolio_app/analyzer.js       My Stocks scoring engine (30+ signals, BUY/HOLD/SELL)
-portfolio_app/universe.js       204-stock discovery universe, scanUniverse(), getTopPicks()
-portfolio_app/scheduler.js      8:30 AM ET (refresh→analyze→universe→autoEvaluate→email)
-                                9:35 AM ET (autoRun() — executes if autorun_enabled='1')
-portfolio_app/autotrader.js     3-tier auto-trading engine (regime→quality→entry/exit)
-stocktrader_portfolio.service   systemd unit (My Stocks, port 8081)</code></pre>
+<pre><code>server.js                            Swing Trader Express app (port 3001)
+server_portfolio.js                  My Stocks Express app (port 8081)  &lt;-- primary
+config/env.js                        All config from .env
+config/params.js                     Scoring/risk params (DB-backed)
+config/sources.js                    Runtime data source switching
+db/db.js                             MySQL pool helpers
+db/schema.sql                        All MySQL table definitions
+db/migrate_phoenix.sql               v3.0 migration: phoenix_signals, strategy col, phoenix config rows
+data/alpacaData.js                   Alpaca Market Data — getDailyBars()
+data/finnhub.js                      Fundamentals, analyst, upgrades/downgrades
+data/yahoo.js                        Yahoo Finance quote() + withRetry()
+trader/executor.js                   Alpaca order placement + position sync
+trader/guardrails.js                 Pre-trade safety checks
+notifier/email.js                    sendDailyDigest(), sendModeChangeEmail(), sendAutotraderEmail(), sendErrorAlert()
+portfolio_app/yahoo_history.js       Watchlist mgmt, Alpaca bars, Finnhub+Yahoo fundamentals
+portfolio_app/analyzer.js            Alpha scoring engine (30+ signals, BUY/HOLD/SELL)
+portfolio_app/universe.js            204-stock discovery universe, scanUniverse(), getTopPicks()
+portfolio_app/scheduler.js           8:30 AM ET (refresh→analyze→universe→autoEvaluate→phoenix→email)
+                                     9:35 AM ET (Alpha autoRun() then Phoenix autoRun())
+portfolio_app/autotrader.js          Alpha 3-tier auto-trading engine (regime→quality→entry/exit)
+portfolio_app/phoenix_screener.js    Phoenix scoring engine, scoreAll(), getPhoenixSignals()  [v3.0]
+portfolio_app/phoenix_autotrader.js  Phoenix evaluate(), run(), exit logic                    [v3.0]
+stocktrader_portfolio.service        systemd unit (My Stocks, port 8081)</code></pre>
 
 <!-- ═══ 6. SWING TRADER ═════════════════════════════════════════════════ -->
 <h2 id="swing">6. Swing Trader Dashboard (Port 3001)</h2>
@@ -306,6 +370,9 @@ stocktrader_portfolio.service   systemd unit (My Stocks, port 8081)</code></pre>
 <tr><td>Text secondary</td><td><span class="swatch" style="background:#718096"></span><code>#718096</code></td><td>Labels, metadata, subtitles</td></tr>
 <tr><td>Header gradient</td><td><code>#1a365d → #2c5282</code></td><td>Top nav bar</td></tr>
 <tr><td>Accent blue</td><td><span class="swatch" style="background:#3182ce"></span><code>#3182ce</code></td><td>Links, primary buttons, sort indicator</td></tr>
+<tr><td>Alpha button</td><td><span class="swatch" style="background:#3182ce"></span><code>#3182ce</code></td><td>⚡ Alpha autorun toggle button (blue)</td></tr>
+<tr><td>Phoenix button</td><td><span class="swatch" style="background:#6b46c1"></span><code>#6b46c1</code></td><td>🔥 Phoenix autorun toggle button (purple)</td></tr>
+<tr><td>Confluence gold</td><td><span class="swatch" style="background:#fffff0;border-color:#ecc94b"></span><code>#fffff0 / #ecc94b</code></td><td>⭐ Gold row highlight for Alpha+Phoenix BUY</td></tr>
 <tr><td>Green (up/buy)</td><td><span class="swatch" style="background:#276749"></span><code>#276749</code></td><td>BUY badge text, positive P&L</td></tr>
 <tr><td>Red (down/sell)</td><td><span class="swatch" style="background:#c53030"></span><code>#c53030</code></td><td>SELL badge text, negative P&L</td></tr>
 <tr><td>Yellow (hold)</td><td><span class="swatch" style="background:#744210"></span><code>#744210</code></td><td>HOLD badge text</td></tr>
@@ -324,7 +391,8 @@ stocktrader_portfolio.service   systemd unit (My Stocks, port 8081)</code></pre>
       <li><strong>Refresh Now</strong> → <code>GET /refresh-now</code></li>
       <li><strong>Scan Universe</strong> → <code>GET /scan-universe</code></li>
       <li><strong>Add Ticker</strong> form → <code>POST /watchlist/add</code></li>
-      <li><span class="badge-new badge">NEW</span> <strong>Autorun: OFF / ON</strong> toggle → <code>GET /autorun/toggle</code></li>
+      <li><span class="badge-new badge">Alpha</span> <strong>⚡ Alpha: OFF / ON</strong> toggle (blue) → <code>GET /autorun/toggle</code> + ℹ info popup</li>
+      <li><span class="badge-phoenix badge">Phoenix</span> <strong>🔥 Phoenix: OFF / ON</strong> toggle (purple) → <code>GET /phoenix/toggle</code> + ℹ info popup</li>
     </ul>
   </li>
 </ul>
@@ -364,8 +432,8 @@ Collapsible. Has filter bar (Signal dropdown + text search) above table.</p>
 <h4>Stocks Table Columns (<code>id="stocks-table"</code>, sortable)</h4>
 <table>
 <tr><th>#</th><th>Column</th><th>data-col</th><th>Content</th></tr>
-<tr><td>1</td><td>Symbol</td><td>sym</td><td><strong>Symbol</strong> + ETF/FUND badge + name + <strong>Buy/Remove buttons inline</strong> — <strong>sticky left column</strong></td></tr>
-<tr><td>2</td><td>Signal</td><td>rec</td><td>BUY/HOLD/SELL badge</td></tr>
+<tr><td>1</td><td>Symbol</td><td>sym</td><td><strong>Symbol</strong> + ETF/FUND badge + name + <strong>Buy/Remove buttons inline</strong> — <strong>sticky left column</strong>. <span class="badge badge-gold">⭐ Gold</span> row highlight when Alpha+Phoenix both BUY (Confluence Signal)</td></tr>
+<tr><td>2</td><td>Signal</td><td>rec</td><td>BUY/HOLD/SELL badge (Alpha score)</td></tr>
 <tr><td>3</td><td>Score</td><td>score</td><td>Numeric + color-coded score bar (80px × 6px)</td></tr>
 <tr><td>4</td><td>Why</td><td>—</td><td>"Why?" button → Why modal</td></tr>
 <tr><td>5</td><td>Sector</td><td>sector</td><td>Sector name</td></tr>
@@ -423,7 +491,7 @@ Collapsible. Scans ~204-stock universe (S&amp;P 100 + popular NASDAQ + sector ET
 </div>
 
 <div class="card">
-<h4>News Modal <span class="badge-new badge">NEW</span></h4>
+<h4>News Modal</h4>
 <p>Triggered by a "📰 News" button per symbol row. Route: <code>GET /news/:symbol?source=finnhub|sec</code>. Two tabs:</p>
 <ul>
   <li><strong>Finnhub tab</strong> — company news from <code>news_cache</code> table (cached from Finnhub <code>/company-news</code>). Shows headline, source, datetime, summary, and link.</li>
@@ -450,20 +518,23 @@ Collapsible. Scans ~204-stock universe (S&amp;P 100 + popular NASDAQ + sector ET
 <div class="flow">
 <span class="blue">morningJob — 8:30 AM ET Mon–Fri</span><br>
 <span class="blue">Phase 1</span> — Price History (Alpaca, parallel batches of 5)<br>
-<span class="blue">Phase 2</span> — Fundamentals (Finnhub primary + Yahoo enrichment, serial 1200ms/symbol)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └─ getFundamentals() + getAnalystRatings() + yf.quote()<br>
-<span class="blue">Phase 3</span> — Upgrades/Downgrades (Finnhub, weekly, max 20 stale symbols, 2000ms delay)<br>
+<span class="blue">Phase 2</span> — Fundamentals (Finnhub primary + Yahoo enrichment, serial 2000ms/symbol)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └─ getFundamentals() + getAnalystRatings() + getProfile() in parallel via Promise.allSettled<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └─ yf.quote() enrichment (short_float, rec_mean, price targets via COALESCE)<br>
+<span class="blue">Phase 3</span> — Upgrades/Downgrades (Finnhub, weekly, max 60 stale symbols, 2000ms delay)<br>
 <span class="blue">Phase 4</span> — analyzeAll() → scores all watchlist symbols → stock_signals table<br>
-<span class="blue">Phase 4.5</span> — <span class="green">autoEvaluate(false)</span> — always runs; generates recommendations for email, <strong>never places orders</strong><br>
+<span class="blue">Phase 4.5</span> — <span class="green">Alpha autoEvaluate(false)</span> — always runs; generates Alpha recommendations for email, <strong>never places orders</strong><br>
+<span class="blue">Phase 4.6</span> — <span class="purple">Phoenix scoreAll()</span> → scores watchlist for Phoenix signals → phoenix_signals table<br>
 <span class="blue">Phase 5</span> — scanUniverse() → 204-stock discovery scan<br>
-<span class="blue">Phase 6</span> — sendDailyDigest(signals, positions, picks, autoResults) email<br>
+<span class="blue">Phase 6</span> — sendDailyDigest(signals, positions, picks, autoResults, phoenixResults) email<br>
 <span class="blue">Phase 7</span> — sendErrorAlert() if any phase collected errors<br>
 <br>
 <span class="blue">tradeJob — 9:35 AM ET Mon–Fri</span><br>
-<span class="green">autoRun()</span> — checks autorun_enabled='1' + market hours → calls evaluate(true) → places live orders → sendAutotraderEmail()
+<span class="green">Alpha autoRun()</span> — checks autorun_enabled='1' + market hours → evaluate(true) → live orders → sendAutotraderEmail()<br>
+<span class="purple">Phoenix autoRun()</span> — checks phoenix_enabled='1' + market hours → Phoenix evaluate(true) → live orders → sendAutotraderEmail()
 </div>
 
-<h3 id="scoring">7.8 Scoring Engine</h3>
+<h3 id="scoring">7.8 Scoring Engine (Alpha)</h3>
 <p>Score 0–100 (clamped). <span class="badge badge-buy">BUY ≥ 50</span> <span class="badge badge-hold">HOLD ≥ 10</span> <span class="badge badge-sell">SELL &lt; 10</span></p>
 
 <h4>MA Signals (50 vs 200 SMA)</h4>
@@ -536,10 +607,11 @@ Collapsible. Scans ~204-stock universe (S&amp;P 100 + popular NASDAQ + sector ET
 <p>All emails via Gmail SMTP (<code>rrvenkatrama@gmail.com</code>).</p>
 <table>
 <tr><th>Email</th><th>Subject</th><th>Trigger</th></tr>
-<tr><td>Daily Digest</td><td>📊 My Stocks Daily — N BUY signals · DD Mon YYYY</td><td>After each morning refresh</td></tr>
+<tr><td>Daily Digest</td><td>📊 My Stocks Daily — N BUY signals · DD Mon YYYY</td><td>After each morning refresh; includes both Alpha and Phoenix recommendations</td></tr>
 <tr><td>Error Alert</td><td>⚠️ My Stocks — Errors in Daily Refresh</td><td>Any scheduler phase throws exception</td></tr>
-<tr><td>Auto-Trade Report <span class="badge-new badge">NEW</span></td><td>🤖 Autorun: N trades executed / Recommendations</td><td>After autotrader.run() completes</td></tr>
-<tr><td>Mode Change Alert <span class="badge-new badge">NEW</span></td><td>🤖 Autorun turned ON / OFF</td><td>On toggle</td></tr>
+<tr><td>Alpha Trade Report</td><td>🤖 Autorun: N trades executed / Recommendations</td><td>After autotrader.run() completes</td></tr>
+<tr><td>Phoenix Trade Report <span class="badge badge-phoenix" style="margin-left:4px">v3.0</span></td><td>🔥 Phoenix: N trades executed / Recommendations</td><td>After phoenix_autotrader.run() completes</td></tr>
+<tr><td>Mode Change Alert</td><td>🤖 Autorun turned ON / OFF</td><td>On Alpha or Phoenix toggle</td></tr>
 </table>
 
 <h3 id="routes">7.10 API Routes</h3>
@@ -555,27 +627,94 @@ Collapsible. Scans ~204-stock universe (S&amp;P 100 + popular NASDAQ + sector ET
 <tr><td>POST</td><td><code>/order</code></td><td>Place order via Alpaca</td></tr>
 <tr><td>GET</td><td><code>/order/:id/cancel</code></td><td>Cancel open order</td></tr>
 <tr><td>GET</td><td><code>/position-chart/:symbol</code></td><td>Chart data: <code>?period=1y&amp;benchmarks=SPY,QQQ</code></td></tr>
-<tr><td>GET</td><td><code>/autorun/toggle</code><span class="badge-new badge" style="margin-left:6px">NEW</span></td><td>Flip autorun on/off, redirect to /</td></tr>
-<tr><td>GET</td><td><code>/autorun/status</code><span class="badge-new badge" style="margin-left:6px">NEW</span></td><td>Return current autorun state (JSON)</td></tr>
-<tr><td>GET</td><td><code>/news/:symbol</code><span class="badge-new badge" style="margin-left:6px">NEW</span></td><td>Finnhub + SEC EDGAR news; <code>?source=finnhub|sec</code></td></tr>
-<tr><td>GET</td><td><code>/docs/scoring</code><span class="badge-new badge" style="margin-left:6px">NEW</span></td><td>Scoring methodology HTML</td></tr>
+<tr><td>GET</td><td><code>/news/:symbol</code></td><td>Finnhub + SEC EDGAR news; <code>?source=finnhub|sec</code></td></tr>
+<tr><td>GET</td><td><code>/docs/scoring</code></td><td>Scoring methodology HTML</td></tr>
+<tr><td>GET</td><td><code>/autorun/toggle</code></td><td>Flip Alpha autorun on/off, redirect to /</td></tr>
+<tr><td>GET</td><td><code>/autorun/status</code></td><td>Return current Alpha autorun state (JSON)</td></tr>
+<tr><td>GET</td><td><code>/autorun/execute-now</code> <span class="badge badge-new" style="margin-left:4px">v3.0</span></td><td>Manual trigger of Alpha autoRun() — bypasses cron schedule</td></tr>
+<tr><td>GET</td><td><code>/phoenix/toggle</code> <span class="badge badge-phoenix" style="margin-left:4px">v3.0</span></td><td>Flip Phoenix autorun on/off, redirect to /</td></tr>
+<tr><td>GET</td><td><code>/phoenix/execute-now</code> <span class="badge badge-phoenix" style="margin-left:4px">v3.0</span></td><td>Manual trigger of Phoenix autoRun()</td></tr>
+<tr><td>GET</td><td><code>/refresh-targets</code> <span class="badge badge-new" style="margin-left:4px">v3.0</span></td><td>Slow background Yahoo price target fetch (12s/symbol, 15/run)</td></tr>
+<tr><td>GET</td><td><code>/docs/phoenix</code> <span class="badge badge-phoenix" style="margin-left:4px">v3.0</span></td><td>Opens phoenix_strategy.html documentation</td></tr>
 </table>
 
 <!-- ═══ 8. AUTO-TRADING ═══════════════════════════════════════════════════ -->
-<h2 id="autotrader">8. Auto-Trading System <span class="badge-new badge">New Feature</span></h2>
+<h2 id="autotrader">8. Auto-Trading System</h2>
 
-<div class="info">The auto-trading system adds a 3-tier decision engine on top of the existing scoring system. It does not replace any existing functionality — scores, signals, and the dashboard all remain unchanged.</div>
+<div class="info">The auto-trading system now contains <strong>two independent strategies</strong> — Alpha and Phoenix — both layered on top of the existing scoring system. Neither replaces scores, signals, or the dashboard. They run sequentially at 9:35 AM: Alpha executes first, Phoenix executes second.</div>
+
+<h3 id="strategies">8.1 Dual Strategy Overview</h3>
+
+<div class="strategy-grid">
+<div class="strategy-card strategy-alpha">
+<h4>⚡ Alpha Strategy</h4>
+<p><strong>File:</strong> <code>portfolio_app/autotrader.js</code></p>
+<p><strong>Philosophy:</strong> Quality growth timing — buy fundamentally strong stocks at technically optimal entry points.</p>
+<ul>
+  <li>Score 0–100 · BUY ≥50 | HOLD 10–49 | SELL &lt;10</li>
+  <li>3-tier gate: Regime → Quality → Entry/Exit</li>
+  <li>Hard stop: −8% | Soft exits: score &lt;25, RSI &gt;75, EMA bear cross, MACD bearish, 30d time stop</li>
+  <li>Max 4 positions · 9:35 AM ET execution</li>
+  <li>Toggle: ⚡ Alpha button (blue) in dashboard header</li>
+</ul>
+</div>
+<div class="strategy-card strategy-phoenix">
+<h4>🔥 Phoenix Strategy</h4>
+<p><strong>Files:</strong> <code>portfolio_app/phoenix_screener.js</code> + <code>portfolio_app/phoenix_autotrader.js</code></p>
+<p><strong>Philosophy:</strong> Deep value contrarian — buy fundamentally strong stocks that are ≥40% below their 52-week high, waiting for the inevitable recovery.</p>
+<ul>
+  <li>Score 0–100 · BUY ≥60 | WATCH 35–59 | PASS &lt;35</li>
+  <li>5 hard gates must ALL pass before scoring</li>
+  <li>Hard stop: −15% | Soft exits: score &lt;30, analyst &lt;20% buy, EPS growth negative, recovered within 15% of 52wk high, 60d time stop</li>
+  <li>Max 4 positions · virtual 50% cash pool</li>
+  <li>Toggle: 🔥 Phoenix button (purple) in dashboard header</li>
+</ul>
+</div>
+</div>
+
+<table>
+<tr><th>Attribute</th><th>Alpha Strategy</th><th>Phoenix Strategy</th></tr>
+<tr><td>Universe</td><td>Watchlist (is_active=1)</td><td>Watchlist (is_active=1)</td></tr>
+<tr><td>Screening</td><td>30+ technical + fundamental signals</td><td>Deep value: ≥40% below 52wk high + 5 hard gates</td></tr>
+<tr><td>BUY threshold</td><td>Score ≥ 50</td><td>Score ≥ 60</td></tr>
+<tr><td>Hard stop</td><td>−8% from entry</td><td>−15% from entry</td></tr>
+<tr><td>Time stop</td><td>30 calendar days, no gain → sell 50%</td><td>60 calendar days, no gain → sell 50%</td></tr>
+<tr><td>Max positions</td><td>4 (system_config)</td><td>4 (system_config)</td></tr>
+<tr><td>Position sizing</td><td>Equity × 10% max; 20% cash buffer</td><td>Virtual 50% cash pool (separate from Alpha)</td></tr>
+<tr><td>Execution time</td><td>9:35 AM ET — runs first</td><td>9:35 AM ET — runs second</td></tr>
+<tr><td>Trade log</td><td>autotrader_trades (strategy='alpha')</td><td>autotrader_trades (strategy='phoenix')</td></tr>
+<tr><td>Toggle route</td><td><code>GET /autorun/toggle</code></td><td><code>GET /phoenix/toggle</code></td></tr>
+<tr><td>Manual trigger</td><td><code>GET /autorun/execute-now</code></td><td><code>GET /phoenix/execute-now</code></td></tr>
+<tr><td>Config group</td><td><code>config_group='autotrader'</code></td><td><code>config_group='phoenix'</code></td></tr>
+<tr><td>Signal table</td><td><code>stock_signals</code></td><td><code>phoenix_signals</code></td></tr>
+</table>
+
+<h3 id="toggle">8.2 Autorun Toggles</h3>
+
+<table>
+<tr><th>Strategy</th><th>State</th><th>Button Appearance</th><th>On Click</th></tr>
+<tr><td>Alpha</td><td>OFF (default)</td><td><code>⏸ Alpha: OFF</code> (gray)</td><td><code>GET /autorun/toggle</code> → flips to ON</td></tr>
+<tr><td>Alpha</td><td>ON</td><td><code>⚡ Alpha: ON</code> (blue, pulsing dot)</td><td><code>GET /autorun/toggle</code> → flips to OFF</td></tr>
+<tr><td>Phoenix</td><td>OFF (default)</td><td><code>⏸ Phoenix: OFF</code> (gray)</td><td><code>GET /phoenix/toggle</code> → flips to ON</td></tr>
+<tr><td>Phoenix</td><td>ON</td><td><code>🔥 Phoenix: ON</code> (purple, pulsing dot)</td><td><code>GET /phoenix/toggle</code> → flips to OFF</td></tr>
+</table>
+
+<p>Each toggle: logs to system_log + sends mode-change email + redirects to <code>/</code>. Both strategies are independent — Alpha ON and Phoenix OFF is valid.</p>
+
+<div class="note"><strong>Timing rule:</strong> Turning either strategy ON triggers <em>no immediate orders</em>. Recommendations appear in the next 8:30 AM digest; execution happens at the next 9:35 AM cron.</div>
+<div class="note"><strong>ℹ info popups:</strong> Each toggle button has a companion ℹ icon that opens a popup explaining the strategy's logic without leaving the page.</div>
+
+<h3 id="alpha-flow">8.3 Alpha Strategy — Execution Flow</h3>
 
 <div class="flow">
-<span class="blue">8:30 AM ET — autoEvaluate(false)</span> → recommendations only, no orders<br>
-<span class="blue">9:35 AM ET — autoRun()</span> &nbsp;<span class="yellow">[only if autorun_enabled='1' + market hours 9:35–3:45 ET]</span><br>
+<span class="blue">8:30 AM ET — Alpha autoEvaluate(false)</span> → recommendations only, no orders<br>
+<span class="blue">9:35 AM ET — Alpha autoRun()</span> &nbsp;<span class="yellow">[only if autorun_enabled='1' + market hours 9:35–3:45 ET]</span><br>
 &nbsp;&nbsp;│<br>
 &nbsp;&nbsp;├── 1. <span class="yellow">Tier 3</span>: Market Regime Filter<br>
 &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── BEAR → log + email, skip buys, proceed to exits only<br>
 &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── BULL → proceed to exits and entries<br>
 &nbsp;&nbsp;│<br>
 &nbsp;&nbsp;├── 2. Evaluate EXIT conditions for ALL Alpaca positions<br>
-&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(includes manually opened positions)<br>
 &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Price 8%+ below entry &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="red">100%</span> (hard stop)<br>
 &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Score &lt; 25 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
 &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── RSI &gt; 75 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
@@ -584,30 +723,16 @@ Collapsible. Scans ~204-stock universe (S&amp;P 100 + popular NASDAQ + sector ET
 &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── Held ≥ 30 calendar days with no gain &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
 &nbsp;&nbsp;│<br>
 &nbsp;&nbsp;├── 3. Check ENTRY conditions — <span class="green">watchlist only</span> (is_active=1)<br>
-&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Skip: symbol already held (any qty &gt; 0) → diversify instead<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Skip: symbol already held (any qty &gt; 0)<br>
 &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="yellow">Tier 2</span>: score ≥50, price ≥$5, RSI ≤65, not extended &gt;8% above 50MA<br>
 &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="yellow">Tier 1</span>: score ≥65 + ≥2 technical confirmations + no earnings within 5d<br>
 &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Position sizing: cashBuffer=equity×0.20, deployable=(BP−buffer)×0.50<br>
-&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── Approved → place market buy → log to autotrader_trades<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── Approved → place market buy → log to autotrader_trades (strategy='alpha')<br>
 &nbsp;&nbsp;│<br>
 &nbsp;&nbsp;└── 4. Log all decisions to system_log → sendAutotraderEmail()
 </div>
 
-<h3 id="toggle">8.1 Autorun Toggle</h3>
-
-<p><strong>Storage:</strong> <code>system_config</code> table · <code>config_group='autotrader'</code> · <code>config_key='autorun_enabled'</code> · <code>config_value='1'</code> or <code>'0'</code> · Default <code>'0'</code></p>
-
-<table>
-<tr><th>State</th><th>Button Appearance</th><th>On Click</th></tr>
-<tr><td>OFF (default)</td><td><code>⏸ Autorun: OFF</code> (gray, neutral)</td><td><code>GET /autorun/toggle</code> → flips to ON</td></tr>
-<tr><td>ON</td><td><code>▶ Autorun: ON</code> (green, pulsing dot)</td><td><code>GET /autorun/toggle</code> → flips to OFF</td></tr>
-</table>
-
-<p>Toggle route also: logs to system_log + sends mode-change email + redirects to <code>/</code>.</p>
-<div class="note"><strong>Timing rule:</strong> Turning Autorun ON triggers <em>no immediate orders</em>. Recommendations appear in the next 8:30 AM digest; execution happens at the next 9:35 AM cron. This gives the user time to review the 8:30 AM recommendations before any orders are placed.</div>
-<div class="note"><strong>First-run on Autorun ON:</strong> The next 8:30 AM run evaluates all current Alpaca positions — including any opened manually before Autorun was enabled — against the exit rules. No position is grandfathered in.</div>
-
-<h3 id="tier3">8.2 Tier 3 — Market Regime Filter</h3>
+<h3 id="tier3">8.4 Tier 3 — Market Regime Filter (Alpha)</h3>
 
 <div class="tier-box tier3">
 <div class="tier-label">Tier 3 — Market Regime (Outermost Gate)</div>
@@ -619,7 +744,7 @@ Collapsible. Scans ~204-stock universe (S&amp;P 100 + popular NASDAQ + sector ET
 </table>
 </div>
 
-<h3 id="tier2">8.3 Tier 2 — Quality + Mean Reversion Filter</h3>
+<h3 id="tier2">8.5 Tier 2 — Quality + Mean Reversion Filter (Alpha)</h3>
 
 <div class="warn"><strong>Universe restriction:</strong> The autotrader operates exclusively on stocks in the personal watchlist (<code>watchlist</code> table, <code>is_active=1</code>). Discover universe stocks, manually typed symbols, and any external source are never auto-traded. To make a stock eligible, add it to the watchlist first via "+ Add" or "+ Watch".</div>
 
@@ -632,7 +757,7 @@ Collapsible. Scans ~204-stock universe (S&amp;P 100 + popular NASDAQ + sector ET
 </ol>
 </div>
 
-<h3 id="tier1">8.4 Tier 1 — Entry/Exit Execution Rules</h3>
+<h3 id="tier1">8.6 Tier 1 — Entry/Exit Execution Rules (Alpha)</h3>
 
 <div class="tier-box tier1">
 <div class="tier-label">Tier 1 — Entry/Exit Execution</div>
@@ -641,8 +766,8 @@ Collapsible. Scans ~204-stock universe (S&amp;P 100 + popular NASDAQ + sector ET
 <ol>
   <li>Score ≥ 65</li>
   <li>At least 2 of: RSI 30–55 | price crossed above 50-SMA ≤3 sessions | MACD bull cross ≤5 sessions | volume ≥1.3x on up day</li>
-  <li><strong>No existing position in this symbol</strong> — if any shares are currently held in Alpaca (regardless of how they were opened), no additional shares are bought. Select a different stock to fill the slot instead.</li>
-  <li>Not at max positions (default <strong>8</strong>)</li>
+  <li><strong>No existing position in this symbol</strong> — if any shares are currently held in Alpaca (regardless of how they were opened), no additional shares are bought</li>
+  <li>Not at max positions (default <strong>4</strong>, configurable in system_config)</li>
   <li>Sufficient buying power after 20% cash buffer</li>
   <li>Not within 5 days of earnings</li>
   <li>Market hours 9:35 AM – 3:45 PM ET</li>
@@ -651,18 +776,17 @@ Collapsible. Scans ~204-stock universe (S&amp;P 100 + popular NASDAQ + sector ET
 <div class="note"><strong>Re-entry rule:</strong> Once a position is fully closed (Alpaca qty = 0), the autotrader may repurchase that stock on any future run if entry conditions are met again. There is no permanent blacklist.</div>
 
 <h4>Exit Conditions and Sell Quantity</h4>
-<p>Exits are <strong>partial (50%) by default</strong> to reduce false-signal impact and preserve upside on recoveries. The hard stop-loss is the only full exit.</p>
 <table>
 <tr><th>Condition</th><th>Shares Sold</th><th>Rationale</th></tr>
-<tr><td>Price 8%+ below entry</td><td><span class="red"><strong>100% — full exit</strong></span></td><td>Hard stop — capital preservation, no partial</td></tr>
+<tr><td>Price 8%+ below entry</td><td><span class="red"><strong>100% — full exit</strong></span></td><td>Hard stop — capital preservation</td></tr>
 <tr><td>Score &lt; 25</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Signal deteriorating — reduce exposure</td></tr>
-<tr><td>RSI &gt; 75</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Overbought — take partial profit, let rest run</td></tr>
+<tr><td>RSI &gt; 75</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Overbought — take partial profit</td></tr>
 <tr><td>EMA 9 crossed below EMA 21 (≤3 sessions ago)</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Short-term reversal signal</td></tr>
-<tr><td>MACD turned bearish (macd_trend = 'bearish')</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Trend momentum turning negative</td></tr>
-<tr><td>Held ≥ 30 calendar days with no gain</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Time stop — trim dead weight, don't fully exit</td></tr>
+<tr><td>MACD turned bearish</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Trend momentum turning negative</td></tr>
+<tr><td>Held ≥ 30 calendar days with no gain</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Time stop — trim dead weight</td></tr>
 </table>
 <p style="font-size:12px;color:#718096;margin-top:6px">Rounding: <code>floor(currentQty × 0.5)</code>, min 1 share. If result = 0 (e.g. holding 1 share), sell the full position instead.</p>
-<div class="note"><strong>Manual positions:</strong> The autotrader evaluates and may sell positions opened manually via the Buy button, not only those it opened itself. Any position held in Alpaca is subject to exit rules once Autorun is ON.</div>
+<div class="note"><strong>Manual positions:</strong> The autotrader evaluates and may sell positions opened manually via the Buy button. Any position held in Alpaca is subject to exit rules once Autorun is ON.</div>
 
 <h4>Position Sizing</h4>
 <pre><code>cashBuffer     = accountEquity × 0.20
@@ -670,77 +794,183 @@ deployable     = max(0, (buyingPower − cashBuffer) × 0.50)
 maxPerPosition = accountEquity × 0.10
 perSlot        = min(deployable / openSlots, maxPerPosition)
 shares         = floor(perSlot / currentPrice)
-// min 1 share; skip if perSlot < currentPrice</code></pre>
+// min 1 share; skip if perSlot &lt; currentPrice</code></pre>
 </div>
 
-<h3 id="guardrails">8.5 Risk Management Guardrails</h3>
+<!-- ═══ 8.7 PHOENIX ════════════════════════════════════════════════════════ -->
+<h3 id="phoenix">8.7 Phoenix Strategy — Overview <span class="badge badge-phoenix" style="margin-left:6px">v3.0 NEW</span></h3>
 
-<div class="warn">These apply in both Autorun ON and OFF modes. Any guardrail failure blocks the trade with a logged reason.</div>
+<div class="phoenix-info">
+<strong>Phoenix Philosophy:</strong> Great companies fall far from their highs for temporary reasons — macro fear, sector rotation, short-term earnings misses. Phoenix finds fundamentally strong stocks ≥40% below their 52-week high that have not yet recovered, waits for the mean reversion, and exits when they approach full recovery.
+</div>
+
+<div class="flow">
+<span class="blue">8:30 AM ET — Phoenix scoreAll()</span> → scores watchlist → phoenix_signals table → recommendations in daily digest<br>
+<span class="blue">9:35 AM ET — Phoenix autoRun()</span> &nbsp;<span class="purple">[only if phoenix_enabled='1' + market hours]</span><br>
+&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;├── 1. All 5 hard gates checked for each watchlist symbol<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── Any gate fails → PASS (skip entirely)<br>
+&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;├── 2. Evaluate EXIT conditions for Phoenix positions<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Price 15%+ below entry &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="red">100%</span> (hard stop)<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Phoenix score &lt; 30 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Analyst consensus &lt; 20% buy &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── EPS growth negative &nbsp;&td;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Price within 15% of 52wk high (recovered) &nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── Held ≥ 60 calendar days with no gain &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ sell <span class="yellow">50%</span><br>
+&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;├── 3. Check ENTRY conditions (watchlist only, phoenix_signals.recommendation='BUY')<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Skip: symbol already held by Phoenix (strategy='phoenix' in autotrader_trades)<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Phoenix score ≥ 60, all 5 hard gates pass<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Not at max Phoenix positions (4)<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Sufficient virtual cash pool (50% of account, shared only with Phoenix)<br>
+&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── Approved → place market buy → log to autotrader_trades (strategy='phoenix')<br>
+&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;└── 4. Log all decisions → sendAutotraderEmail() (Phoenix subject line)
+</div>
+
+<h3 id="phoenix-gates">8.8 Phoenix Hard Gates</h3>
+
+<div class="phoenix-box">
+<div class="tier-label">5 Hard Gates — ALL must pass before Phoenix scores a stock</div>
+<table>
+<tr><th>#</th><th>Gate</th><th>Rationale</th></tr>
+<tr><td>1</td><td>Price ≥ 40% below 52-week high</td><td>Must be a genuine deep-value situation, not a minor pullback</td></tr>
+<tr><td>2</td><td>Price today &lt; price 1 year ago (YoY decline)</td><td>Confirms sustained downtrend, not a recent spike high</td></tr>
+<tr><td>3</td><td>EPS growth &gt; 0%</td><td>Not a value trap — company must still be growing earnings</td></tr>
+<tr><td>4</td><td>Revenue growth &gt; 0%</td><td>Top-line growth confirms business model intact</td></tr>
+<tr><td>5</td><td>Forward P/E &lt; sector avg OR Forward P/S &lt; sector avg</td><td>Must be valuation-cheap relative to peers</td></tr>
+</table>
+</div>
+
+<div class="warn"><strong>Gate failure is not partial:</strong> Any single gate failure means PASS — the stock is skipped entirely and receives no score. This prevents false positives from averaging out bad fundamentals.</div>
+
+<h3 id="phoenix-scoring">8.9 Phoenix Scoring</h3>
+<p>Score 0–100 (clamped). <span class="badge badge-buy">BUY ≥ 60</span> <span class="badge badge-hold" style="background:#faf5ff;color:#553c9a;border-color:#d6bcfa">WATCH 35–59</span> <span class="badge badge-sell">PASS &lt; 35</span></p>
 
 <table>
-<tr><th>Rule</th><th>Limit</th></tr>
-<tr><td>Max open positions</td><td><strong>8</strong> (configurable via system_config)</td></tr>
-<tr><td>Max per position</td><td>10% of account equity</td></tr>
-<tr><td>Cash buffer</td><td>20% always uninvested</td></tr>
-<tr><td>Max trades/day</td><td>8 (resets midnight ET)</td></tr>
-<tr><td>Hard stop loss</td><td>8% below entry — <strong>full exit (100%)</strong></td></tr>
-<tr><td>Time stop</td><td>30 calendar days held with no gain → 50% partial sell</td></tr>
-<tr><td>Partial exit sells</td><td>50% of held shares for all non-stop-loss exit conditions</td></tr>
-<tr><td>Watchlist-only</td><td>Only <code>watchlist</code> stocks (<code>is_active=1</code>) eligible for auto-trade</td></tr>
-<tr><td>One position per symbol</td><td>No adding to existing positions — diversify into new stocks</td></tr>
-<tr><td>Re-entry after full close</td><td>Allowed once Alpaca qty = 0 for that symbol</td></tr>
-<tr><td>Manual positions</td><td>Subject to exit rules once Autorun is ON</td></tr>
-<tr><td>Evaluation timing</td><td>Autorun ON never triggers immediate orders — first run is next 8:30 AM</td></tr>
-<tr><td>Earnings blackout</td><td>No buy within 5 calendar days of next earnings</td></tr>
-<tr><td>Market hours</td><td>9:35 AM – 3:45 PM ET only (entry and exit)</td></tr>
-<tr><td>No short selling</td><td>Long-only positions</td></tr>
-<tr><td>No options</td><td>Equities only</td></tr>
-<tr><td>No same-day close</td><td>No buy AND sell same symbol same trading day</td></tr>
-<tr><td>Penny stock filter</td><td>Price ≥ $5 required</td></tr>
-<tr><td>Daily drawdown pause</td><td>Account drops 3% in one day → pause new buys 48h</td></tr>
+<tr><th>Signal Group</th><th>Condition</th><th>Points</th></tr>
+<tr><td rowspan="3">Depth of dip</td><td>Price 60%+ below 52wk high</td><td><span class="green">+20</span></td></tr>
+<tr><td>Price 50–60% below 52wk high</td><td><span class="green">+15</span></td></tr>
+<tr><td>Price 40–50% below 52wk high</td><td><span class="green">+10</span></td></tr>
+<tr><td rowspan="2">YoY price decline</td><td>Price &gt;40% below 1y ago price</td><td><span class="green">+10</span></td></tr>
+<tr><td>Price 20–40% below 1y ago</td><td><span class="green">+6</span></td></tr>
+<tr><td rowspan="3">EPS growth (3Y)</td><td>EPS growth &gt;20%</td><td><span class="green">+15</span></td></tr>
+<tr><td>EPS growth 10–20%</td><td><span class="green">+10</span></td></tr>
+<tr><td>EPS growth 0–10% (gate minimum)</td><td><span class="green">+5</span></td></tr>
+<tr><td rowspan="2">Revenue growth</td><td>Revenue growth &gt;15%</td><td><span class="green">+10</span></td></tr>
+<tr><td>Revenue growth 5–15%</td><td><span class="green">+6</span></td></tr>
+<tr><td rowspan="2">ROE</td><td>ROE &gt;20%</td><td><span class="green">+8</span></td></tr>
+<tr><td>ROE 10–20%</td><td><span class="green">+4</span></td></tr>
+<tr><td>Debt/Equity</td><td>D/E &lt; 0.3</td><td><span class="green">+5</span></td></tr>
+<tr><td rowspan="2">Analyst consensus</td><td>≥70% buy ratings</td><td><span class="green">+10</span></td></tr>
+<tr><td>50–70% buy ratings</td><td><span class="green">+6</span></td></tr>
+<tr><td>Analyst consensus</td><td>&lt;20% buy ratings</td><td><span class="red">−8</span></td></tr>
+<tr><td rowspan="2">Dividend</td><td>Dividend yield ≥3%</td><td><span class="green">+8</span></td></tr>
+<tr><td>Dividend yield ≥1.5%</td><td><span class="green">+4</span></td></tr>
+<tr><td>Buyback</td><td>shares_buyback_pct &gt;3% (when available)</td><td><span class="green">+6</span></td></tr>
+<tr><td>Debt risk</td><td>D/E &gt; 2.0</td><td><span class="red">−6</span></td></tr>
 </table>
 
-<h3 id="autorun-off">8.6 Autorun OFF Mode (Recommendation Only)</h3>
-<p>Default mode. Formalized behavior when <code>autorun_enabled = '0'</code>:</p>
+<div class="note"><strong>Buyback scoring:</strong> <code>shares_buyback_pct</code> is always NULL on Finnhub free tier — Phoenix buyback signal scores 0 for all stocks until manually populated.</div>
+
+<h3 id="phoenix-exits">8.10 Phoenix Exit Rules</h3>
+
+<table>
+<tr><th>Condition</th><th>Shares Sold</th><th>Rationale</th></tr>
+<tr><td>Price 15%+ below entry</td><td><span class="red"><strong>100% — full exit</strong></span></td><td>Hard stop — wider than Alpha (−8%) because deep value needs more room</td></tr>
+<tr><td>Phoenix score &lt; 30</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Fundamentals have deteriorated below Phoenix thesis</td></tr>
+<tr><td>Analyst consensus &lt; 20% buy</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Street has largely abandoned the stock — value trap risk</td></tr>
+<tr><td>EPS growth turned negative</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Fails Gate 3 post-entry — value trap confirmation</td></tr>
+<tr><td>Price recovered within 15% of 52wk high</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Phoenix thesis achieved — take profit, let rest run</td></tr>
+<tr><td>Held ≥ 60 calendar days with no gain</td><td><span style="color:#744210"><strong>50%</strong></span></td><td>Time stop — wider than Alpha's 30d (deep value recoveries take longer)</td></tr>
+</table>
+
+<h3 id="confluence">8.11 Confluence Signal ⭐</h3>
+
+<div class="phoenix-info">
+<strong>Confluence Signal (Gold):</strong> When <em>both</em> Alpha AND Phoenix simultaneously generate a BUY recommendation on the same stock, it is the system's highest-conviction indicator. A stock that passes Alpha's quality+timing gates AND Phoenix's deep-value+fundamental gates represents an unusually strong setup from two independent analytical frameworks.
+</div>
+
+<table>
+<tr><th>Attribute</th><th>Detail</th></tr>
+<tr><td>Trigger</td><td>stock_signals.recommendation = 'BUY' AND phoenix_signals.recommendation = 'BUY' for the same symbol</td></tr>
+<tr><td>Visual</td><td>⭐ Gold row highlight in Stocks table (<code>background:#fffff0; border-left:3px solid #ecc94b</code>)</td></tr>
+<tr><td>Label</td><td>Small ⭐ badge or "Confluence" text in the Signal column</td></tr>
+<tr><td>Email</td><td>Highlighted section in daily digest: "⭐ Confluence Signals — highest conviction"</td></tr>
+<tr><td>Trading implication</td><td>Either or both strategies may open a position — they are still independent. Confluence is informational, not a separate order trigger.</td></tr>
+</table>
+
+<h3 id="guardrails">8.12 Risk Management Guardrails</h3>
+
+<div class="warn">These apply to both strategies in both Autorun ON and OFF modes. Any guardrail failure blocks the trade with a logged reason.</div>
+
+<table>
+<tr><th>Rule</th><th>Alpha</th><th>Phoenix</th></tr>
+<tr><td>Max open positions</td><td><strong>4</strong> (system_config)</td><td><strong>4</strong> (system_config)</td></tr>
+<tr><td>Max per position</td><td>10% of account equity</td><td>Proportional of 50% virtual cash pool</td></tr>
+<tr><td>Cash buffer</td><td>20% always uninvested</td><td>50% virtual pool (separate)</td></tr>
+<tr><td>Hard stop loss</td><td>8% below entry — full exit</td><td>15% below entry — full exit</td></tr>
+<tr><td>Time stop</td><td>30 days, no gain → 50% sell</td><td>60 days, no gain → 50% sell</td></tr>
+<tr><td>Partial exits</td><td>50% for all non-stop conditions</td><td>50% for all non-stop conditions</td></tr>
+<tr><td>Universe</td><td>Watchlist only (is_active=1)</td><td>Watchlist only (is_active=1)</td></tr>
+<tr><td>One position per symbol</td><td>No averaging down</td><td>No averaging down</td></tr>
+<tr><td>Earnings blackout</td><td>No buy within 5 calendar days</td><td>No buy within 5 calendar days</td></tr>
+<tr><td>Market hours</td><td>9:35 AM – 3:45 PM ET</td><td>9:35 AM – 3:45 PM ET</td></tr>
+<tr><td>No short selling</td><td>Long-only</td><td>Long-only</td></tr>
+<tr><td>No options</td><td>Equities only</td><td>Equities only</td></tr>
+<tr><td>No same-day close</td><td>No buy+sell same day</td><td>No buy+sell same day</td></tr>
+<tr><td>Penny stock filter</td><td>Price ≥ $5</td><td>Price ≥ $5</td></tr>
+<tr><td>Daily drawdown pause</td><td>Account drops 3% → pause 48h</td><td>Account drops 3% → pause 48h</td></tr>
+<tr><td>No immediate exec on toggle</td><td>First run is next 8:30 AM cron</td><td>First run is next 8:30 AM cron</td></tr>
+</table>
+
+<h3 id="autorun-off">8.13 Autorun OFF Mode (Recommendation Only)</h3>
+<p>Default mode. Both strategies generate recommendations without placing orders:</p>
 <ol>
-  <li>Full refresh runs normally (all phases)</li>
-  <li>Auto-trader evaluates all 3 tiers but <strong>does NOT place orders</strong></li>
-  <li>Daily digest gains a <strong>"Recommended Trades (Autorun OFF)"</strong> section:
+  <li>Full refresh runs normally (all phases including Phoenix scoreAll())</li>
+  <li>Both autotraders evaluate logic but <strong>do NOT place orders</strong></li>
+  <li>Daily digest gains:
     <ul>
-      <li>BUY recommendations: symbol / score / reason / suggested position size</li>
-      <li>SELL recommendations: held symbols with exit rationale</li>
-      <li>Footer: "Autorun is OFF — enable to execute automatically"</li>
+      <li><strong>"Alpha Recommendations (Autorun OFF)"</strong> — BUY/SELL with scores and reasons</li>
+      <li><strong>"Phoenix Recommendations (Phoenix OFF)"</strong> — BUY/WATCH with deep-value thesis</li>
+      <li><strong>"⭐ Confluence Signals"</strong> — any symbol where both = BUY</li>
     </ul>
   </li>
 </ol>
 
-<h3 id="autorun-on">8.7 Autorun ON Mode (Auto-Execute)</h3>
-<p>When <code>autorun_enabled = '1'</code> — <code>tradeJob</code> cron fires at <strong>9:35 AM ET</strong> (separate from the 8:30 AM morning refresh):</p>
+<h3 id="autorun-on">8.14 Autorun ON Mode (Auto-Execute)</h3>
+<p>At <strong>9:35 AM ET</strong>, strategies execute in sequence:</p>
 <ol>
-  <li><code>autoRun()</code> re-checks <code>autorun_enabled='1'</code> and market hours (9:35 AM – 3:45 PM ET) before proceeding</li>
-  <li>Calls <code>evaluate(true)</code> — places real orders (vs <code>evaluate(false)</code> at 8:30 AM which only recommends)</li>
-  <li>Check Tier 3 (market regime)</li>
-  <li><strong>Exits first</strong>: evaluate all current Alpaca positions (including manually opened ones) — place partial or full market sell orders per exit table above</li>
-  <li><strong>Entries</strong>: filter watchlist-only BUY stocks through Tier 2 → Tier 1 → guardrails → place market buys. Skip any symbol already held.</li>
-  <li>All executed orders recorded in <code>autotrader_trades</code> table</li>
-  <li>All decisions logged to <code>system_log</code> (source = 'autotrader')</li>
-  <li><code>sendAutotraderEmail(results)</code> — execution summary with sells/buys and ✅/❌ status</li>
+  <li><strong>Alpha autoRun()</strong> executes first — regime check → exits → entries → sendAutotraderEmail()</li>
+  <li><strong>Phoenix autoRun()</strong> executes second — hard gates → exits → entries → sendAutotraderEmail()</li>
+  <li>Both strategies operate independently — Alpha selling a stock does not prevent Phoenix from buying it (they track positions via <code>strategy</code> column)</li>
+  <li>All orders recorded in <code>autotrader_trades</code> with the appropriate <code>strategy</code> value</li>
+  <li>All decisions logged to <code>system_log</code> (source = 'autotrader' or 'phoenix')</li>
 </ol>
 
-<div class="note"><strong>Concurrency guard:</strong> <code>autorunning</code> flag prevents multiple simultaneous runs, same pattern as <code>refreshRunning</code> in scheduler.</div>
+<div class="note"><strong>Concurrency guard:</strong> <code>autorunning</code> and <code>phoenixRunning</code> flags prevent multiple simultaneous runs per strategy.</div>
 
-<h3 id="notifications">8.8 Trade Notifications (Email)</h3>
+<h3 id="notifications">8.15 Trade Notifications (Email)</h3>
 
-<p><strong>Daily digest addition (Autorun ON):</strong> "Today's Auto-Trades" section with:</p>
+<p><strong>Daily digest (8:30 AM) includes:</strong></p>
+<ul>
+  <li>Alpha BUY/SELL recommendations with scores</li>
+  <li>Phoenix BUY/WATCH recommendations with gate status and deep-value thesis</li>
+  <li>⭐ Confluence section when both agree on a BUY</li>
+</ul>
+
+<p><strong>Autotrader execution email (9:35 AM, Alpha):</strong></p>
 <ul>
   <li>Buys executed: Symbol | Shares | Price | Est. Cost | Top 3 signal reasons</li>
   <li>Sells executed: Symbol | Shares Sold | % of Position | Price | Proceeds | Exit reason</li>
-  <li>Skipped (guardrail blocked): Symbol | Reason (e.g. "already held", "earnings in 3 days")</li>
+  <li>Skipped (guardrail blocked): Symbol | Reason</li>
   <li>No trades: "No signals met all 3 tiers today"</li>
 </ul>
 
+<p><strong>Phoenix execution email (9:35 AM, Phoenix):</strong> Same format; subject line prefixed with 🔥 Phoenix.</p>
 <p><strong>Immediate error alert</strong> on any order failure: symbol, order details, error message.</p>
-<p><strong>Mode-change email</strong> on toggle: timestamp, mode entered, current positions list.</p>
+<p><strong>Mode-change email</strong> on toggle: timestamp, mode entered, strategy name, current positions.</p>
 
 <!-- ═══ 9. NFR ══════════════════════════════════════════════════════════════ -->
 <h2 id="nfr">9. Non-Functional Requirements</h2>
@@ -752,16 +982,20 @@ shares         = floor(perSlot / currentPrice)
 <tr><td>Uptime</td><td>systemd restart-on-failure; auto-start on boot</td></tr>
 <tr><td>Email delivery</td><td>&lt; 5 min after refresh completes</td></tr>
 <tr><td>Data freshness</td><td>Price data ≤ 1 trading day old; fundamentals daily</td></tr>
+<tr><td>Phoenix score freshness</td><td>phoenix_signals updated every morning refresh at 8:30 AM</td></tr>
 </table>
 
 <!-- ═══ 10. ISSUES ══════════════════════════════════════════════════════ -->
 <h2 id="issues">10. Known Issues &amp; Constraints</h2>
 <ol>
-  <li><strong>Finnhub /stock/price-target returns 403</strong> (paid). Workaround: use Yahoo Finance <code>yf.quote()</code> fields <code>targetMeanPrice/High/Low</code> — free, zero extra calls.</li>
-  <li><strong>Yahoo Finance rate-limits after ~10 rapid requests</strong> — clears in 30–60 min. Mitigated by 800ms delay + <code>withRetry()</code> exponential backoff.</li>
+  <li><strong>Finnhub /stock/price-target returns 403</strong> (paid). Workaround: use Yahoo Finance <code>yf.quote()</code> fields <code>targetMeanPrice/High/Low</code> via <code>/refresh-targets</code> slow-fetch (12s/symbol, 15/run).</li>
   <li><strong>VIXY proxy for VIX is approximate</strong> — VIXY × 1.8 + 2 ≈ VIX. Acceptable for regime filter.</li>
+  <li><strong>Yahoo Finance rate-limits after ~10 rapid requests</strong> — clears in 30–60 min. <code>/refresh-targets</code> handles this at 12s/symbol to stay under the limit.</li>
+  <li><strong>MySQL 8.4: no ADD COLUMN IF NOT EXISTS</strong> — migration scripts must use <code>information_schema</code> checks before adding columns. See <code>db/migrate_phoenix.sql</code> for pattern.</li>
+  <li><strong>VIXY and SPY must be in watchlist</strong> — Alpha's Tier 3 regime filter and VIX sizing require SPY and VIXY price_history rows to be populated.</li>
+  <li><strong>shares_buyback_pct always null</strong> — Finnhub free tier does not provide buyback data. Phoenix buyback scoring (+6) is always 0 until manually populated in watchlist table.</li>
   <li><strong>price_history stores ~380 days only</strong> — 2Y/5Y gains show "—" in table. Chart modal fetches from Alpaca on-demand.</li>
-  <li><strong>No intraday monitoring</strong> — auto-trader runs once at 8:30 AM. Stop-loss checked on next day's open, not intraday. Intentional (swing, not day trading).</li>
+  <li><strong>No intraday monitoring</strong> — both autotraders run once at 9:35 AM. Stop-loss checked next day. Intentional (swing, not day trading).</li>
   <li><strong>Alpaca paper mode default</strong> — set <code>ALPACA_BASE_URL</code> in .env to go live.</li>
   <li><strong>MySQL JSON column gotcha</strong> — <code>plan_json</code> and <code>reasons</code> returned as already-parsed objects by mysql2. Always guard: <code>typeof row.col === 'string' ? JSON.parse(row.col) : row.col</code>.</li>
 </ol>
@@ -769,21 +1003,25 @@ shares         = floor(perSlot / currentPrice)
 <!-- ═══ 11. DECISIONS ══════════════════════════════════════════════════ -->
 <h2 id="decisions">11. Design Decisions (Do Not Reverse Without Discussion)</h2>
 <ol>
-  <li><strong>Human control always available</strong> — Autorun OFF is the default and must remain functional. Toggle reachable in one click from header.</li>
-  <li><strong>Plain &lt;a href&gt; for navigation-critical actions</strong> — Toggle Autorun, Scan Now, Refresh Now, Add/Remove ticker. No JS onclick. Learned from production failures.</li>
-  <li><strong>No day trading</strong> — Minimum hold 1 trading day (no same-day close). Time stop at 30 calendar days with no gain (50% partial sell). Target: 5–20 day swing holds.</li>
-  <li><strong>No margin, no borrowing</strong> — instant settlement only. 20% cash buffer always enforced.</li>
-  <li><strong>Exit-first philosophy</strong> — in autotrader.run(), exits evaluated before entries. Freeing capital takes priority.</li>
-  <li><strong>All 3 tiers must agree</strong> — one tier veto blocks the trade. No partial overrides.</li>
-  <li><strong>Scoring engine unchanged</strong> — autotrader is a consumer of stock_signals. Existing 30+ signal engine runs unchanged; autotrader adds gating logic on top.</li>
-  <li><strong>Anti-churn</strong> — score drift (60→45) does NOT trigger a sell. Only sell at score &lt; 25 or hard exit conditions. Prevents unnecessary churn and taxes.</li>
-  <li><strong>Paper mode safe for autorun testing</strong> — Autorun ON in paper mode places paper orders, not live. Validate behavior before switching to live.</li>
-  <li><strong>Watchlist is the autotrader's universe</strong> — the autotrader never trades a stock not in the personal watchlist. Adding a stock to the watchlist is the explicit human act of authorising the autotrader to consider it.</li>
-  <li><strong>One position per symbol, no averaging down</strong> — if a symbol is held (any qty &gt; 0), the autotrader will not buy more regardless of score. A new slot must open first. Prevents concentration risk and forces diversification.</li>
-  <li><strong>Partial exits by default</strong> — selling half on non-stop-loss conditions preserves upside on recoveries. The hard stop (8% below entry) is the only full-exit trigger because capital preservation overrides upside preservation in a loss scenario.</li>
-  <li><strong>Re-entry is permitted</strong> — once fully out (qty = 0), a stock can be repurchased. No permanent blacklists. The scoring engine decides whether conditions warrant re-entry.</li>
-  <li><strong>Manual positions inherit exit rules on Autorun ON</strong> — the autotrader does not distinguish between positions it opened and positions opened manually. Once Autorun is ON, all held positions are subject to exit conditions at the next 8:30 AM run.</li>
-  <li><strong>No immediate execution on toggle</strong> — turning Autorun ON mid-day triggers no immediate orders. This prevents unintended trades on stale intraday data and gives the user time to reconsider before the next market open.</li>
+  <li><strong>Human control always available</strong> — both Autorun OFF modes are the default and must remain functional. Each toggle reachable in one click from header.</li>
+  <li><strong>Plain &lt;a href&gt; for navigation-critical actions</strong> — Toggle Autorun/Phoenix, Scan Now, Refresh Now, Add/Remove ticker. No JS onclick. Learned from production failures.</li>
+  <li><strong>No day trading</strong> — Minimum hold 1 trading day. Alpha time stop at 30 days; Phoenix at 60 days. Target: 5–20 day Alpha holds, 20–60 day Phoenix holds.</li>
+  <li><strong>No margin, no borrowing</strong> — instant settlement only. 20% cash buffer (Alpha) + 50% virtual pool (Phoenix) always enforced.</li>
+  <li><strong>Exit-first philosophy</strong> — in all autotrader.run() calls, exits evaluated before entries. Freeing capital takes priority.</li>
+  <li><strong>Alpha: all 3 tiers must agree</strong> — one tier veto blocks the trade. No partial overrides.</li>
+  <li><strong>Phoenix: all 5 gates must pass</strong> — any gate failure means PASS. No score averaging over bad fundamentals.</li>
+  <li><strong>Scoring engine unchanged by autotrader</strong> — both autotraders are consumers of their respective signal tables. Existing scoring runs unchanged; autotraders add gating logic on top.</li>
+  <li><strong>Anti-churn</strong> — Alpha score drift (60→45) does NOT trigger a sell. Only sell at score &lt;25 or hard exit conditions.</li>
+  <li><strong>Wider hard stop for Phoenix</strong> — deep value stocks need more room to be right. −15% vs Alpha's −8%. Phoenix is a longer hold with more volatility tolerance.</li>
+  <li><strong>Wider time stop for Phoenix</strong> — 60 days vs Alpha's 30 days. Mean reversion takes longer than technical momentum plays.</li>
+  <li><strong>Strategies share account, not position logic</strong> — both use the same Alpaca account and watchlist, but track positions independently via the <code>strategy</code> column. A stock can theoretically be held by both simultaneously.</li>
+  <li><strong>Confluence is informational only</strong> — when both strategies flag BUY, it highlights conviction. It does NOT trigger a separate order or any special execution path.</li>
+  <li><strong>Paper mode safe for autorun testing</strong> — both strategies in paper mode place paper orders, not live. Validate behavior before switching to live.</li>
+  <li><strong>Watchlist is the autotrader's universe</strong> — adding a stock to the watchlist is the explicit human act of authorising the autotrader (either strategy) to consider it.</li>
+  <li><strong>One position per symbol per strategy, no averaging down</strong> — Alpha will not add to an existing Alpha position; Phoenix will not add to an existing Phoenix position.</li>
+  <li><strong>Re-entry is permitted</strong> — once fully out (qty = 0 for that strategy), a stock can be repurchased. No permanent blacklists.</li>
+  <li><strong>Manual positions inherit Alpha exit rules on Autorun ON</strong> — Alpha evaluates all Alpaca positions including manually opened ones. Phoenix evaluates only positions in autotrader_trades with strategy='phoenix'.</li>
+  <li><strong>No immediate execution on toggle</strong> — turning either strategy ON mid-day triggers no immediate orders.</li>
 </ol>
 
 </main>

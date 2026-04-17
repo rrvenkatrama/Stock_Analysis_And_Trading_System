@@ -839,7 +839,8 @@ app.get('/', async (req, res) => {
       const pct52Txt    = pct52 !== null ? `<span style="color:#fc8181;font-weight:600">${pct52.toFixed(1)}%</span>` : '—';
       const pct1y       = p.price_change_1y != null ? parseFloat(p.price_change_1y) : null;
       const pct1yTxt    = pct1y !== null ? `<span style="color:#fc8181">${pct1y.toFixed(1)}%</span>` : '—';
-      const epsTxt      = p.eps_growth != null ? `<span style="color:#48bb78">+${parseFloat(p.eps_growth).toFixed(0)}%</span>` : '—';
+      const epsVal      = p.eps_growth != null ? parseFloat(p.eps_growth) : null;
+      const epsTxt      = epsVal != null ? `<span style="color:${epsVal>=0?'#48bb78':'#fc8181'}">${epsVal>=0?'+':''}${epsVal.toFixed(0)}%</span>` : '—';
       const buybackTxt  = p.shares_buyback_pct != null && parseFloat(p.shares_buyback_pct) < 0
         ? `<span style="color:#48bb78">✓ ${Math.abs(parseFloat(p.shares_buyback_pct)).toFixed(1)}%</span>`
         : `<span style="color:#718096">—</span>`;
@@ -1528,7 +1529,7 @@ app.get('/autotrader/history', async (req, res) => {
     const [trades, logs] = await Promise.all([
       db.query(`SELECT * FROM autotrader_trades ORDER BY executed_at DESC LIMIT 200`),
       db.query(`SELECT level, module, message, created_at FROM system_log
-                WHERE module IN ('autotrader','autorun')
+                WHERE module IN ('autotrader','autorun','phoenix')
                 ORDER BY created_at DESC LIMIT 200`),
     ]);
 
@@ -1540,6 +1541,9 @@ app.get('/autotrader/history', async (req, res) => {
       const badge = t.action === 'buy'
         ? `<span style="background:#f0fff4;color:#276749;border:1px solid #9ae6b4;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:700">BUY</span>`
         : `<span style="background:#fff5f5;color:#9b2c2c;border:1px solid #feb2b2;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:700">SELL</span>`;
+      const stratBadge = (t.strategy || 'alpha') === 'phoenix'
+        ? `<span style="background:#faf5ff;color:#6b21a8;border:1px solid #d8b4fe;padding:2px 7px;border-radius:9px;font-size:10px;font-weight:700">🔥 Phoenix</span>`
+        : `<span style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:2px 7px;border-radius:9px;font-size:10px;font-weight:700">⚡ Alpha</span>`;
       const pct  = t.sell_pct ? `${t.sell_pct}%` : '—';
       const date = new Date(t.executed_at).toLocaleString('en-US', { timeZone: 'America/New_York', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
       const reason = t.exit_reason ? `<span style="color:#718096;font-size:12px">${t.exit_reason}</span>` : '—';
@@ -1547,12 +1551,13 @@ app.get('/autotrader/history', async (req, res) => {
         <td>${date} ET</td>
         <td><strong>${t.symbol}</strong></td>
         <td>${badge}</td>
+        <td>${stratBadge}</td>
         <td>${t.qty}</td>
         <td>${pct}</td>
         <td>${reason}</td>
         <td style="font-size:11px;color:#a0aec0">${t.alpaca_order_id || '—'}</td>
       </tr>`;
-    }).join('') || `<tr><td colspan="7" style="text-align:center;color:#718096;padding:32px">No trades executed yet — autotrader hasn't run in execute mode</td></tr>`;
+    }).join('') || `<tr><td colspan="8" style="text-align:center;color:#718096;padding:32px">No trades executed yet — autotrader hasn't run in execute mode</td></tr>`;
 
     const logRows = logs.map(l => {
       const color = l.level === 'error' ? '#9b2c2c' : l.level === 'warn' ? '#744210' : '#2b6cb0';
@@ -1609,7 +1614,7 @@ tr:hover td{background:#f7fafc}
 
   <h2>📋 Trade History</h2>
   <table>
-    <tr><th>Date / Time</th><th>Symbol</th><th>Action</th><th>Qty</th><th>Sell %</th><th>Reason</th><th>Order ID</th></tr>
+    <tr><th>Date / Time</th><th>Symbol</th><th>Action</th><th>Strategy</th><th>Qty</th><th>Sell %</th><th>Reason</th><th>Order ID</th></tr>
     ${tradeRows}
   </table>
 

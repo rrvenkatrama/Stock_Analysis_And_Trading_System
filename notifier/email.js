@@ -431,7 +431,7 @@ async function sendAutotraderEmail(results, strategyLabel = 'Alpha') {
 // signals: array from stock_signals table (score, recommendation, symbol, name, price, why)
 // positions: array from Alpaca /positions API
 // autotraderResults: from autotrader.evaluate(false) — recommendations only, no orders placed
-async function sendDailyDigest(signals, positions, picks = [], autotraderResults = null) {
+async function sendDailyDigest(signals, positions, picks = [], autotraderResults = null, phoenixResults = null) {
   if (!cfg.email.user || !cfg.email.to) return;
 
   const today    = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
@@ -619,8 +619,8 @@ async function sendDailyDigest(signals, positions, picks = [], autotraderResults
     </table>
 
     ${autotraderResults && (autotraderResults.exits.length || autotraderResults.entries.length) ? `
-    <h2 style="color:#dd6b20;font-size:15px;border-bottom:2px solid #eee;padding-bottom:8px;margin:20px 0 12px">🤖 Autotrader — Tomorrow's Recommendations</h2>
-    <p style="color:#7f8c8d;font-size:12px;margin-bottom:8px">Market regime: <strong>${autotraderResults.regime || 'unknown'}</strong>. These trades will execute at 9:35 AM ET if Autorun is ON.</p>
+    <h2 style="color:#dd6b20;font-size:15px;border-bottom:2px solid #eee;padding-bottom:8px;margin:20px 0 12px">⚡ Alpha Autotrader — Tomorrow's Recommendations</h2>
+    <p style="color:#7f8c8d;font-size:12px;margin-bottom:8px">Market regime: <strong>${autotraderResults.regime || 'unknown'}</strong>. These trades will execute at 9:35 AM ET if Alpha is ON.</p>
     ${autotraderResults.exits.length ? `
     <p style="font-size:12px;font-weight:bold;color:#e74c3c;margin:8px 0 4px">Suggested Sells (${autotraderResults.exits.length})</p>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -638,6 +638,30 @@ async function sendDailyDigest(signals, positions, picks = [], autotraderResults
         <td style="padding:6px;color:#27ae60">Buy ${a.qty} shares</td>
         <td style="padding:6px">$${a.price?.toFixed(2)}</td>
         <td style="padding:6px">${scoreBar(a.score)}</td>
+      </tr>`).join('')}</tbody>
+    </table>` : ''}` : ''}
+
+    ${phoenixResults && (phoenixResults.exits.length || phoenixResults.entries.length) ? `
+    <h2 style="color:#805ad5;font-size:15px;border-bottom:2px solid #eee;padding-bottom:8px;margin:20px 0 12px">🔥 Phoenix Autotrader — Tomorrow's Recommendations</h2>
+    <p style="color:#7f8c8d;font-size:12px;margin-bottom:8px">VIX: <strong>${phoenixResults.vix ?? 'n/a'}</strong> · Sizing multiplier: <strong>${phoenixResults.vixMult ?? 1.0}×</strong>. These trades execute at 9:35 AM ET if Phoenix is ON.</p>
+    ${phoenixResults.exits.length ? `
+    <p style="font-size:12px;font-weight:bold;color:#e74c3c;margin:8px 0 4px">Suggested Sells (${phoenixResults.exits.length})</p>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tbody>${phoenixResults.exits.map(a => `<tr style="border-bottom:1px solid #eee">
+        <td style="padding:6px;font-weight:bold">${a.symbol}</td>
+        <td style="padding:6px;color:#e74c3c">${a.sellPct}% sell</td>
+        <td style="padding:6px;color:#718096">${a.reason}</td>
+        <td style="padding:6px;color:${a.pnlPct>=0?'#27ae60':'#e74c3c'}">${a.pnlPct>=0?'+':''}${a.pnlPct?.toFixed(1)}%</td>
+      </tr>`).join('')}</tbody>
+    </table>` : ''}
+    ${phoenixResults.entries.length ? `
+    <p style="font-size:12px;font-weight:bold;color:#805ad5;margin:12px 0 4px">Suggested Buys (${phoenixResults.entries.length})</p>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tbody>${phoenixResults.entries.map(a => `<tr style="border-bottom:1px solid #eee">
+        <td style="padding:6px;font-weight:bold">${a.symbol}</td>
+        <td style="padding:6px;color:#805ad5">Buy ${a.qty} shares @ $${a.price?.toFixed(2)}</td>
+        <td style="padding:6px">Score: ${a.score}</td>
+        <td style="padding:6px;color:#718096">${Math.abs(a.pctFrom52h ?? 0).toFixed(0)}% below 52wk high · EPS +${parseFloat(a.epsGrowth ?? 0).toFixed(0)}%</td>
       </tr>`).join('')}</tbody>
     </table>` : ''}` : ''}
 
