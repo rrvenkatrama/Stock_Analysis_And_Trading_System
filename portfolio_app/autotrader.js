@@ -118,10 +118,10 @@ function passesTier2(sig) {
 }
 
 // ─── Count Tier 1 technical confirmations ────────────────────────────────────
-// Require ≥2: RSI 30–55, MACD bullish/above signal, above 50MA, volume ≥1.3x
+// Require ≥2: RSI 30–65, MACD bullish/above signal, above 50MA, volume ≥1.3x
 function countConfirmations(sig, volRatio) {
   let n = 0;
-  if (sig.rsi !== null && sig.rsi >= 30 && sig.rsi <= 55)       n++;
+  if (sig.rsi !== null && sig.rsi >= 30 && sig.rsi <= 65)       n++;
   if (['bullish', 'above_signal'].includes(sig.macd_trend))      n++;
   if (sig.above_50ma)                                            n++;
   if (volRatio !== null && volRatio >= 1.3)                      n++;
