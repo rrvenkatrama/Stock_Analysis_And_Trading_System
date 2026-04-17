@@ -1316,6 +1316,12 @@ app.get('/refresh-now', (req, res) => {
   setImmediate(() => runDailyRefresh(false).catch(console.error));
 });
 
+// ─── Refresh price targets (background, slow Yahoo pass) ─────────────────────
+app.get('/refresh-targets', (req, res) => {
+  res.redirect('/?msg=targets-refresh-started');
+  setImmediate(() => yh.refreshTargets().catch(console.error));
+});
+
 // ─── Performance chart data ───────────────────────────────────────────────────
 // Returns bars for symbol + benchmarks. Symbol bars include ma50/ma200 fields.
 app.get('/position-chart/:symbol', async (req, res) => {

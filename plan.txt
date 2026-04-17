@@ -1,6 +1,6 @@
 StockTrader — Build Plan & Recovery Point
 ==========================================
-Last updated: 2026-04-16 (session 3)
+Last updated: 2026-04-17 (session 4)
 Status: Phase 1 COMPLETE | Phase 2 COMPLETE | Phase 3 active | My Stocks Dashboard FULLY OPERATIONAL
 
 ─────────────────────────────────────────
@@ -94,24 +94,38 @@ MY STOCKS DASHBOARD (port 8081) ✅ FULLY OPERATIONAL
      - Symbol | Signal·Price | Qty | Avg Entry | Current | Chg% | Mkt Value | P&L | Trade
      - "Buy More" + "Sell" buttons open modal (market/limit, qty, TIF, extended hours)
 [✅] Open orders panel with Cancel button
-[✅] 3-tier Auto-trading engine (portfolio_app/autotrader.js):
-     - Tier 3: Market regime (SPY above_200ma)
-     - Tier 2: Quality filter (score≥50, price≥$5, RSI≤65, not extended)
-     - Tier 1: Entry gate (score≥65, ≥2 confirmations, no earnings within 5d)
+[✅] Alpha strategy auto-trading engine (portfolio_app/autotrader.js):
+     - Tier 3: Market regime (SPY above_200ma + above_50ma)
+     - Tier 2: Quality filter (score≥50, price≥$5, RSI≤65, not >8% above 50MA)
+     - Tier 1: Entry gate (score≥65, ≥2 of 4 confirmations, no earnings within 5d)
      - Hard stop -8%, soft exits (score<25, RSI>75, EMA bear cross ≤3d, MACD bearish, 30-day time stop)
-     - Position sizing with 20% cash buffer
+     - Position sizing with 20% cash buffer, VIX multiplier
+[✅] Phoenix strategy (session 4 — 2026-04-17):
+     - phoenix_screener.js: 5 hard gates + fundamentals-heavy scoring (0–100)
+     - phoenix_autotrader.js: deep value contrarian; separate 50% virtual cash pool
+     - Hard stop −15%; soft exits: score<30, analyst<20% buy, EPS negative, within 15% of 52wk high, 60d time stop
+     - phoenix_signals table created; strategy column added to autotrader_trades
+     - Max 4 Phoenix positions; skips if Alpha already holds symbol
+     - VIX sizing: <20→1.0x, 20-30→0.75x, ≥30→0.5x
 [✅] Two-cron schedule:
-     - 8:30 AM ET: refresh + analyze + universe scan + evaluate(false) → digest email
-     - 9:35 AM ET: autoRun() → live execution when autorun_enabled='1'
-[✅] Autorun toggle button in dashboard header (plain <a href> — no JS for navigation)
-[✅] Email types: sendDailyDigest (4 params incl. autoResults), sendModeChangeEmail, sendAutotraderEmail
+     - 8:30 AM ET: refresh → analyze → universe scan → phoenix screener → alpha recs → phoenix recs → digest email
+     - 9:35 AM ET: alphaRun() then phoenixRun() → both execute when enabled
+[✅] Strategy toggles in dashboard header:
+     - ⚡ Alpha: ON/OFF (blue button, plain <a href>)
+     - 🔥 Phoenix: ON/OFF (purple button, plain <a href>)
+     - ℹ info popups for each strategy explaining logic
+[✅] Confluence signal: gold ⭐ row highlight when both Alpha AND Phoenix = BUY
+[✅] Email types: sendDailyDigest (5 params incl. phoenixResults), sendModeChangeEmail, sendAutotraderEmail(results, strategyLabel)
 [✅] News modal: Finnhub (cached news_cache) + SEC EDGAR Atom RSS tabs, per symbol
 [✅] DB migrations run on server:
-     - stock_signals: ema9_bull_cross_ago, ema9_bear_cross_ago columns added
-     - autotrader_trades table created
-     - system_config: autorun_enabled='0', autorun_max_positions='8' seeded
-[✅] Scoring methodology HTML rebuilt (30+ signals, autotrader section)
-[✅] product_requirements.md updated to v2.2
+     - stock_signals: ema9_bull_cross_ago, ema9_bear_cross_ago, analyst_buy, analyst_sell, analyst_hold, shares_buyback_pct columns added
+     - autotrader_trades: strategy column added (DEFAULT 'alpha')
+     - watchlist: shares_buyback_pct, shares_outstanding columns added
+     - phoenix_signals table created (24 columns)
+     - system_config: phoenix_enabled='0', phoenix_max_positions='4' seeded
+     - autorun_max_positions changed from 8 to 4
+[✅] Scoring methodology HTML v2.4 (Alpha + Phoenix sections, autotrader decision flows)
+[✅] product_requirements.html v3.0 (dual strategy, updated schema, new routes)
 [✅] Session 3 UI improvements (2026-04-16):
      - RSI badge colors: red=oversold (<30), green=mid (30-70), blue=overbought (>70)
      - Chg% column added to all three sections (Stocks, Portfolio, Discover)
@@ -128,6 +142,9 @@ Key files: server_portfolio.js, portfolio_app/*.js
 [ ] Monitor morning refresh — verify autotrader recommendations appear in digest email
 [ ] Test autorun ON flow in paper mode when market is open
 [ ] Tune: if too many BUY signals, raise score threshold; if too few, lower to 45
+[ ] Run /refresh-targets after Yahoo rate limit clears (~45 min) to populate fwd PE/price targets
+    → This will lift SMCI/ADBE/LULU Phoenix scores from WATCH toward BUY
+[ ] Consider enabling Phoenix (phoenix_enabled='1') after price targets are populated
 
 ─────────────────────────────────────────
 KNOWN ISSUES (April 2026)
@@ -137,10 +154,14 @@ KNOWN ISSUES (April 2026)
 2. VIXY proxy for VIX is approximate (VIXY × 1.8 + 2 ≈ VIX)
 3. Yahoo Finance rate-limits after ~10 rapid requests (clears in 30-60 min)
    — sector/name now from Finnhub so this no longer blocks core data
-   — price targets still Yahoo-only; COALESCE protects once populated
+   — price targets: use GET /refresh-targets (12s/symbol, 15 per run) after rate limit clears
 4. MySQL 8.4 does NOT support ADD COLUMN IF NOT EXISTS — use information_schema check + PREPARE/EXECUTE pattern
 5. VIXY and SPY must be in watchlist for VIX sizing and 50MA regime gate to work
    — SPY not in stock_signals → regime = 'unknown' → autotrader blocks ALL entries
+6. shares_buyback_pct always null — Finnhub free tier does not provide buyback data
+   — Phoenix buyback scoring is always 0; requires manual population or paid data source
+7. Phoenix scores will be WATCH (not BUY) until fwd PE data is populated via /refresh-targets
+   — SMCI, ADBE, LULU are current WATCH candidates (scores 41–50)
 
 ─────────────────────────────────────────
 PHASE 4: ENHANCEMENTS (FUTURE)
@@ -182,7 +203,9 @@ Guardrails:                 trader/guardrails.js
 Data routing:               data/provider.js ← always use this
 
 My Stocks scoring:          portfolio_app/analyzer.js
-My Stocks autotrader:       portfolio_app/autotrader.js
+My Stocks Alpha autotrader: portfolio_app/autotrader.js
+My Stocks Phoenix screener: portfolio_app/phoenix_screener.js
+My Stocks Phoenix trader:   portfolio_app/phoenix_autotrader.js
 My Stocks schedule:         portfolio_app/scheduler.js
 My Stocks universe:         portfolio_app/universe.js
 
@@ -204,6 +227,9 @@ ssh rajramani@192.168.1.156 "journalctl --user -u stocktrader_portfolio -n 30 --
 ssh rajramani@192.168.1.156 "journalctl --user -u stocktrader -n 30 --no-pager"
 
 # Manual triggers
-curl http://192.168.1.156:8081/scan-now
-curl http://192.168.1.156:8081/scan-universe
-curl http://192.168.1.156:3001/api/scan
+curl http://192.168.1.156:8081/refresh-now          # full refresh + analyze + phoenix screener
+curl http://192.168.1.156:8081/scan-universe         # universe BUY scan only
+curl http://192.168.1.156:8081/autorun/execute-now   # manual Alpha execution
+curl http://192.168.1.156:8081/phoenix/execute-now   # manual Phoenix execution
+curl http://192.168.1.156:8081/refresh-targets       # slow Yahoo pass for price targets (15 symbols, 12s each)
+curl http://192.168.1.156:3001/api/scan              # swing trader scan

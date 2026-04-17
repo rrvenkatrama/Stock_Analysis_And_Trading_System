@@ -293,14 +293,14 @@ async function getFundamentalsFromDB(symbol) {
 }
 
 // ─── Refresh upgrades/downgrades for stale symbols — weekly, separate Finnhub pass ──
-// At most 20 symbols per run to stay well within free-tier rate limits.
+// Processes up to 60 symbols per run (2s delay each = ~2 min max).
 async function refreshUpgrades() {
   const stale = await db.query(
     `SELECT symbol FROM watchlist
      WHERE is_active = 1
        AND (upgrades_at IS NULL OR upgrades_at < DATE_SUB(NOW(), INTERVAL 7 DAY))
      ORDER BY upgrades_at ASC
-     LIMIT 20`
+     LIMIT 60`
   );
   if (!stale.length) return;
 
@@ -328,8 +328,62 @@ async function refreshUpgrades() {
   console.log('');
 }
 
+// ─── Refresh price targets for symbols missing them — slow Yahoo pass ────────
+// Processes up to 15 symbols per run with 12s spacing to avoid rate-limiting.
+// Only touches symbols where target_mean IS NULL (COALESCE protects existing data).
+async function refreshTargets() {
+  const stale = await db.query(
+    `SELECT symbol FROM watchlist
+     WHERE is_active = 1 AND target_mean IS NULL
+     ORDER BY fundamentals_at ASC
+     LIMIT 15`
+  );
+  if (!stale.length) {
+    console.log('[Targets] All symbols already have price targets');
+    return 0;
+  }
+
+  console.log(`[Targets] Fetching price targets for ${stale.length} symbols (12s spacing)...`);
+  let updated = 0;
+  for (let i = 0; i < stale.length; i++) {
+    const sym = stale[i].symbol;
+    try {
+      const q = await withRetry(() => yf.quote(sym, {}, { validateResult: false }));
+      if (q) {
+        const targetMean = q.targetMeanPrice  != null ? q.targetMeanPrice  : null;
+        const targetHigh = q.targetHighPrice  != null ? q.targetHighPrice  : null;
+        const targetLow  = q.targetLowPrice   != null ? q.targetLowPrice   : null;
+        const recMean    = q.recommendationMean     != null ? q.recommendationMean       : null;
+        const recCount   = q.numberOfAnalystOpinions!= null ? q.numberOfAnalystOpinions  : null;
+        const forwardPE  = q.forwardPE || null;
+        const shortFloat = q.shortPercentOfFloat    != null ? q.shortPercentOfFloat * 100 : null;
+
+        await db.query(
+          `UPDATE watchlist SET
+           target_mean  = COALESCE(target_mean,  ?),
+           target_high  = COALESCE(target_high,  ?),
+           target_low   = COALESCE(target_low,   ?),
+           rec_mean     = COALESCE(rec_mean,     ?),
+           rec_count    = COALESCE(rec_count,    ?),
+           pe_forward   = COALESCE(pe_forward,   ?),
+           short_float  = COALESCE(short_float,  ?)
+           WHERE symbol = ?`,
+          [targetMean, targetHigh, targetLow, recMean, recCount, forwardPE, shortFloat, sym]
+        );
+        if (targetMean !== null) updated++;
+        process.stdout.write(`\r[Targets] ${i + 1}/${stale.length} — ${sym} target: ${targetMean ?? 'n/a'}`);
+      }
+    } catch (err) {
+      console.error(`\n[Targets] ${sym} failed: ${err.message}`);
+    }
+    if (i + 1 < stale.length) await sleep(12000);
+  }
+  console.log(`\n[Targets] Done — ${updated}/${stale.length} targets populated`);
+  return updated;
+}
+
 module.exports = {
   seedWatchlist, addTicker, removeTicker,
   getActiveSymbols, fetchHistory, fetchQuote,
-  getBarsFromDB, refreshAll, refreshUpgrades, getFundamentalsFromDB,
+  getBarsFromDB, refreshAll, refreshUpgrades, getFundamentalsFromDB, refreshTargets,
 };

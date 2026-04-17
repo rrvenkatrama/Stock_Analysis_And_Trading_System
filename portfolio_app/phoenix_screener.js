@@ -71,20 +71,20 @@ function applyHardGates(fund, sig, sectorPeAvg, sectorPsAvg) {
   // If price_1y_ago not available, skip gate 2 (we do our best)
 
   // Gate 3: EPS growth > 0
-  const eps = parseFloat(fund.eps_growth ?? 0);
+  const eps = parseFloat(fund.epsGrowth ?? 0);
   if (eps <= 0) {
     return { pass: false, reason: `EPS growth ${eps.toFixed(1)}% ≤ 0 (value trap risk)` };
   }
 
   // Gate 4: Revenue growth > 0
-  const rev = parseFloat(fund.revenue_growth ?? 0);
+  const rev = parseFloat(fund.revenueGrowth ?? 0);
   if (rev <= 0) {
     return { pass: false, reason: `Revenue growth ${rev.toFixed(1)}% ≤ 0` };
   }
 
   // Gate 5: Valuation check (at least one of P/E or P/S must be below sector avg)
-  const pe = fund.pe_forward ? parseFloat(fund.pe_forward) : null;
-  const ps = fund.ps_ratio   ? parseFloat(fund.ps_ratio)   : null;
+  const pe = fund.peForward ? parseFloat(fund.peForward) : null;
+  const ps = fund.psRatio   ? parseFloat(fund.psRatio)   : null;
   if (pe !== null && sectorPeAvg !== null && pe >= sectorPeAvg) {
     if (ps !== null && sectorPsAvg !== null && ps >= sectorPsAvg) {
       return { pass: false, reason: `Fwd P/E ${pe.toFixed(1)} ≥ sector avg ${sectorPeAvg.toFixed(1)} AND P/S ${ps.toFixed(2)} ≥ sector avg ${sectorPsAvg.toFixed(2)}` };
@@ -99,15 +99,15 @@ function scorePhoenix(fund, sig, sectorPeAvg, sectorPsAvg) {
   let score = 0;
   const why  = [];
 
-  const eps    = parseFloat(fund.eps_growth     ?? 0);
-  const rev    = parseFloat(fund.revenue_growth ?? 0);
-  const roe    = parseFloat(fund.roe            ?? 0);
-  const de     = fund.debt_equity != null ? parseFloat(fund.debt_equity) : null;
-  const pe     = fund.pe_forward  != null ? parseFloat(fund.pe_forward)  : null;
-  const ps     = fund.ps_ratio    != null ? parseFloat(fund.ps_ratio)    : null;
-  const buyPct = fund.analyst_buy  ? parseInt(fund.analyst_buy)  : 0;
-  const sellPct= fund.analyst_sell ? parseInt(fund.analyst_sell) : 0;
-  const holdPct= fund.analyst_hold ? parseInt(fund.analyst_hold) : 0;
+  const eps    = parseFloat(fund.epsGrowth     ?? 0);
+  const rev    = parseFloat(fund.revenueGrowth ?? 0);
+  const roe    = parseFloat(fund.roe           ?? 0);
+  const de     = fund.debtEquity != null ? parseFloat(fund.debtEquity) : null;
+  const pe     = fund.peForward  != null ? parseFloat(fund.peForward)  : null;
+  const ps     = fund.psRatio    != null ? parseFloat(fund.psRatio)    : null;
+  const buyPct = fund.analystBuy  ? parseInt(fund.analystBuy)  : 0;
+  const sellPct= fund.analystSell ? parseInt(fund.analystSell) : 0;
+  const holdPct= fund.analystHold ? parseInt(fund.analystHold) : 0;
   const total  = buyPct + sellPct + holdPct;
   const buyRatio = total > 0 ? buyPct / total : null;
   const drawdown = Math.abs(parseFloat(sig.pct_from_52high ?? 0));
@@ -174,11 +174,15 @@ async function scoreSymbol(symbol) {
 
   // Get pre-computed signal data (for price, 52wk range, pct_from_52high)
   const sig = await db.queryOne(
-    `SELECT price, price_change_pct, high_52w, low_52w, pct_from_52high,
-            shares_buyback_pct, analyst_buy, analyst_sell, analyst_hold
+    `SELECT price, price_change_pct, high_52w, low_52w, pct_from_52high, shares_buyback_pct
      FROM stock_signals WHERE symbol = ?`, [symbol]
   );
   if (!sig || !sig.price) return null;
+
+  // Analyst data comes from watchlist via getFundamentalsFromDB (camelCase)
+  sig.analyst_buy  = fund.analystBuy  ?? null;
+  sig.analyst_sell = fund.analystSell ?? null;
+  sig.analyst_hold = fund.analystHold ?? null;
 
   // Get price 1 year ago from price_history (~252 trading days)
   const yearAgoRow = await db.queryOne(
@@ -186,7 +190,7 @@ async function scoreSymbol(symbol) {
      ORDER BY trade_date DESC LIMIT 1 OFFSET 251`, [symbol]
   );
   sig.price_1y_ago       = yearAgoRow ? parseFloat(yearAgoRow.close) : null;
-  sig.shares_buyback_pct = sig.shares_buyback_pct ?? fund.shares_buyback_pct ?? null;
+  sig.shares_buyback_pct = sig.shares_buyback_pct ?? null;
 
   // Sector averages (Finnhub, with fallback to hardcoded defaults)
   const sector     = fund.sector || sig.sector || null;
@@ -224,16 +228,16 @@ async function scoreSymbol(symbol) {
     pct_from_52high: sig.pct_from_52high,
     price_1y_ago:   price1y,
     price_change_1y: price1yChg?.toFixed(2) ?? null,
-    eps_growth:     fund.eps_growth,
-    revenue_growth: fund.revenue_growth,
+    eps_growth:     fund.epsGrowth,
+    revenue_growth: fund.revenueGrowth,
     roe:            fund.roe,
-    debt_equity:    fund.debt_equity,
-    pe_forward:     fund.pe_forward,
-    ps_ratio:       fund.ps_ratio,
-    dividend_yield: fund.div_yield,
-    analyst_buy:    fund.analyst_buy,
-    analyst_sell:   fund.analyst_sell,
-    analyst_hold:   fund.analyst_hold,
+    debt_equity:    fund.debtEquity,
+    pe_forward:     fund.peForward,
+    ps_ratio:       fund.psRatio,
+    dividend_yield: fund.divYield,
+    analyst_buy:    fund.analystBuy  ?? null,
+    analyst_sell:   fund.analystSell ?? null,
+    analyst_hold:   fund.analystHold ?? null,
     shares_buyback_pct: sig.shares_buyback_pct,
     score,
     recommendation,
