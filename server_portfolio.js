@@ -502,6 +502,25 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
   const cashTxt    = account ? `$${parseFloat(account.cash||0).toLocaleString(undefined,{maximumFractionDigits:0})} cash` : '—';
   const equityTxt  = account ? `$${parseFloat(account.equity||account.portfolio_value||0).toLocaleString(undefined,{maximumFractionDigits:0})} equity` : '—';
 
+  // Weighted portfolio period returns from per-position price history
+  const pr = {};
+  for (const period of ['d1','w1','m1','m3','m6','ytd','y1']) {
+    let curSum = 0, histSum = 0, hasData = false;
+    for (const p of positions) {
+      const mv   = parseFloat(p.market_value || 0);
+      const perf = perfMap.get(p.symbol);
+      if (perf && perf[period] != null) {
+        curSum  += mv;
+        histSum += mv / (1 + perf[period] / 100);
+        hasData  = true;
+      }
+    }
+    pr[period] = hasData && histSum > 0 ? (curSum - histSum) / histSum * 100 : null;
+  }
+  const prFmt = v => v != null
+    ? `<span style="color:${v>=0?'#48bb78':'#fc8181'};font-weight:700">${v>=0?'+':''}${v.toFixed(2)}%</span>`
+    : '<span style="color:#4a5568">—</span>';
+
   const posRows = positions.length ? positions.map(p => {
     const pnl    = parseFloat(p.unrealized_pl  || 0);
     const pnlPct = parseFloat(p.unrealized_plpc || 0) * 100;
@@ -600,6 +619,16 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
       <div class="stat"><div class="num" style="color:#e2e8f0">${positions.length}</div><div class="lbl">Positions</div></div>
       <div class="stat"><div class="num" style="color:#3182ce">${openOrders.length}</div><div class="lbl">Open Orders</div></div>
     </div>
+    ${positions.length ? `<div style="display:flex;gap:0;flex-wrap:wrap;background:#0f1320;border-radius:8px;padding:8px 16px;margin-bottom:12px;align-items:center;gap:4px">
+      <span style="font-size:11px;color:#718096;margin-right:8px;white-space:nowrap">Portfolio returns:</span>
+      <span style="font-size:11px;color:#4a5568;margin-right:2px">1D</span>${prFmt(pr.d1)}&ensp;
+      <span style="font-size:11px;color:#4a5568;margin-right:2px">1W</span>${prFmt(pr.w1)}&ensp;
+      <span style="font-size:11px;color:#4a5568;margin-right:2px">1M</span>${prFmt(pr.m1)}&ensp;
+      <span style="font-size:11px;color:#4a5568;margin-right:2px">3M</span>${prFmt(pr.m3)}&ensp;
+      <span style="font-size:11px;color:#4a5568;margin-right:2px">6M</span>${prFmt(pr.m6)}&ensp;
+      <span style="font-size:11px;color:#4a5568;margin-right:2px">YTD</span>${prFmt(pr.ytd)}&ensp;
+      <span style="font-size:11px;color:#4a5568;margin-right:2px">1Y</span>${prFmt(pr.y1)}
+    </div>` : ''}
     ${positions.length ? `
     <div style="font-size:11px;font-weight:700;color:#718096;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Positions</div>
     <div class="tbl-wrap" style="max-height:480px">
