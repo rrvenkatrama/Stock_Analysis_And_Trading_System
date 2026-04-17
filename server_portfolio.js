@@ -8,7 +8,7 @@ const { analyzeAll, analyzeSymbol } = require('./portfolio_app/analyzer');
 const { startScheduler, runDailyRefresh } = require('./portfolio_app/scheduler');
 const {
   getAccount, getAlpacaPositions, getOpenOrders,
-  cancelAlpacaOrder, placeDirectOrder, getMarketClock,
+  cancelAlpacaOrder, placeDirectOrder, getMarketClock, getPortfolioHistory,
 } = require('./trader/executor');
 const { getDailyBars } = require('./data/alpacaData');
 const { getTopPicks } = require('./portfolio_app/universe');
@@ -490,7 +490,7 @@ function perfCell(p) {
   </table>`;
 }
 
-function portfolioSection(positions, openOrders, account, signalMap, upgradeMap = new Map(), perfMap = new Map()) {
+function portfolioSection(positions, openOrders, account, signalMap, upgradeMap = new Map(), perfMap = new Map(), portfolioReturns = {}) {
   const totalValue    = positions.reduce((s, p) => s + parseFloat(p.market_value  || 0), 0);
   const totalPnl      = positions.reduce((s, p) => s + parseFloat(p.unrealized_pl || 0), 0);
   const totalCost     = positions.reduce((s, p) => s + parseFloat(p.cost_basis    || 0), 0);
@@ -502,21 +502,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
   const cashTxt    = account ? `$${parseFloat(account.cash||0).toLocaleString(undefined,{maximumFractionDigits:0})} cash` : '—';
   const equityTxt  = account ? `$${parseFloat(account.equity||account.portfolio_value||0).toLocaleString(undefined,{maximumFractionDigits:0})} equity` : '—';
 
-  // Weighted portfolio period returns from per-position price history
-  const pr = {};
-  for (const period of ['d1','w1','m1','m3','m6','ytd','y1']) {
-    let curSum = 0, histSum = 0, hasData = false;
-    for (const p of positions) {
-      const mv   = parseFloat(p.market_value || 0);
-      const perf = perfMap.get(p.symbol);
-      if (perf && perf[period] != null) {
-        curSum  += mv;
-        histSum += mv / (1 + perf[period] / 100);
-        hasData  = true;
-      }
-    }
-    pr[period] = hasData && histSum > 0 ? (curSum - histSum) / histSum * 100 : null;
-  }
+  const pr = portfolioReturns;
   const prFmt = v => v != null
     ? `<span style="color:${v>=0?'#48bb78':'#fc8181'};font-weight:700">${v>=0?'+':''}${v.toFixed(2)}%</span>`
     : '<span style="color:#4a5568">—</span>';
@@ -793,7 +779,7 @@ app.get('/', async (req, res) => {
     const signalMap    = new Map(signals.map(s => [s.symbol, s]));
     const upgradeMap   = new Map(recentUpgrades.map(u => [u.symbol, u]));
 
-    // ── Performance gains for held positions (from price_history) ──
+    // ── Per-position price history (for the position table perf cells) ──
     const perfMap = new Map();
     if (positions.length > 0) {
       const posSyms = positions.map(p => p.symbol);
@@ -810,16 +796,53 @@ app.get('/', async (req, res) => {
         if (!grouped[r.symbol]) grouped[r.symbol] = [];
         grouped[r.symbol].push(parseFloat(r.close));
       }
+      const now = new Date();
+      const ytdCalDays = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / 86400000);
+      const ytdIdx = Math.round(ytdCalDays * 252 / 365);
       for (const [sym, closes] of Object.entries(grouped)) {
         const cur = closes[0];
         const pct = n => closes[n] != null ? (cur - closes[n]) / closes[n] * 100 : null;
-        // YTD: approximate calendar days elapsed × (252/365) to get trading days
-        const now = new Date();
-        const ytdCalDays = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / 86400000);
-        const ytdIdx = Math.round(ytdCalDays * 252 / 365);
         perfMap.set(sym, { d1: pct(1), w1: pct(5), m1: pct(21), m3: pct(63), m6: pct(126), y1: pct(252), ytd: pct(ytdIdx) });
       }
     }
+
+    // ── Portfolio-level period returns from Alpaca portfolio history ──
+    // equity[] is daily snapshots DESC; timestamps are unix seconds
+    // Only show a period if the portfolio existed for that full duration
+    const portfolioReturns = {};
+    try {
+      const hist = await getPortfolioHistory();
+      const equities   = hist.equity     || [];
+      const timestamps = hist.timestamp  || [];
+      // Filter to entries where equity > 0 (portfolio existed)
+      const live = timestamps.map((t, i) => ({ t, e: equities[i] })).filter(x => x.e > 0);
+      if (live.length >= 2) {
+        const latest    = live[live.length - 1].e;
+        const latestTs  = live[live.length - 1].t;
+        const firstTs   = live[0].t;                 // oldest point with positions
+        const ageMs     = (latestTs - firstTs) * 1000;
+        const dayMs     = 86400000;
+
+        const pctAt = (daysAgo) => {
+          const targetTs = latestTs - daysAgo * 86400;
+          // find closest entry at or before targetTs that is within the live range
+          if (targetTs < firstTs) return null;        // portfolio didn't exist yet
+          const closest = live.slice().reverse().find(x => x.t <= targetTs + 3600); // +1h tolerance
+          return closest ? (latest - closest.e) / closest.e * 100 : null;
+        };
+
+        const now = new Date();
+        const ytdDays = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / dayMs);
+
+        portfolioReturns.d1  = pctAt(1);
+        portfolioReturns.w1  = pctAt(7);
+        portfolioReturns.m1  = pctAt(30);
+        portfolioReturns.m3  = pctAt(91);
+        portfolioReturns.m6  = pctAt(182);
+        portfolioReturns.ytd = pctAt(ytdDays);
+        portfolioReturns.y1  = pctAt(365);
+      }
+    } catch (_) { /* portfolio history unavailable */ }
 
     const buyingPower  = account ? parseFloat(account.buying_power || account.cash || 0) : 0;
     const buyCount     = signals.filter(s => s.recommendation === 'BUY').length;
@@ -852,7 +875,7 @@ app.get('/', async (req, res) => {
     const phoenixSigMap  = new Map(phoenixSigs.map(p => [p.symbol, p]));
 
     const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol))).join('');
-    const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap);
+    const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap, portfolioReturns);
     // Phoenix panel rows
     const phoenixPanelRows = phoenixSigs.filter(p => p.recommendation === 'BUY' || p.recommendation === 'WATCH').map(p => {
       const alpSig      = signalMap.get(p.symbol);

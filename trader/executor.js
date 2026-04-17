@@ -44,6 +44,12 @@ async function getAlpacaPositions() {
   return alpacaGet('/positions');
 }
 
+// ─── Portfolio history for period returns ─────────────────────────────────────
+// Returns daily equity snapshots for the past year (timeframe=1D, period=1A)
+async function getPortfolioHistory() {
+  return alpacaGet('/account/portfolio/history?period=1A&timeframe=1D');
+}
+
 // ─── Execute a buy trade ─────────────────────────────────────────────────────
 // Called after user approves via dashboard or email link
 async function executeBuy(tradeId) {
@@ -342,6 +348,6 @@ async function getMarketClock() {
 
 module.exports = {
   executeBuy, executePlan, closePosition, syncPositions,
-  getAccount, getAlpacaPositions, placeStopLoss,
+  getAccount, getAlpacaPositions, getPortfolioHistory, placeStopLoss,
   placeDirectOrder, getOpenOrders, cancelAlpacaOrder, getMarketClock,
 };
