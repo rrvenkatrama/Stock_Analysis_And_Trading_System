@@ -619,6 +619,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
     </tr></thead><tbody>${ordRows}</tbody></table>
     </div>` : ''}
   </div>
+</div>
 `;
 }
 
