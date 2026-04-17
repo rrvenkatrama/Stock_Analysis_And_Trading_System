@@ -87,6 +87,14 @@ Score 0–100 clamped. **BUY ≥50 | HOLD ≥10 | SELL <10**
 
 30+ signals across: MA crossovers (50/200 SMA), EMA 9/21 short-term swing timing, volume confirmation, RSI (14-period), MACD (12/26/9), sector-relative valuation (PE/PS/PEG), fundamental quality (EPS/revenue/ROE/D-E), dividend income, analyst consensus (Finnhub counts + Yahoo recommendationMean), short interest squeeze, market context (SPY above/below 200MA).
 
+**Autotrader behavior with manual buys:** When user buys manually while autotrader is ON, the position is immediately executed. At next 9:35 AM run, autotrader evaluates ALL Alpaca positions — including manual buys — and will hard-stop (−8%) or soft-exit (50%) based on signal data. The 30-day time stop does NOT apply to manual positions (getDaysHeld() only reads autotrader_trades, returns null for manual).
+
+**Why high-score stocks may be skipped:**
+1. Signal data used = 8:30 AM snapshot; dashboard may show different scores if manually refreshed later
+2. Tier 2 blocks stocks >8% extended above 50MA (e.g. TWLO at 12% above)
+3. Tier 1 RSI window is 30–55, not just ≤65 — RSI=58 misses this confirmation
+4. Portfolio slots fill (sorted by score DESC, stops when maxPositions reached)
+
 ---
 
 ## My Stocks — 3-Tier Auto-Trading Engine
@@ -134,7 +142,7 @@ Score 0–100 clamped. **BUY ≥50 | HOLD ≥10 | SELL <10**
   portfolio_app/scheduler.js
     8:30 AM ET Mon–Fri:
       Phase 1: Alpaca price history (parallel batches of 5)
-      Phase 2: Finnhub + Yahoo fundamentals (serial, 1200ms/symbol)
+      Phase 2: Finnhub + Yahoo fundamentals (serial, 2000ms/symbol, 3 Finnhub calls in parallel)
       Phase 3: analyzeAll() — score all 113+ watchlist symbols
       Phase 4: scanUniverse() — score 204-stock discovery universe
       Phase 4.5: autoEvaluate(false) → autotrader recommendations for email
@@ -151,6 +159,7 @@ Score 0–100 clamped. **BUY ≥50 | HOLD ≥10 | SELL <10**
     /news/:symbol   → Finnhub + SEC EDGAR news (cached)
     /docs/scoring   → scoring methodology HTML
     /buy, /sell, /cancel-order → Alpaca order execution
+    /position-chart → position performance chart data (with 50d/200d MA server-side)
 ```
 
 ---
@@ -185,13 +194,21 @@ Score 0–100 clamped. **BUY ≥50 | HOLD ≥10 | SELL <10**
 
 ### My Stocks (port 8081) — Fully Operational
 - 113+ personal watchlist stocks with daily fundamentals refresh
+- Name/sector from Finnhub getProfile() (primary); Yahoo is enrichment-only
+  COALESCE in all UPDATEs prevents Yahoo nulls from overwriting Finnhub data
+- FUND_DELAY: 2000ms between symbols (3 Finnhub calls/symbol via Promise.allSettled)
 - 30+ signal scoring engine (analyzer.js)
 - 204-stock discovery universe (universe.js) — tech-only scoring for non-watchlist
 - Auto-trading engine deployed (autotrader.js) — autorun_enabled='0' by default
 - News modal: Finnhub (cached) + SEC EDGAR Atom RSS tabs, per symbol
 - Live Alpaca positions panel with Buy More / Sell modals
 - Open orders panel with Cancel button
-- Discovery Discover panel with "+ Watch" and "Buy" buttons
+- Discovery panel with "+ Watch" and "Buy" buttons
+- Portfolio stats bar: Positions | Invested | P&L | Total Return % | Today's Gain %
+- Chg% column in all three sections (Stocks, Portfolio, Discover); prices colored green/red
+- RSI badge colors: red=oversold (<30), green=mid (30-70), blue=overbought (>70)
+- Performance chart: 50d MA (amber dashed) + 200d MA (red dashed) overlays
+  Server fetches 430 extra calendar days for MA warmup; MAs normalized to % return base
 
 ---
 
@@ -229,6 +246,9 @@ Query pattern: `SELECT config_value FROM system_config WHERE config_group='autot
 | system_config assumed key/value columns — actual schema is config_group/config_key/config_value | Corrected all queries in autotrader.js and server_portfolio.js |
 | ema9_bear_cross_ago computed in analyzer but not stored | Added to INSERT/UPDATE statement and stock_signals columns |
 | Shell heredoc expanded backtick-quoted SQL identifiers | Removed backtick quoting, used correct column names |
+| Sector/name always NULL — Yahoo Finance returned HTML error page (rate-limited) | Made Finnhub getProfile() primary source; Yahoo enrichment-only with COALESCE |
+| stock_signals sector still NULL even after watchlist fix | analyzer.js INSERT used in-memory quoteData (Yahoo null) — fixed with COALESCE in ON DUPLICATE KEY UPDATE |
+| SMA200 incorrect on short display windows (1m/3m view) | Server fetches 430 extra calendar days for warmup; slices to display range after computing |
 
 ---
 
@@ -304,6 +324,10 @@ stocktrader_portfolio.service  → systemd unit file (port 8081)
 1. Finnhub price target returns 403 (paid feature) — gracefully handled, targetMean = null
 2. VIXY proxy for VIX is approximate (VIXY × 1.8 + 2 ≈ VIX)
 3. Yahoo Finance rate-limits after ~10 rapid requests (clears in 30-60 min)
+   — sector/name now from Finnhub so this no longer blocks core data
+   — price targets still Yahoo-only; COALESCE protects once populated
+4. VIXY and SPY must be in watchlist for VIX sizing and 50MA regime gate to work
+   — SPY absent from stock_signals → regime = 'unknown' → autotrader blocks all entries
 
 ---
 

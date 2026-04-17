@@ -1,6 +1,6 @@
 StockTrader — Build Plan & Recovery Point
 ==========================================
-Last updated: 2026-04-16
+Last updated: 2026-04-16 (session 3)
 Status: Phase 1 COMPLETE | Phase 2 COMPLETE | Phase 3 active | My Stocks Dashboard FULLY OPERATIONAL
 
 ─────────────────────────────────────────
@@ -73,7 +73,9 @@ MY STOCKS DASHBOARD (port 8081) ✅ FULLY OPERATIONAL
 [✅] 113+ stocks seeded from spreadsheet
 [✅] Price history via Alpaca (no rate limits, parallel, 1 year stored)
 [✅] Fundamentals via Finnhub (PE, dividend, analyst, EPS/revenue growth, ROE, D/E, beta)
-     + Yahoo Finance (name, sector, fwdPE, recommendationMean, shortPercentOfFloat)
+     + Yahoo Finance (fwdPE, recommendationMean, shortPercentOfFloat, price targets)
+[✅] Name/sector via Finnhub getProfile() (primary, reliable)
+     Yahoo enrichment-only; COALESCE prevents Yahoo null from overwriting good data
 [✅] 30+ signal scoring engine (portfolio_app/analyzer.js):
      - MA crossovers (50/200 SMA golden/death cross)
      - EMA 9/21 swing timing (bull/bear cross age stored in stock_signals)
@@ -89,7 +91,7 @@ MY STOCKS DASHBOARD (port 8081) ✅ FULLY OPERATIONAL
      - Technical-only scoring for non-watchlist stocks
      - "+ Watch" button adds to watchlist, full data on next morning refresh
 [✅] Live Alpaca positions panel (replaced portfolio recommendations)
-     - Symbol | Signal·Price | Qty | Avg Entry | Current | Mkt Value | P&L | Trade
+     - Symbol | Signal·Price | Qty | Avg Entry | Current | Chg% | Mkt Value | P&L | Trade
      - "Buy More" + "Sell" buttons open modal (market/limit, qty, TIF, extended hours)
 [✅] Open orders panel with Cancel button
 [✅] 3-tier Auto-trading engine (portfolio_app/autotrader.js):
@@ -110,6 +112,14 @@ MY STOCKS DASHBOARD (port 8081) ✅ FULLY OPERATIONAL
      - system_config: autorun_enabled='0', autorun_max_positions='8' seeded
 [✅] Scoring methodology HTML rebuilt (30+ signals, autotrader section)
 [✅] product_requirements.md updated to v2.2
+[✅] Session 3 UI improvements (2026-04-16):
+     - RSI badge colors: red=oversold (<30), green=mid (30-70), blue=overbought (>70)
+     - Chg% column added to all three sections (Stocks, Portfolio, Discover)
+     - Price cell colored green/red by daily % change in all sections
+     - Signal·Price in Portfolio positions also green/red by intraday % change
+     - Portfolio stats bar: Total Return % + Today's Gain % stat cards added
+     - Performance chart: 50d MA (amber dashed) + 200d MA (red dashed) overlay lines
+     - MA computed server-side with 430-day warmup; normalized to % return base
 
 Service: stocktrader_portfolio.service (port 8081)
 Dashboard: http://192.168.1.156:8081/
@@ -126,7 +136,11 @@ KNOWN ISSUES (April 2026)
 1. Finnhub price target returns 403 (paid feature) — gracefully handled, targetMean = null
 2. VIXY proxy for VIX is approximate (VIXY × 1.8 + 2 ≈ VIX)
 3. Yahoo Finance rate-limits after ~10 rapid requests (clears in 30-60 min)
+   — sector/name now from Finnhub so this no longer blocks core data
+   — price targets still Yahoo-only; COALESCE protects once populated
 4. MySQL 8.4 does NOT support ADD COLUMN IF NOT EXISTS — use information_schema check + PREPARE/EXECUTE pattern
+5. VIXY and SPY must be in watchlist for VIX sizing and 50MA regime gate to work
+   — SPY not in stock_signals → regime = 'unknown' → autotrader blocks ALL entries
 
 ─────────────────────────────────────────
 PHASE 4: ENHANCEMENTS (FUTURE)
