@@ -483,25 +483,46 @@
         <div class="tier-label">Tier 3 — Outermost Gate</div>
         <div class="tier-name">Market Regime Filter</div>
         <div class="tier-body">
-          Uses SPY's pre-computed <code>above_200ma</code> from <code>stock_signals</code>.
+          Uses SPY's pre-computed signals from <code>stock_signals</code> — no extra data fetch needed.
+          This gate is all-or-nothing: if it fails, <strong>no new buys run at all</strong>. Exit logic always runs regardless.
           <ul style="margin-top:8px">
-            <li><strong>BULL</strong> — SPY above 200DMA: proceed to Tiers 2 and 1</li>
-            <li><strong>BEAR</strong> — SPY below 200DMA: <strong>block all new buy orders</strong>; exit logic still runs</li>
+            <li><strong>BULL</strong> — SPY above 200DMA <em>and</em> above 50DMA → proceed to Tiers 2 and 1</li>
+            <li><strong>CAUTION</strong> — SPY above 200DMA but below 50DMA → correction in progress, block all entries</li>
+            <li><strong>BEAR</strong> — SPY below 200DMA → bear market, block all entries</li>
+            <li><strong>UNKNOWN</strong> — SPY not in <code>stock_signals</code> (not in watchlist) → block all entries (safe default)</li>
           </ul>
+          <p style="margin-top:8px;font-size:12px;color:#7f8c8d">
+            <strong>Why the 50DMA gate?</strong> SPY dropping below its 50DMA signals a correction in progress — even if the 200DMA hasn't broken yet.
+            Buying individual stocks during an index correction is high-risk: even great stocks get sold off in broad market drawdowns.
+            The 50DMA gate catches this early before it becomes a bear market.
+          </p>
+          <p style="font-size:12px;color:#c0392b;margin-top:4px">
+            <strong>Important:</strong> SPY must be in your watchlist for this gate to work. If SPY is absent from <code>stock_signals</code>, regime = UNKNOWN and all entries are blocked.
+          </p>
         </div>
       </div>
       <div class="tier tier2">
         <div class="tier-label">Tier 2 — Quality Filter</div>
-        <div class="tier-name">Watchlist-Only + Not Overextended</div>
+        <div class="tier-name">Watchlist-Only · Not Overbought · Not Overextended</div>
         <div class="tier-body">
-          All four conditions must pass:
+          All conditions must pass — one failure blocks this stock entirely:
           <ul style="margin-top:8px">
-            <li>Symbol is in personal watchlist (<code>is_active=1</code>) — Discover universe is never auto-traded</li>
+            <li>Symbol is in personal watchlist (<code>is_active=1</code>) — Discover universe stocks are never auto-traded</li>
             <li>Score ≥ 50 on the full 30+ signal engine</li>
             <li>Price ≥ $5 (no penny stocks)</li>
-            <li>RSI ≤ 65 (not overbought entering position)</li>
-            <li>Price not &gt;8% above 50DMA (not extended)</li>
+            <li>RSI ≤ 65 — blocks entries when a stock is already overbought</li>
+            <li>Price ≤ 50DMA × 1.08 — blocks entries when price is &gt;8% above the 50DMA</li>
           </ul>
+          <p style="margin-top:10px;font-size:12px;color:#7f8c8d">
+            <strong>Why the &gt;8% extension block?</strong> The 50DMA acts like a rubber band — stocks tend to revert to it after a strong run.
+            When a stock is already 8%+ above its 50DMA it means: (1) you'd be buying after most of the move, (2) traders who bought earlier start taking profits creating natural resistance,
+            and (3) if it reverts to the 50DMA, that's an 8%+ drop — straight into your hard stop territory.
+            The safer entry is to wait for the stock to pull back toward the 50DMA, or hold flat long enough for the 50DMA to "catch up" to the price.
+          </p>
+          <p style="font-size:12px;color:#7f8c8d">
+            <strong>Example:</strong> TWLO score 97 but 12% above its 50DMA ($137 price vs $122 50DMA) → blocked.
+            Even with a great score, the risk/reward at that extension is poor.
+          </p>
         </div>
       </div>
       <div class="tier tier1">
@@ -511,13 +532,26 @@
           All conditions must pass:
           <ul style="margin-top:8px">
             <li>Score ≥ 65</li>
-            <li>≥ 2 technical confirmations out of: RSI 30–55, MACD bullish/above-signal, above 50DMA, volume ≥1.3×</li>
-            <li>Not currently held (Alpaca qty = 0 for this symbol — one position per symbol)</li>
-            <li>Portfolio has open slots (max 8 positions; configurable via system_config)</li>
+            <li>≥ 2 technical confirmations out of 4:
+              <ul style="margin-top:4px">
+                <li>RSI between 30–65 (not oversold, not overbought — momentum entry zone)</li>
+                <li>MACD = bullish or above-signal line</li>
+                <li>Price above 50DMA</li>
+                <li>Today's volume ≥ 1.3× 20-day average</li>
+              </ul>
+            </li>
+            <li>Not currently held (one position per symbol — no averaging down)</li>
+            <li>Portfolio has open slots (max 8 positions; configurable in system_config)</li>
             <li>Sufficient buying power: 20% cash buffer always reserved; 50% of remaining deployed</li>
             <li>No earnings within next 5 calendar days (Finnhub calendar)</li>
             <li>Market hours: 9:35 AM – 3:45 PM ET</li>
           </ul>
+          <p style="margin-top:10px;font-size:12px;color:#7f8c8d">
+            <strong>RSI confirmation window (30–65):</strong> The RSI gate inside Tier 1 is deliberately narrower than the Tier 2 hard block (≤65).
+            RSI below 30 is deeply oversold — the stock may still be in freefall. RSI above 65 means the move is already extended.
+            The 30–65 window targets stocks that have started recovering but haven't run too far — the best entry zone for a swing trade.
+            Stocks with RSI 65–75 can still be bought if the other 3 confirmations (MACD, above 50DMA, volume) provide 2 of the needed signals.
+          </p>
         </div>
       </div>
     </div>
@@ -545,11 +579,25 @@
     <ul>
       <li><code>cashBuffer  = accountEquity × 0.20</code> — always keep 20% uninvested</li>
       <li><code>deployable  = max(0, (buyingPower − cashBuffer) × 0.50)</code> — deploy 50% of remaining</li>
-      <li><code>maxPerPos   = accountEquity × 0.10</code> — max 10% per position</li>
+      <li><code>maxPerPos   = accountEquity × 0.10 × vixMultiplier</code> — max 10% per position, VIX-adjusted</li>
       <li><code>perSlot     = min(deployable / openSlots, maxPerPos)</code></li>
       <li><code>shares      = floor(perSlot / currentPrice)</code></li>
       <li>If shares &lt; 1 → skip (insufficient funds)</li>
     </ul>
+    <p style="font-size:13px;color:#34495e;margin-top:6px">
+      <strong>VIX position size multiplier</strong> (estimated from VIXY price in <code>price_history</code>):
+    </p>
+    <table>
+      <thead><tr><th>VIX level</th><th>Multiplier</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td>Below 20 (calm)</td><td>1.00×</td><td>Normal position size</td></tr>
+        <tr><td>20–30 (elevated)</td><td>0.75×</td><td>Size down 25%</td></tr>
+        <tr><td>Above 30 (high volatility)</td><td>0.50×</td><td>Size down 50%</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:12px;color:#7f8c8d">
+      VIXY must be in your watchlist for VIX sizing to work. If absent, multiplier defaults to 1.0× (normal size).
+    </p>
 
     <h3>Autotrader Record-Keeping</h3>
     <p>Every order (buy or sell) is written to the <code>autotrader_trades</code> table with: symbol, action, qty, exit_reason, alpaca_order_id, executed_at. This table drives the "days held" calculation for the time stop.</p>
@@ -626,7 +674,7 @@
 
   <!-- Footer -->
   <div style="text-align:center;padding:24px 0;font-size:12px;color:#95a5a6">
-    My Stocks Dashboard · v2.2 · Scoring engine: <code>portfolio_app/analyzer.js</code> · Autotrader: <code>portfolio_app/autotrader.js</code><br>
+    My Stocks Dashboard · v2.3 · Scoring engine: <code>portfolio_app/analyzer.js</code> · Autotrader: <code>portfolio_app/autotrader.js</code><br>
     Last updated: April 2026 · 30+ signals · 0–100 scale · BUY ≥50 · HOLD 10–49 · SELL &lt;10
   </div>
 
