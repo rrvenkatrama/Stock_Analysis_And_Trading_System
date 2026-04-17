@@ -92,6 +92,13 @@ input[type=text]:focus,input[type=number]:focus,select:focus{border-color:#3182c
 #stocks-table th:first-child{position:sticky;left:0;z-index:3;background:#f0f4f8}
 #stocks-table td:first-child{position:sticky;left:0;z-index:2;background:#ffffff}
 #stocks-table tr:hover td:first-child{background:#f7fafc}
+.tab-nav{display:flex;gap:0;background:#1a1f2e;padding:0 24px;border-bottom:2px solid #2d3748;position:sticky;top:56px;z-index:40}
+.tab-btn{padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#718096;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s,border-color .15s}
+.tab-btn:hover{color:#e2e8f0}
+.tab-btn.active{color:#63b3ed;border-bottom-color:#3182ce}
+.tab-btn.tab-phoenix.active{color:#b794f4;border-bottom-color:#805ad5}
+.tab-content{display:none}
+.tab-content.active{display:block}
 </style>`;
 
 // ─── JS ───────────────────────────────────────────────────────────────────────
@@ -127,16 +134,18 @@ function filterSearch(val){
 }
 
 // ── Why modal ─────────────────────────────────────────────────────────────────
-function showWhy(sym,why){
+function showWhy(sym,why,updatedAt){
   document.getElementById('why-modal-sym').textContent=sym+' — Signal Breakdown';
   const parts=why.split(' | ');
-  document.getElementById('why-modal-body').innerHTML=parts.map((p,i)=>{
+  let html=parts.map((p,i)=>{
     if(i===0&&p.startsWith('Score:')){
       return '<div style="padding:8px 0 10px;border-bottom:2px solid #e2e8f0;color:#2c5282;font-weight:700;font-size:14px">'+p+'</div>';
     }
     const col=p.startsWith('+')?'#276749':p.startsWith('-')?'#c53030':'#1a202c';
     return '<div style="padding:6px 0;border-bottom:1px solid #edf2f7;color:'+col+'">'+p+'</div>';
   }).join('');
+  if(updatedAt) html+='<div style="margin-top:12px;font-size:11px;color:#a0aec0;text-align:right">Last updated: '+updatedAt+' ET</div>';
+  document.getElementById('why-modal-body').innerHTML=html;
   document.getElementById('why-modal').style.display='flex';
 }
 function closeWhy(){document.getElementById('why-modal').style.display='none';}
@@ -401,28 +410,21 @@ function _renderChart(data){
   });
 }
 
-// ── Collapsible sections ──────────────────────────────────────────────────────
-function toggleSection(id){
-  const el=document.getElementById(id);
-  const chev=document.getElementById('chev-'+id);
-  if(!el)return;
-  const hidden=el.style.display==='none';
-  el.style.display=hidden?'':'none';
-  if(chev)chev.textContent=hidden?'▼':'▶';
-  try{localStorage.setItem('sec-'+id,hidden?'1':'0');}catch(_){}
+// ── Tab navigation ────────────────────────────────────────────────────────────
+function switchTab(name){
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  const content=document.getElementById('tab-'+name);
+  const btn=document.querySelector('.tab-btn[data-tab="'+name+'"]');
+  if(content)content.classList.add('active');
+  if(btn)btn.classList.add('active');
+  try{localStorage.setItem('active-tab',name);}catch(_){}
 }
-(function restoreSections(){
-  ['sec-portfolio','sec-stocks','sec-discover'].forEach(id=>{
-    try{
-      const v=localStorage.getItem('sec-'+id);
-      if(v==='0'){
-        const el=document.getElementById(id);
-        const chev=document.getElementById('chev-'+id);
-        if(el){el.style.display='none';}
-        if(chev){chev.textContent='▶';}
-      }
-    }catch(_){}
-  });
+(function restoreTab(){
+  try{
+    const saved=localStorage.getItem('active-tab')||'portfolio';
+    switchTab(saved);
+  }catch(_){switchTab('portfolio');}
 })();
 
 document.addEventListener('keydown',e=>{
@@ -481,11 +483,11 @@ function perfCell(p) {
   const f = v => v != null
     ? `<span style="color:${v>=0?'#276749':'#c53030'};font-weight:600">${v>=0?'+':''}${v.toFixed(1)}%</span>`
     : '<span style="color:#a0aec0">—</span>';
-  return `<table class="perf-tbl"><tr>
-    <td style="color:#4a5568">1D</td><td>${f(p?.d1)}</td>
-    <td style="color:#4a5568;padding-left:8px">1W</td><td>${f(p?.w1)}</td></tr>
-    <tr><td style="color:#4a5568">1M</td><td>${f(p?.m1)}</td>
-    <td style="color:#4a5568;padding-left:8px">1Y</td><td>${f(p?.y1)}</td></tr></table>`;
+  return `<table class="perf-tbl">
+    <tr><td style="color:#4a5568">1W</td><td>${f(p?.w1)}</td><td style="color:#4a5568;padding-left:6px">1M</td><td>${f(p?.m1)}</td></tr>
+    <tr><td style="color:#4a5568">3M</td><td>${f(p?.m3)}</td><td style="color:#4a5568;padding-left:6px">6M</td><td>${f(p?.m6)}</td></tr>
+    <tr><td style="color:#4a5568">1Y</td><td>${f(p?.y1)}</td><td style="color:#4a5568;padding-left:6px">YTD</td><td>${f(p?.ytd)}</td></tr>
+  </table>`;
 }
 
 function portfolioSection(positions, openOrders, account, signalMap, upgradeMap = new Map(), perfMap = new Map()) {
@@ -522,7 +524,8 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
       : '<span style="color:#718096;font-size:10px">—</span>';
 
     const whySafe = sig?.why ? sig.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
-    const posWhyBtn = whySafe ? `<button onclick="showWhy('${p.symbol}','${whySafe}')" class="btn btn-xs" style="background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8">Why?</button>` : '—';
+    const posUpdatedAt = sig?.generated_at ? new Date(sig.generated_at).toLocaleString('en-US',{timeZone:'America/New_York',hour12:true,month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+    const posWhyBtn = whySafe ? `<button onclick="showWhy('${p.symbol}','${whySafe}','${posUpdatedAt}')" class="btn btn-xs" style="background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8">Why?</button>` : '—';
     const posSector = sig?.sector ? `<span style="font-size:11px;color:#718096">${sig.sector}</span>` : '—';
 
     const tgtMean = sig?.target_mean ? parseFloat(sig.target_mean) : null;
@@ -587,11 +590,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
   }).join('') : '';
 
   return `
-<div class="section-hdr" style="cursor:pointer;user-select:none" onclick="toggleSection('sec-portfolio')">
-  <span id="chev-sec-portfolio" style="font-size:11px;margin-right:6px">▼</span>💼 My Portfolio
-  <span class="section-sub">· ${positions.length} position${positions.length!==1?'s':''} · ${equityTxt} · ${cashTxt}</span>
-</div>
-<div id="sec-portfolio" class="portfolio-wrap">
+<div class="portfolio-wrap">
   <div class="card">
     <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:${positions.length?'12':'0'}px;align-items:center">
       <div class="stat"><div class="num" style="color:#63b3ed">$${totalValue.toLocaleString(undefined,{maximumFractionDigits:0})}</div><div class="lbl">Market Value</div></div>
@@ -620,7 +619,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
     </tr></thead><tbody>${ordRows}</tbody></table>
     </div>` : ''}
   </div>
-</div>`;
+`;
 }
 
 // ─── Stock table row ──────────────────────────────────────────────────────────
@@ -685,7 +684,8 @@ function stockRow(s, upgrade, phxSig) {
   const chgTxt   = chg !== null ? `<span style="font-weight:600;color:${priceColor}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>` : '—';
   const nameSafe = (s.name || '').replace(/'/g, "\\'");
   const whySafe  = s.why ? s.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
-  const whyBtn   = s.why ? `<button onclick="showWhy('${s.symbol}','${whySafe}')" class="btn btn-xs" style="background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8">Why?</button>` : '';
+  const updatedAtSafe = s.generated_at ? new Date(s.generated_at).toLocaleString('en-US',{timeZone:'America/New_York',hour12:true,month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+  const whyBtn   = s.why ? `<button onclick="showWhy('${s.symbol}','${whySafe}','${updatedAtSafe}')" class="btn btn-xs" style="background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8">Why?</button>` : '';
   const isEtf = s.asset_type === 'etf' || s.asset_type === 'fund';
   const buyBtn = isEtf
     ? `<button class="btn btn-xs" style="background:#f7fafc;color:#a0aec0;border:1px solid #e2e8f0;cursor:not-allowed" disabled>Buy</button>`
@@ -783,7 +783,11 @@ app.get('/', async (req, res) => {
       for (const [sym, closes] of Object.entries(grouped)) {
         const cur = closes[0];
         const pct = n => closes[n] != null ? (cur - closes[n]) / closes[n] * 100 : null;
-        perfMap.set(sym, { d1: pct(1), w1: pct(5), m1: pct(21), y1: pct(252) });
+        // YTD: approximate calendar days elapsed × (252/365) to get trading days
+        const now = new Date();
+        const ytdCalDays = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / 86400000);
+        const ytdIdx = Math.round(ytdCalDays * 252 / 365);
+        perfMap.set(sym, { d1: pct(1), w1: pct(5), m1: pct(21), m3: pct(63), m6: pct(126), y1: pct(252), ytd: pct(ytdIdx) });
       }
     }
 
@@ -974,22 +978,30 @@ function showStrategyInfo(type) {
 }
 </script>
 
-${pfSection}
-
-<div class="stat-bar" style="cursor:pointer;user-select:none" onclick="toggleSection('sec-stocks')">
-  <span id="chev-sec-stocks" style="font-size:11px;margin-right:4px;color:#718096">▼</span>
-  <div class="stat"><div class="num" style="color:#2d3748">${signals.length}</div><div class="lbl">Tracked</div></div>
-  <div class="stat"><div class="num" style="color:#276749">${buyCount}</div><div class="lbl">Buy</div></div>
-  <div class="stat"><div class="num" style="color:#3182ce">${holdCount}</div><div class="lbl">Hold</div></div>
-  <div class="stat"><div class="num" style="color:#c53030">${sellCount}</div><div class="lbl">Sell</div></div>
-  <div class="stat"><div class="num" style="color:#6b46c1">${picks.length}</div><div class="lbl">New Picks</div></div>
-  <div style="flex:1"></div>
-  <div style="font-size:11px;color:#718096">Score ≥50 = BUY · 10–49 = HOLD · &lt;10 = SELL</div>
+<!-- Tab navigation -->
+<div class="tab-nav">
+  <button class="tab-btn" data-tab="portfolio" onclick="switchTab('portfolio')">💼 Portfolio · ${positions.length}</button>
+  <button class="tab-btn" data-tab="stocks" onclick="switchTab('stocks')">📊 Stocks · ${signals.length} · <span style="color:#48bb78">${buyCount} Buy</span></button>
+  <button class="tab-btn" data-tab="discover" onclick="switchTab('discover')">🔭 Discover · ${picks.length}</button>
+  <button class="tab-btn tab-phoenix" data-tab="phoenix" onclick="switchTab('phoenix')">🔥 Phoenix · <span style="color:#e9d8fd">${phoenixSigs.filter(p=>p.recommendation==='BUY').length} BUY</span> · ${phoenixSigs.filter(p=>p.recommendation==='WATCH').length} WATCH</button>
 </div>
 
-<div id="sec-stocks">
+<!-- Portfolio tab -->
+<div id="tab-portfolio" class="tab-content">
+${pfSection}
+</div>
+
+<!-- Stocks tab -->
+<div id="tab-stocks" class="tab-content">
+<div style="display:flex;align-items:center;gap:16px;padding:8px 24px;background:#1a1f2e;border-bottom:1px solid #2d3748;font-size:11px;color:#718096">
+  <span>📅 Last data run: <b style="color:#a0aec0">${lastRefresh}</b></span>
+  <span style="flex:1"></span>
+  <span>Score ≥50 = BUY · 10–49 = HOLD · &lt;10 = SELL</span>
+  <div class="stat" style="margin:0"><div class="num" style="color:#276749;font-size:16px">${buyCount}</div><div class="lbl">Buy</div></div>
+  <div class="stat" style="margin:0"><div class="num" style="color:#3182ce;font-size:16px">${holdCount}</div><div class="lbl">Hold</div></div>
+  <div class="stat" style="margin:0"><div class="num" style="color:#c53030;font-size:16px">${sellCount}</div><div class="lbl">Sell</div></div>
+</div>
 <div class="filter-bar">
-  <b style="color:#2c5282;font-size:12px">Stocks</b>
   <input type="text" placeholder="Search symbol or name…" oninput="filterSearch(this.value)" style="width:180px">
   <select onchange="filterRec(this.value)" style="width:auto">
     <option value="">All</option>
@@ -998,8 +1010,7 @@ ${pfSection}
     <option value="SELL">SELL only</option>
   </select>
 </div>
-
-<div class="tbl-wrap" style="max-height:600px;margin:0 24px 16px">
+<div class="tbl-wrap" style="max-height:calc(100vh - 220px);margin:0 24px 16px">
 <table id="stocks-table">
 <thead><tr>
   <th data-col="sym"    onclick="sortTable('sym')">Symbol / Name</th>
@@ -1029,14 +1040,14 @@ ${pfSection}
 </div>
 </div>
 
-<!-- Discover section -->
-<div class="section-hdr" style="margin-top:20px;cursor:pointer;user-select:none" onclick="toggleSection('sec-discover')">
-  <span id="chev-sec-discover" style="font-size:11px;margin-right:6px">▼</span>🔭 Discover
-  <span class="section-sub">${picks.length} momentum leaders &amp; new picks not in your watchlist</span>
-  <a href="/scan-universe" class="btn btn-xs" style="background:#faf5ff;color:#6b46c1;border:1px solid #d6bcfa;margin-left:12px;font-size:11px" onclick="event.stopPropagation()">↻ Scan Now</a>
+<!-- Discover tab -->
+<div id="tab-discover" class="tab-content">
+<div style="display:flex;align-items:center;gap:12px;padding:8px 24px;background:#1a1f2e;border-bottom:1px solid #2d3748;font-size:11px;color:#718096">
+  <span>${picks.length} momentum leaders &amp; new picks not in your watchlist</span>
+  <span style="flex:1"></span>
+  <a href="/scan-universe" class="btn btn-xs" style="background:#faf5ff;color:#6b46c1;border:1px solid #d6bcfa;font-size:11px">↻ Scan Now</a>
 </div>
-<div id="sec-discover">
-<div class="tbl-wrap" style="max-height:500px;margin:0 24px 16px">
+<div class="tbl-wrap" style="max-height:calc(100vh - 200px);margin:0 24px 16px">
 <table>
 <thead><tr>
   <th>Symbol / Name</th>
@@ -1052,14 +1063,14 @@ ${pfSection}
 </div>
 </div>
 
-<!-- Phoenix section -->
-<div class="section-hdr" style="margin-top:20px;cursor:pointer;user-select:none;background:linear-gradient(135deg,#1a1540,#2d1b4e)" onclick="toggleSection('sec-phoenix')">
-  <span id="chev-sec-phoenix" style="font-size:11px;margin-right:6px">▼</span>🔥 Phoenix — Deep Value Contrarian
-  <span class="section-sub" style="color:#b794f4">${phoenixSigs.filter(p=>p.recommendation==='BUY').length} BUY · ${phoenixSigs.filter(p=>p.recommendation==='WATCH').length} WATCH · fundamentally strong, deeply discounted</span>
-  <button onclick="showStrategyInfo('phoenix');event.stopPropagation()" style="background:none;border:1px solid #805ad5;color:#b794f4;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:12px">ℹ What is Phoenix?</button>
+<!-- Phoenix tab -->
+<div id="tab-phoenix" class="tab-content">
+<div style="display:flex;align-items:center;gap:12px;padding:8px 24px;background:linear-gradient(135deg,#1a1540,#2d1b4e);border-bottom:1px solid #553c9a;font-size:11px;color:#b794f4">
+  <span>${phoenixSigs.filter(p=>p.recommendation==='BUY').length} BUY · ${phoenixSigs.filter(p=>p.recommendation==='WATCH').length} WATCH · fundamentally strong, deeply discounted</span>
+  <span style="flex:1"></span>
+  <button onclick="showStrategyInfo('phoenix')" style="background:none;border:1px solid #805ad5;color:#b794f4;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">ℹ What is Phoenix?</button>
 </div>
-<div id="sec-phoenix">
-<div class="tbl-wrap" style="max-height:500px;margin:0 24px 16px">
+<div class="tbl-wrap" style="max-height:calc(100vh - 200px);margin:0 24px 16px">
 <table>
 <thead><tr style="background:#1a1540">
   <th>Symbol / Name</th>
