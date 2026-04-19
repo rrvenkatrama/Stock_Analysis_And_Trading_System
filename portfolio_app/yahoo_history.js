@@ -217,6 +217,9 @@ async function refreshAll(fullYear = false) {
         analystSell = ratings.totalSell || 0;
         analystHold = ratings.hold      || 0;
       } catch (_) {}
+      quotes[sym].analystBuy  = analystBuy;
+      quotes[sym].analystSell = analystSell;
+      quotes[sym].analystHold = analystHold;
 
       await db.query(
         `UPDATE watchlist SET

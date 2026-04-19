@@ -238,6 +238,9 @@ async function evaluate(execute = false) {
       }
     }
 
+    // ── Phase 2: Entry evaluation — DISABLED (manual buys only from Phoenix tab) ─
+    return results; // buying disabled; exits above still run
+
     // ── Phase 2: Entry evaluation ─────────────────────────────────────────────
     const vix    = await getVixEstimate();
     const mult   = vixMultiplier(vix);
@@ -262,7 +265,7 @@ async function evaluate(execute = false) {
       // BUY candidates: phoenix_signals BUY, score ≥60, not already held
       const candidates = await db.query(
         `SELECT ps.*, w.is_active FROM phoenix_signals ps
-         INNER JOIN watchlist w ON w.symbol = ps.symbol AND w.is_active = 1
+         INNER JOIN watchlist w ON w.symbol = ps.symbol AND w.is_active = 1 AND w.no_pick = 0
          WHERE ps.recommendation = 'BUY' AND ps.score >= 60
          ORDER BY ps.score DESC LIMIT 20`
       );

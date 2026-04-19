@@ -1,6 +1,5 @@
-StockTrader — Build Plan & Recovery Point
-==========================================
-Last updated: 2026-04-17 (session 4)
+# StockTrader — Plan & Current State
+Last updated: 2026-04-19 (session 6)
 Status: Phase 1 COMPLETE | Phase 2 COMPLETE | Phase 3 active | My Stocks Dashboard FULLY OPERATIONAL
 
 ─────────────────────────────────────────
@@ -9,8 +8,6 @@ PHASE 1: CORE BUILD ✅ COMPLETE
 
 [✅] Project scaffold (package.json, .env, .gitignore)
 [✅] Database schema + setup (db/schema.sql, db/setup.js)
-     Tables: scan_sessions, candidates, trades, positions,
-             daily_stats, news_cache, system_log, system_config
 [✅] Config + DB modules (config/env.js, db/db.js)
 [✅] Runtime source config (config/sources.js)
 [✅] Unified data provider (data/provider.js)
@@ -32,175 +29,166 @@ PHASE 2: SETUP & PAPER TRADING ✅ COMPLETE
 [✅] All API keys in .env (Polygon, Finnhub, Alpha Vantage)
 [✅] MySQL on 192.168.1.156 — all tables created
 [✅] Email confirmed working (rrvenkatrama@gmail.com)
-[✅] VIX-adaptive thresholds active (VIX=56 → effective threshold 35)
-[✅] Debug scan: 28/30 symbols passing, CRM/PLTR/MSFT top picks
+[✅] VIX-adaptive thresholds active
 [✅] Deployed to 192.168.1.156 as systemd service (port 3001)
 [✅] Full flow tested end-to-end: Scan → Plan → Approve → Execute
 
 ─────────────────────────────────────────
-CURRENT DATA STACK (stored in system_config table)
+CURRENT DATA STACK
 ─────────────────────────────────────────
 
 priceData:     alpaca      ← Alpaca market data API, free, fast, no rate limits
-fundamentals:  finnhub     ← Switched from Yahoo (Yahoo blocked our IP)
-marketContext: alpaca       ← SPY/QQQ/VIXY bars via Alpaca
+fundamentals:  finnhub     ← Yahoo blocked our IP
+marketContext: alpaca
 vix:           yahoo        ← VIXY proxy used when Yahoo blocked
-news:          finnhub      ← Switched from Yahoo
-sentiment:     stocktwits   ← Free retail sentiment
+news:          finnhub
+sentiment:     stocktwits
 
 ─────────────────────────────────────────
 PHASE 3: PAPER TRADING & TUNING 🔄 IN PROGRESS
 ─────────────────────────────────────────
 
-[✅] Monday 8:50 AM scan confirmed fired
-[✅] 3 new scanner categories deployed (2026-04-14):
-     - breakout:       volume ≥ 2.5x, RSI 40-70, above 50MA
-     - dividend_value: ≥30% off 52wk high, PE ≤ 15, yield ≥ 3%
-     - strong_moat:    analyst buy% ≥ 75%, instOwn ≥ 60%, D/E < 1
-[✅] Universe expanded 30 → 48 symbols
+[✅] Alpha strategy auto-trading engine (portfolio_app/autotrader.js)
+[✅] Phoenix strategy (phoenix_screener.js + phoenix_autotrader.js)
+[✅] Two-cron schedule (8:30 AM refresh, 9:35 AM execution)
+[✅] Strategy toggles in dashboard header (Alpha ON/OFF, Phoenix ON/OFF)
+[✅] News modal (Finnhub + SEC EDGAR)
 
-[ ] Monitor paper positions — check dashboard daily
-    http://192.168.1.156:3001/dashboard
-[ ] Track performance: win rate, avg gain vs avg loss, hold durations
-[ ] Tune scoring weights if signal categories consistently underperform
-[ ] Target: 2–4 weeks consistent results before going live
+SESSION 5 CHANGES (2026-04-19):
+[✅] Yahoo Finance ticker popup (window.open, 1200×750) — replaces TradingView iframe
+[✅] TradingView iframe removed (Yahoo Finance blocks iframes, colors not customizable)
+[✅] Analyst data bug fixed (yahoo_history.js — analyst counts not flowing to stock_signals)
+[✅] Long Haul tab added (🌱) — see criteria below
+[✅] Autotrader flag system (position_flags table) — see architecture below
+[✅] Phoenix autotrader buying DISABLED — exits only
+[✅] Buy buttons removed from Discover, Phoenix, Long Haul — + Watch only
+[✅] Autotrader ON/OFF toggle per position in Portfolio tab
+[✅] position_flags seeded ON for: BA, CRM, CRWD, F, GME, GOOGL, JETS, MSFT
 
 ─────────────────────────────────────────
-MY STOCKS DASHBOARD (port 8081) ✅ FULLY OPERATIONAL
+AUTOTRADER FLAG SYSTEM (Session 5)
 ─────────────────────────────────────────
 
-[✅] Personal watchlist dashboard — separate from swing trader (port 3001)
-[✅] 113+ stocks seeded from spreadsheet
-[✅] Price history via Alpaca (no rate limits, parallel, 1 year stored)
-[✅] Fundamentals via Finnhub (PE, dividend, analyst, EPS/revenue growth, ROE, D/E, beta)
-     + Yahoo Finance (fwdPE, recommendationMean, shortPercentOfFloat, price targets)
-[✅] Name/sector via Finnhub getProfile() (primary, reliable)
-     Yahoo enrichment-only; COALESCE prevents Yahoo null from overwriting good data
-[✅] 30+ signal scoring engine (portfolio_app/analyzer.js):
-     - MA crossovers (50/200 SMA golden/death cross)
-     - EMA 9/21 swing timing (bull/bear cross age stored in stock_signals)
-     - Volume confirmation (institutional buying signal)
-     - RSI, MACD, sector-relative valuation (PE/PS/PEG)
-     - Business quality (EPS/revenue/ROE/D-E), dividend income
-     - Analyst consensus (Finnhub counts + Yahoo recommendationMean)
-     - Short interest squeeze detection
-     - Market context (SPY 200MA)
-     Score: 0–100. BUY ≥50 | HOLD ≥10 | SELL <10
-[✅] 204-stock discovery universe (portfolio_app/universe.js)
-     - Scans S&P 100 + popular NASDAQ + sectors for BUY signals not in watchlist
-     - Technical-only scoring for non-watchlist stocks
-     - "+ Watch" button adds to watchlist, full data on next morning refresh
-[✅] Live Alpaca positions panel (replaced portfolio recommendations)
-     - Symbol | Signal·Price | Qty | Avg Entry | Current | Chg% | Mkt Value | P&L | Trade
-     - "Buy More" + "Sell" buttons open modal (market/limit, qty, TIF, extended hours)
-[✅] Open orders panel with Cancel button
-[✅] Alpha strategy auto-trading engine (portfolio_app/autotrader.js):
-     - Tier 3: Market regime (SPY above_200ma + above_50ma)
-     - Tier 2: Quality filter (score≥50, price≥$5, RSI≤65, not >8% above 50MA)
-     - Tier 1: Entry gate (score≥65, ≥2 of 4 confirmations, no earnings within 5d)
-     - Hard stop -8%, soft exits (score<25, RSI>75, EMA bear cross ≤3d, MACD bearish, 30-day time stop)
-     - Position sizing with 20% cash buffer, VIX multiplier
-[✅] Phoenix strategy (session 4 — 2026-04-17):
-     - phoenix_screener.js: 5 hard gates + fundamentals-heavy scoring (0–100)
-     - phoenix_autotrader.js: deep value contrarian; separate 50% virtual cash pool
-     - Hard stop −15%; soft exits: score<30, analyst<20% buy, EPS negative, within 15% of 52wk high, 60d time stop
-     - phoenix_signals table created; strategy column added to autotrader_trades
-     - Max 4 Phoenix positions; skips if Alpha already holds symbol
-     - VIX sizing: <20→1.0x, 20-30→0.75x, ≥30→0.5x
-[✅] Two-cron schedule:
-     - 8:30 AM ET: refresh → analyze → universe scan → phoenix screener → alpha recs → phoenix recs → digest email
-     - 9:35 AM ET: alphaRun() then phoenixRun() → both execute when enabled
-[✅] Strategy toggles in dashboard header:
-     - ⚡ Alpha: ON/OFF (blue button, plain <a href>)
-     - 🔥 Phoenix: ON/OFF (purple button, plain <a href>)
-     - ℹ info popups for each strategy explaining logic
-[✅] Confluence signal: gold ⭐ row highlight when both Alpha AND Phoenix = BUY
-[✅] Email types: sendDailyDigest (5 params incl. phoenixResults), sendModeChangeEmail, sendAutotraderEmail(results, strategyLabel)
-[✅] News modal: Finnhub (cached news_cache) + SEC EDGAR Atom RSS tabs, per symbol
-[✅] DB migrations run on server:
-     - stock_signals: ema9_bull_cross_ago, ema9_bear_cross_ago, analyst_buy, analyst_sell, analyst_hold, shares_buyback_pct columns added
-     - autotrader_trades: strategy column added (DEFAULT 'alpha')
-     - watchlist: shares_buyback_pct, shares_outstanding columns added
-     - phoenix_signals table created (24 columns)
-     - system_config: phoenix_enabled='0', phoenix_max_positions='4' seeded
-     - autorun_max_positions changed from 8 to 4
-[✅] Scoring methodology HTML v2.4 (Alpha + Phoenix sections, autotrader decision flows)
-[✅] product_requirements.html v3.0 (dual strategy, updated schema, new routes)
-[✅] Session 3 UI improvements (2026-04-16):
-     - RSI badge colors: red=oversold (<30), green=mid (30-70), blue=overbought (>70)
-     - Chg% column added to all three sections (Stocks, Portfolio, Discover)
-     - Price cell colored green/red by daily % change in all sections
-     - Signal·Price in Portfolio positions also green/red by intraday % change
-     - Portfolio stats bar: Total Return % + Today's Gain % stat cards added
-     - Performance chart: 50d MA (amber dashed) + 200d MA (red dashed) overlay lines
-     - MA computed server-side with 430-day warmup; normalized to % return base
+New DB table:
+  position_flags (symbol PK, autotrader_on TINYINT, updated_at DATETIME)
+
+Rules:
+  1. Alpha autotrader buy → sets flag=1 for purchased symbol
+  2. Manual buy (NEW position, not in portfolio) → sets flag=0
+  3. Manual buy (EXISTING position) → flag unchanged
+  4. Alpha autotrader exit/manage → only for positions where flag=1
+  5. Phoenix autotrader → buys DISABLED; exits only for flag=1 positions
+  6. Portfolio UI → ⚡ AT: ON (blue) / AT: OFF (grey) toggle per row
+  7. Alpha buy → skips any symbol already in portfolio (any flag value)
+  8. No Pick flag works independently of AT flag
+
+Manual sell workflow:
+  Set AT=OFF → sell desired qty → optionally re-enable AT=ON for remainder
+
+─────────────────────────────────────────
+TAB STRUCTURE (Session 5)
+─────────────────────────────────────────
+
+Portfolio  → Live Alpaca positions. Buy/Sell buttons. AT toggle per row. News. Chart popup.
+Stocks     → Watchlist. BUY BUTTON HERE ONLY. No Pick. Auto toggle.
+Discover   → Universe scan. + Watch + News. No Buy.
+Phoenix    → Phoenix signals. + Watch + News. No Buy.
+Long Haul  → Dividend/value filter. News + Chart. No Buy, no Watch (already in Stocks list).
+
+─────────────────────────────────────────
+LONG HAUL TAB CRITERIA
+─────────────────────────────────────────
+
+Filtered from stock_signals (watchlist stocks only):
+  - div_yield > 0        (pays dividend)
+  - pct_from_52high ≤ -20  (at least 20% below 52-week high)
+  - pe_trailing < 35 OR pe_forward < 28  (not overvalued)
+  - beta < 1.5           (fairly stable)
+Sorted by dividend yield descending.
+Columns: Symbol, Price/Chg, Div Yield, vs 52wk High, P/E, Fwd P/E, Beta, Signal, Sector
+
+─────────────────────────────────────────
+PHOENIX STRATEGY
+─────────────────────────────────────────
+
+Deep value contrarian strategy. Screener runs at 8:30 AM.
+BUYING IS DISABLED (manual + Watch from Phoenix tab, then buy from Stocks tab).
+EXIT LOGIC STILL RUNS for positions with AT=ON.
+Hard stop −15%; soft exits: score<30, analyst<20% buy, EPS negative,
+  within 15% of 52wk high, 60d time stop.
+Max 4 positions; separate 50% virtual cash pool.
+VIX sizing: <20→1.0x, 20-30→0.75x, ≥30→0.5x
+Phoenix toggle in UI still controls whether exit logic runs.
+
+─────────────────────────────────────────
+SESSION 6 CHANGES (2026-04-19):
+─────────────────────────────────────────
+
+[✅] Gold star column (first column, all 5 tabs):
+  - ⭐ pulsing glow = SMA golden cross ≤5 days (momentum breakout)
+  - ★ solid gold = active golden cross (50SMA > 200SMA)
+  - ☆ faint grey = no golden cross or death cross
+  - 🟢 flashing green = approaching GC (<2.5% gap) + EMA already bullish (early confirmation)
+
+[✅] Autotrader eligibility smart badge (Stocks tab):
+  - ✓ Eligible (green) = passes all autotrader gates right now
+  - ⚠ Blocked [?] (amber) = gates failing; click ? to see which ones
+  - 🚫 No Pick (red) = user manually excluded
+  - ? popup shows all blocking conditions: market regime, score, RSI, 50DMA extension, Tier 1 confirmations
+
+[✅] Overextension penalty (analyzer.js scoring):
+  - 10–15% above 50DMA: −5 (stretched entry)
+  - 15–25% above 50DMA: −10
+  - >25% above 50DMA: −15 (mean-reversion risk)
+
+[✅] EMA 50/200 secondary confirmation:
+  - SMA remains primary for golden cross (institutional standard)
+  - EMA computed and tracked separately (faster trend confirmation)
+  - Shows as 🟢 green star when approaching golden cross + EMA bullish
+  - Visible in dashboard to signal early momentum shift (~2 days before SMA)
+
+[✅] Watchlist protection (Session 6):
+  - Cannot remove stock from watchlist if currently in portfolio (Alpaca positions)
+  - Error page shown: "Sell your position first, then remove it from the watchlist"
+  - Server-side check against live Alpaca positions
+
+─────────────────────────────────────────
+MY STOCKS DASHBOARD (port 8081) ✅ OPERATIONAL
+─────────────────────────────────────────
 
 Service: stocktrader_portfolio.service (port 8081)
 Dashboard: http://192.168.1.156:8081/
 Key files: server_portfolio.js, portfolio_app/*.js
 
-[ ] Monitor morning refresh — verify autotrader recommendations appear in digest email
-[ ] Test autorun ON flow in paper mode when market is open
-[ ] Tune: if too many BUY signals, raise score threshold; if too few, lower to 45
-[ ] Run /refresh-targets after Yahoo rate limit clears (~45 min) to populate fwd PE/price targets
-    → This will lift SMCI/ADBE/LULU Phoenix scores from WATCH toward BUY
-[ ] Consider enabling Phoenix (phoenix_enabled='1') after price targets are populated
+Scoring: 0–100. BUY ≥50 | HOLD ≥10 | SELL <10
+30+ signals: MA crossovers, EMA 9/21, RSI, MACD, volume, valuation, fundamentals,
+             analyst consensus, short interest, market context
 
 ─────────────────────────────────────────
 KNOWN ISSUES (April 2026)
 ─────────────────────────────────────────
 
-1. Finnhub price target returns 403 (paid feature) — gracefully handled, targetMean = null
+1. Finnhub price target returns 403 (paid feature) — gracefully handled
 2. VIXY proxy for VIX is approximate (VIXY × 1.8 + 2 ≈ VIX)
 3. Yahoo Finance rate-limits after ~10 rapid requests (clears in 30-60 min)
-   — sector/name now from Finnhub so this no longer blocks core data
-   — price targets: use GET /refresh-targets (12s/symbol, 15 per run) after rate limit clears
-4. MySQL 8.4 does NOT support ADD COLUMN IF NOT EXISTS — use information_schema check + PREPARE/EXECUTE pattern
-5. VIXY and SPY must be in watchlist for VIX sizing and 50MA regime gate to work
-   — SPY not in stock_signals → regime = 'unknown' → autotrader blocks ALL entries
-6. shares_buyback_pct always null — Finnhub free tier does not provide buyback data
-   — Phoenix buyback scoring is always 0; requires manual population or paid data source
-7. Phoenix scores will be WATCH (not BUY) until fwd PE data is populated via /refresh-targets
-   — SMCI, ADBE, LULU are current WATCH candidates (scores 41–50)
+4. Analyst ratings NULL in stock_signals — fixed in code, repopulates at next 8:30 AM refresh
+5. shares_buyback_pct always null — Finnhub free tier doesn't provide buyback data
+6. Long Haul criteria may need tuning — first run, review results
 
 ─────────────────────────────────────────
-PHASE 4: ENHANCEMENTS (FUTURE)
+PENDING / NEXT STEPS
 ─────────────────────────────────────────
 
-[✅] VIX-adaptive thresholds — already active
-[✅] Universe expanded to 48 symbols with category tagging
-[✅] Auto-trading engine (My Stocks)
-[✅] News modal (Finnhub + SEC EDGAR)
-[ ] Backtesting module
-[ ] Performance chart on dashboard (daily P&L line chart)
-[ ] Earnings calendar — highlight stocks with earnings upcoming
-[ ] Sector rotation signals
-[ ] Upgrade Polygon to $29/mo for full universe + real-time
-[ ] Mobile-friendly dashboard
-[ ] Telegram/SMS as alternative to email notifications
-[ ] Expand swing trader universe to 100+ symbols
-
-─────────────────────────────────────────
-PHASE 5: GO LIVE (AFTER PAPER SUCCESS)
-─────────────────────────────────────────
-
-[ ] Paper trade minimum 2-4 weeks with consistent results
-[ ] Win rate > 50%, avg gain > avg loss
-[ ] Change ALPACA_BASE_URL to https://api.alpaca.markets in .env
-[ ] Fund Alpaca account with $10,000
-[ ] Monitor first 2 weeks closely
+[ ] Verify analyst ratings populate correctly after next 8:30 AM refresh
+[ ] Review Long Haul results — tune criteria if too few or wrong picks
+[ ] Monitor paper positions — check dashboard daily
+[ ] Consider adding "days held" to Portfolio tab
+[ ] Track performance: win rate, avg gain/loss, hold durations
+[ ] Target: 2–4 weeks consistent results before going live
 
 ─────────────────────────────────────────
 KEY FILES CHEAT SHEET
 ─────────────────────────────────────────
-
-Swing trader risk params:   .env + config/params.js
-Switch data source:         config/sources.js or /settings dashboard
-Swing trader symbols:       screener/universe.js
-Swing trader scoring:       analysis/scorer.js (W object at top)
-Swing trader schedule:      scheduler/cron.js
-Guardrails:                 trader/guardrails.js
-Data routing:               data/provider.js ← always use this
 
 My Stocks scoring:          portfolio_app/analyzer.js
 My Stocks Alpha autotrader: portfolio_app/autotrader.js
@@ -208,6 +196,10 @@ My Stocks Phoenix screener: portfolio_app/phoenix_screener.js
 My Stocks Phoenix trader:   portfolio_app/phoenix_autotrader.js
 My Stocks schedule:         portfolio_app/scheduler.js
 My Stocks universe:         portfolio_app/universe.js
+My Stocks data/history:     portfolio_app/yahoo_history.js
+Main dashboard server:      server_portfolio.js (port 8081)
+Swing trader server:        server.js (port 3001)
+Position flags:             DB table position_flags
 
 ─────────────────────────────────────────
 DEPLOYMENT COMMANDS
@@ -230,6 +222,9 @@ ssh rajramani@192.168.1.156 "journalctl --user -u stocktrader -n 30 --no-pager"
 curl http://192.168.1.156:8081/refresh-now          # full refresh + analyze + phoenix screener
 curl http://192.168.1.156:8081/scan-universe         # universe BUY scan only
 curl http://192.168.1.156:8081/autorun/execute-now   # manual Alpha execution
-curl http://192.168.1.156:8081/phoenix/execute-now   # manual Phoenix execution
-curl http://192.168.1.156:8081/refresh-targets       # slow Yahoo pass for price targets (15 symbols, 12s each)
+curl http://192.168.1.156:8081/phoenix/execute-now   # manual Phoenix execution (exits only now)
 curl http://192.168.1.156:3001/api/scan              # swing trader scan
+
+# DB quick checks
+ssh rajramani@192.168.1.156 "mysql -u stocktrader -pstocktrader123 stocktrader -e 'SELECT * FROM position_flags;'" 2>/dev/null
+ssh rajramani@192.168.1.156 "mysql -u stocktrader -pstocktrader123 stocktrader -e 'SELECT symbol, analyst_buy, analyst_sell, analyst_hold FROM stock_signals WHERE analyst_buy IS NOT NULL LIMIT 5;'" 2>/dev/null

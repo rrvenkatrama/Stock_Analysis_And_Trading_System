@@ -17,6 +17,10 @@ It contains the current state, known issues, and exactly what to do next.
 6. **Probability cap 85%** — never show false confidence
 7. **Always use provider.js** — never call data modules directly from scanner
 8. **Plan-level approval** — user approves the whole daily plan, not individual stocks
+9. **Phoenix buying DISABLED** — Phoenix screener runs but auto-buys are off; user manually adds via + Watch then buys from Stocks tab
+10. **Buy buttons only on Stocks tab** — Discover, Phoenix, Long Haul have + Watch / News only
+11. **position_flags controls per-position autotrader** — do not remove this system
+12. **SMA 50/200 primary, EMA 50/200 secondary** — golden cross uses SMA (institutional standard, fewer false signals); EMA tracked as early-warning confirmation
 
 ## UI / Interactivity Rules (learned from production bugs)
 - **NO JavaScript for navigation-critical actions** — Approve, Reject, and Scan Now are all plain `<a href>` links, not JS onclick buttons. JS has proven unreliable in this dashboard.
@@ -167,13 +171,71 @@ Second dashboard — personal watchlist research + discovery, separate from swin
   - Phase 4: scanUniverse() — score discovery universe, find new BUY candidates
   - Phase 5: sendDailyDigest() email
 
+### My Stocks — Position Flags (Autotrader per Position)
+New DB table `position_flags (symbol PK, autotrader_on TINYINT, updated_at DATETIME)`.
+- Alpha autotrader buys → sets flag=1
+- Manual buy (new position) → sets flag=0 in /order POST route
+- Manual buy (existing position) → flag unchanged
+- Autotrader exit/manage → only runs for flag=1 positions
+- Phoenix buying disabled (return before Phase 2 in phoenix_autotrader.js)
+- Portfolio UI: ⚡ AT: ON / AT: OFF toggle → GET /position/:symbol/toggle-autotrader
+- Alpha buy: skips symbols already in portfolio (regardless of flag)
+
 ### My Stocks — Portfolio Section
 - **No recommended portfolios** — replaced with live Alpaca positions + open orders
-- Positions table: Symbol | Signal·Price | Qty | Avg Entry | Current | Mkt Value | P&L | Trade
+- Positions table: Symbol | Autotrader | Signal·Price | Qty | Avg Entry | Current | Mkt Value | P&L | Trade
 - Trade column: "Buy More" button (opens buy modal) + "Sell" button (opens sell modal)
 - Open orders table with Cancel button
 - Buy modal: market/limit/qty/TIF/extended hours, shows paper/live mode badge, available funds, live cost estimate
 - Sell modal: mirrors buy modal on the sell side
+
+### My Stocks — Long Haul Tab (added session 5)
+Filters stock_signals (watchlist only) for: div_yield>0, pct_from_52high≤-20, (pe_trailing<35 OR pe_forward<28), beta<1.5.
+Sorted by dividend yield desc. Columns: Symbol, Price/Chg, Div Yield, vs 52wk High, P/E, Fwd P/E, Beta, Signal, Sector.
+No Buy button (stocks are already in Stocks list). News + Chart popup only.
+
+### My Stocks — Tab Buy Rules
+- **Stocks tab**: ONLY tab with Buy button. This is the single entry point for manual buys.
+- **Discover tab**: + Watch + News only. No Buy.
+- **Phoenix tab**: + Watch + News only. No Buy.
+- **Long Haul tab**: News + Chart only. No Buy, no Watch (already in watchlist).
+To buy from any non-Stocks tab: use + Watch first, then buy from Stocks tab.
+
+### My Stocks — Watchlist Protection (Session 6)
+- Cannot remove a stock from watchlist if it's currently in the portfolio (Alpaca positions)
+- Attempting removal shows error page: "Sell your position first, then remove it from the watchlist"
+- Protects against accidental watchlist removal while holding the position
+- Check enforced server-side against live Alpaca positions
+
+### My Stocks — Chart Popup
+Ticker click → window.open Yahoo Finance (1200×750 popup window).
+`function openTVChart(sym)` uses `window.open('https://finance.yahoo.com/chart/' + sym, ...)`
+Yahoo Finance saves chart layout (indicators, colors) in browser localStorage after first setup.
+TradingView iframe/widget approaches were tried and abandoned — iframe blocked, colors not customizable.
+
+### My Stocks — Golden Cross Star Column (Session 6)
+First column in all tabs shows 3-state golden cross indicator:
+- **⭐ pulsing glow** — SMA golden cross within last 5 days (momentum breakout, strong buy signal)
+- **★ solid gold** — active golden cross (50SMA > 200SMA, >5 days ago)
+- **☆ faint grey** — no golden cross or death cross active
+- **🟢 flashing green** — approaching golden cross (gap <2.5%) + EMA already bullish (early confirmation)
+
+EMA 50/200 tracked as secondary confirmation — when EMA crosses before SMA, it signals trend shift starting.
+
+### My Stocks — Autotrader Eligibility Badge (Session 6)
+Stocks tab shows smart status badge with auto-trade eligibility:
+- **✓ Eligible** (dark green) — passes all autotrader gates right now
+- **⚠ Blocked [?]** (amber) — one or more gates failing; click **?** to see exactly which ones
+- **🚫 No Pick** (red) — user manually excluded
+
+The **?** popup lists all blocking conditions in priority order:
+- Market regime (BEAR/CAUTION blocks all entries)
+- Score threshold (≥65 required)
+- RSI window (30–65 required)
+- Overextension (≤8% above 50DMA)
+- Tier 1 confirmations (need ≥2 of: RSI in 30–65, MACD bullish, above 50MA, volume ≥1.3x)
+
+Conditions checked at 9:35 AM using 8:30 AM snapshot data.
 
 ### My Stocks — Discover Section
 - Scans ~204-stock universe (S&P 100 + popular NASDAQ + sectors) for BUY signals not in watchlist
@@ -192,12 +254,23 @@ Score 0–100 clamped. BUY ≥50 | HOLD ≥10 | SELL <10
 - Price crossed above 200MA (≤5d): +18 | above 50MA (≤5d): +15
 - Above 200MA: +8 | above 50MA only: +6 | below 50MA: −8 | below 200MA: −10
 
+**Overextension above 50DMA (Session 6 — poor entry risk):**
+- 10–15% above 50DMA: −5 (stretched entry)
+- 15–25% above 50DMA: −10
+- >25% above 50DMA: −15 (mean-reversion risk)
+
 **EMA 9/21 short-term signals (swing entry timing):**
 - EMA 9 just crossed above EMA 21 (≤1 session): +12
 - EMA 9/21 bull cross 2–5 sessions ago: +8
 - EMA 9 above EMA 21 (sustained): +4 | EMA 9 below EMA 21: −5
 - EMA 9 crossed below EMA 21 (≤3 sessions): −10
 - Full EMA stack (price > EMA9 > EMA21 > EMA50): +10 | full bearish stack: −10
+
+**EMA 50/200 secondary confirmation (Session 6):**
+- Tracked separately from SMA 50/200 (primary for golden cross)
+- EMA bullish cross: early warning signal (~2 days before SMA)
+- Shown in star column as 🟢 green flashing when approaching golden cross + EMA already crossed
+- Visible in dashboard to show when momentum is shifting before official SMA cross
 
 **Volume confirmation:**
 - Price up + volume ≥1.5x 20-day avg (institutional buying): +10

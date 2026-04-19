@@ -139,6 +139,11 @@ const W = {
   below50MA:               -8,
   below200MA:             -10,
 
+  // Overextension above 50DMA (poor entry, mean-reversion risk)
+  overextended10pct:       -5,   // 10–15% above 50DMA
+  overextended15pct:      -10,   // 15–25% above 50DMA
+  overextended25pct:      -15,   // >25% above 50DMA
+
   // EMA 9/21 short-term cross — swing entry timing
   ema9CrossBullNow:        12,   // 9 EMA just crossed above 21 EMA (≤1 session)
   ema9CrossBullRecent:      8,   // 9/21 bull cross 2–5 sessions ago
@@ -269,6 +274,14 @@ function computeScore(signals) {
   else if (aboveMa50) add(W.above50MA, 'Above 50-day MA');
   if (!aboveMa50)  add(W.below50MA,  'Below 50-day MA');
   if (!aboveMa200) add(W.below200MA, 'Below 200-day MA');
+
+  // ── Overextension above 50DMA ─────────────────────────────────────────────
+  if (ma50 && price > 0) {
+    const pctAbove50 = (price - ma50) / ma50 * 100;
+    if (pctAbove50 >= 25)      add(W.overextended25pct, `Overextended ${pctAbove50.toFixed(1)}% above 50DMA — mean-reversion risk`);
+    else if (pctAbove50 >= 15) add(W.overextended15pct, `Overextended ${pctAbove50.toFixed(1)}% above 50DMA`);
+    else if (pctAbove50 >= 10) add(W.overextended10pct, `${pctAbove50.toFixed(1)}% above 50DMA — stretched entry`);
+  }
 
   // ── EMA 9/21 short-term cross ─────────────────────────────────────────────
   if (ema9BullCrossAgo !== null) {

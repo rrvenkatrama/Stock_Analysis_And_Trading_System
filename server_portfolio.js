@@ -89,9 +89,15 @@ input[type=text]:focus,input[type=number]:focus,select:focus{border-color:#3182c
 .chart-ctrl-btn{padding:4px 10px;font-size:11px;font-weight:600;border-radius:4px;cursor:pointer;border:1px solid #e2e8f0;background:#f7fafc;color:#4a5568}
 .chart-ctrl-btn.active{background:#ebf8ff;color:#2b6cb0;border-color:#bee3f8}
 .perf-tbl td{padding:1px 6px 1px 0;border:none;font-size:11px;background:none}
-#stocks-table th:first-child{position:sticky;left:0;z-index:3;background:#f0f4f8}
-#stocks-table td:first-child{position:sticky;left:0;z-index:2;background:#ffffff}
-#stocks-table tr:hover td:first-child{background:#f7fafc}
+#stocks-table th:nth-child(1){position:sticky;left:0;z-index:3;background:#f0f4f8;width:30px;text-align:center}
+#stocks-table td:nth-child(1){position:sticky;left:0;z-index:2;background:#ffffff;width:30px;text-align:center}
+#stocks-table th:nth-child(2){position:sticky;left:30px;z-index:3;background:#f0f4f8}
+#stocks-table td:nth-child(2){position:sticky;left:30px;z-index:2;background:#ffffff}
+#stocks-table tr:hover td:nth-child(1),#stocks-table tr:hover td:nth-child(2){background:#f7fafc}
+@keyframes starPulse{0%,100%{transform:scale(1);filter:drop-shadow(0 0 2px #d69e2e)}50%{transform:scale(1.35);filter:drop-shadow(0 0 9px #f6ad55)}}
+.star-recent{animation:starPulse 1.8s ease-in-out infinite;display:inline-block;cursor:default;font-size:17px}
+.star-active{color:#d69e2e;cursor:default;font-size:15px}
+.star-none{color:#4a5568;cursor:default;font-size:14px}
 .tab-nav{display:flex;gap:0;background:#1a1f2e;padding:0 24px;border-bottom:2px solid #2d3748;position:sticky;top:56px;z-index:40}
 .tab-btn{padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#718096;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s,border-color .15s}
 .tab-btn:hover{color:#e2e8f0}
@@ -149,6 +155,17 @@ function showWhy(sym,why,updatedAt){
   document.getElementById('why-modal').style.display='flex';
 }
 function closeWhy(){document.getElementById('why-modal').style.display='none';}
+
+function showBlock(sym,blockStr){
+  document.getElementById('why-modal-sym').textContent=sym+' — Autotrader Blocked';
+  const reasons=blockStr.split('|');
+  const html=reasons.map(r=>'<div style="padding:7px 0;border-bottom:1px solid #edf2f7;color:#c05621">⚠ '+r+'</div>').join('');
+  document.getElementById('why-modal-body').innerHTML=
+    '<div style="padding:6px 0 10px;border-bottom:2px solid #fed7aa;color:#9c4221;font-weight:700;font-size:13px;margin-bottom:4px">These conditions are blocking the autotrader from buying this stock:</div>'
+    +html
+    +'<div style="margin-top:12px;font-size:11px;color:#a0aec0">Conditions are checked at 9:35 AM using 8:30 AM snapshot data.</div>';
+  document.getElementById('why-modal').style.display='flex';
+}
 
 // ── Buy modal ─────────────────────────────────────────────────────────────────
 let _buySym='',_buyMktPrice=0;
@@ -464,6 +481,15 @@ async function loadNews(tab){
     body.innerHTML='<div style="color:#c53030;padding:12px 0">Failed to load: '+e.message+'</div>';
   }
 }
+
+function openTVChart(sym) {
+  window.open(
+    'https://finance.yahoo.com/chart/' + encodeURIComponent(sym),
+    'yfchart_' + sym,
+    'width=1200,height=750,toolbar=0,menubar=0,scrollbars=0,resizable=1'
+  );
+}
+function closeTVChart() {}
 </script>`;
 
 // ─── My Portfolio section ─────────────────────────────────────────────────────
@@ -490,7 +516,17 @@ function perfCell(p) {
   </table>`;
 }
 
-function portfolioSection(positions, openOrders, account, signalMap, upgradeMap = new Map(), perfMap = new Map(), portfolioReturns = {}) {
+function starCell(crossType, crossAgo) {
+  if (crossType === 'golden_cross') {
+    const ago = crossAgo != null ? parseInt(crossAgo) : null;
+    if (ago !== null && ago <= 5)
+      return `<td style="text-align:center"><span class="star-recent" title="Golden cross ${ago}d ago — 50DMA just crossed above 200DMA">⭐</span></td>`;
+    return `<td style="text-align:center"><span class="star-active" title="Active golden cross — 50DMA above 200DMA">★</span></td>`;
+  }
+  return `<td style="text-align:center"><span class="star-none" title="No golden cross">☆</span></td>`;
+}
+
+function portfolioSection(positions, openOrders, account, signalMap, upgradeMap = new Map(), perfMap = new Map(), portfolioReturns = {}, flagMap = new Map()) {
   const totalValue    = positions.reduce((s, p) => s + parseFloat(p.market_value  || 0), 0);
   const totalPnl      = positions.reduce((s, p) => s + parseFloat(p.unrealized_pl || 0), 0);
   const totalCost     = positions.reduce((s, p) => s + parseFloat(p.cost_basis    || 0), 0);
@@ -554,11 +590,18 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
     const tradeBtn = `<button onclick="openBuy('${p.symbol}','${price}','${nameSafe}')" class="btn btn-success btn-xs">+ Buy</button>
       <button onclick="openSell('${p.symbol}','${qty}','${price}','${nameSafe}')" class="btn btn-warn btn-xs" style="margin-left:4px">Sell</button>`;
 
+    const atOn = flagMap.get(p.symbol) ?? false;
+    const atBtn = atOn
+      ? `<a href="/position/${p.symbol}/toggle-autotrader" class="btn btn-xs" style="background:#1a365d;color:#bee3f8;border:1px solid #3182ce;white-space:nowrap" title="Autotrader managing this position — click to disable">⚡ AT: ON</a>`
+      : `<a href="/position/${p.symbol}/toggle-autotrader" class="btn btn-xs" style="background:#2d3748;color:#718096;border:1px solid #4a5568;white-space:nowrap" title="Autotrader NOT managing — click to enable">⚡ AT: OFF</a>`;
+
     return `<tr>
-      <td><b>${p.symbol}</b><br><span style="color:#718096;font-size:11px">${nameSafe}</span>
+      ${starCell(sig?.cross_type, sig?.golden_cross_ago)}
+      <td><b style="cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${p.symbol}','${nameSafe}')">${p.symbol}</b><br><span style="color:#718096;font-size:11px">${nameSafe}</span>
         <div style="margin-top:5px;white-space:nowrap">${tradeBtn}</div>
         <button onclick="openNews('${p.symbol}','${nameSafe}')" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d;margin-top:4px;width:100%">News</button>
       </td>
+      <td>${atBtn}</td>
       <td>${recBadge}</td>
       <td>${posWhyBtn}</td>
       <td>${posSector}</td>
@@ -572,7 +615,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
       <td>$${parseFloat(p.market_value).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
       <td style="color:${pc};font-weight:600">${sign}$${Math.abs(pnl).toFixed(0)} (${sign}${pnlPct.toFixed(1)}%)</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="13" style="color:#718096;text-align:center;padding:12px 0">No open positions — use the Buy button on any stock below.</td></tr>`;
+  }).join('') : `<tr><td colspan="15" style="color:#718096;text-align:center;padding:12px 0">No open positions — use the Buy button on any stock below.</td></tr>`;
 
   const ordRows = openOrders.length ? openOrders.map(o => {
     const lp  = o.limit_price ? ` @ $${parseFloat(o.limit_price).toFixed(2)}` : '';
@@ -619,7 +662,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
     <div style="font-size:11px;font-weight:700;color:#718096;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Positions</div>
     <div class="tbl-wrap" style="max-height:480px">
     <table><thead><tr>
-      <th>Symbol · Trade</th><th>Signal · Price</th><th>Why</th><th>Sector</th>
+      <th style="width:30px;text-align:center">★</th><th>Symbol · Trade</th><th>Autotrader</th><th>Signal · Price</th><th>Why</th><th>Sector</th>
       <th>Price Target</th><th>Analyst Action</th>
       <th>Performance · Chart</th>
       <th>Qty</th><th>Avg Entry</th><th>Current</th><th>Chg%</th>
@@ -639,7 +682,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
 }
 
 // ─── Stock table row ──────────────────────────────────────────────────────────
-function stockRow(s, upgrade, phxSig) {
+function stockRow(s, upgrade, phxSig, isNoPick, volRatio, spyRegime) {
   const recBadge = s.recommendation === 'BUY'  ? '<span class="badge badge-buy">▲ BUY</span>'
                  : s.recommendation === 'SELL' ? '<span class="badge badge-sell">▼ SELL</span>'
                  :                               '<span class="badge badge-hold">● HOLD</span>';
@@ -706,6 +749,43 @@ function stockRow(s, upgrade, phxSig) {
   const buyBtn = isEtf
     ? `<button class="btn btn-xs" style="background:#f7fafc;color:#a0aec0;border:1px solid #e2e8f0;cursor:not-allowed" disabled>Buy</button>`
     : `<button onclick="openBuy('${s.symbol}','${s.price||0}','${nameSafe}')" class="btn btn-success btn-xs">Buy</button>`;
+  // ── Autotrader eligibility badge ─────────────────────────────────────────
+  let noPickBtn;
+  if (isNoPick) {
+    noPickBtn = `<a href="/watchlist/${s.symbol}/toggle-no-pick" class="btn btn-xs" style="background:#742a2a;color:#feb2b2;border:1px solid #c53030" title="No Pick: autotrader will NOT buy this. Click to enable.">🚫 No Pick</a>`;
+  } else {
+    const blocks = [];
+    if (spyRegime === 'bear')    blocks.push('Market BEAR mode — SPY below 200DMA, no new entries');
+    if (spyRegime === 'caution') blocks.push('Market CAUTION mode — SPY below 50DMA (correction), no new entries');
+    if (spyRegime === 'unknown') blocks.push('SPY not in signals — autotrader defaulting to no entries');
+    if ((s.score || 0) < 65)    blocks.push(`Score ${Math.round(s.score||0)}/100 — need ≥65 for entry`);
+    if (s.rsi != null && parseFloat(s.rsi) > 65) blocks.push(`RSI ${parseFloat(s.rsi).toFixed(1)} — need ≤65 (overbought)`);
+    const ma50v = s.ma50 ? parseFloat(s.ma50) : null;
+    const priceV = s.price ? parseFloat(s.price) : null;
+    if (ma50v && priceV && priceV > ma50v * 1.08) {
+      const pct = ((priceV / ma50v - 1) * 100).toFixed(1);
+      blocks.push(`${pct}% above 50DMA — need ≤8% for entry`);
+    }
+    // Tier 1 confirmations
+    const rsiVal = s.rsi != null ? parseFloat(s.rsi) : null;
+    let conf = 0, confMiss = [];
+    if (rsiVal !== null && rsiVal >= 30 && rsiVal <= 65) conf++; else confMiss.push(`RSI ${rsiVal !== null ? rsiVal.toFixed(1) : '?'} not in 30–65 window`);
+    if (['bullish','above_signal'].includes(s.macd_trend)) conf++; else confMiss.push(`MACD ${s.macd_trend || 'unknown'}`);
+    if (s.above_50ma) conf++; else confMiss.push('Below 50DMA');
+    const vr = volRatio != null ? parseFloat(volRatio) : null;
+    if (vr !== null && vr >= 1.3) conf++; else confMiss.push(`Volume ${vr !== null ? vr.toFixed(2)+'x' : '?'} < 1.3x avg`);
+    if (conf < 2) blocks.push(`Only ${conf}/4 confirmations: ${confMiss.join('; ')}`);
+
+    if (blocks.length === 0) {
+      noPickBtn = `<a href="/watchlist/${s.symbol}/toggle-no-pick" class="btn btn-xs" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749" title="Autotrader-eligible now. Click to mark No Pick.">✓ Eligible</a>`;
+    } else {
+      const blockSafe = blocks.map(b => b.replace(/'/g,"\\'")).join('|');
+      noPickBtn = `<span style="display:inline-flex;align-items:center;gap:3px">
+        <a href="/watchlist/${s.symbol}/toggle-no-pick" class="btn btn-xs" style="background:#3d2a00;color:#f6ad55;border:1px solid #c05621" title="Autotrader blocked. Click to mark No Pick.">⚠ Blocked</a>
+        <button onclick="showBlock('${s.symbol}','${blockSafe}')" class="btn btn-xs" style="background:#3d2a00;color:#f6ad55;border:1px solid #c05621;padding:3px 5px;font-weight:700">?</button>
+      </span>`;
+    }
+  }
 
   const sectorTxt = s.sector ? `<span style="font-size:11px;color:#718096">${s.sector}</span>` : '—';
 
@@ -726,9 +806,11 @@ function stockRow(s, upgrade, phxSig) {
 
   const rowStyle = isConfluence ? 'style="background:linear-gradient(90deg,rgba(234,179,8,.08),transparent)"' : '';
   return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" ${rowStyle}>
-    <td><b>${s.symbol}</b>${isConfluence ? ' <span title="Both Alpha and Phoenix signal BUY" style="color:#d69e2e;font-size:12px">⭐</span>' : ''}${assetTag}<br><span style="color:#718096;font-size:11px">${s.name||''}</span>
+    ${starCell(s.cross_type, s.golden_cross_ago)}
+    <td><b style="cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${s.symbol}','${nameSafe}')">${s.symbol}</b>${isConfluence ? ' <span title="Both Alpha and Phoenix signal BUY" style="color:#d69e2e;font-size:12px">⭐</span>' : ''}${assetTag}<br><span style="color:#718096;font-size:11px">${s.name||''}</span>
       <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">
         ${buyBtn}
+        ${noPickBtn}
         <button onclick="openNews('${s.symbol}','${nameSafe}')" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d">News</button>
         <a href="/watchlist/remove/${s.symbol}" class="btn btn-danger btn-xs"
            onclick="return confirm('Remove ${s.symbol}?')">✕</a>
@@ -778,6 +860,32 @@ app.get('/', async (req, res) => {
 
     const signalMap    = new Map(signals.map(s => [s.symbol, s]));
     const upgradeMap   = new Map(recentUpgrades.map(u => [u.symbol, u]));
+    const noPickRows   = await db.query(`SELECT symbol, no_pick FROM watchlist WHERE is_active = 1`).catch(() => []);
+    const noPickMap    = new Map(noPickRows.map(r => [r.symbol, !!r.no_pick]));
+    const flagRows     = await db.query(`SELECT symbol, autotrader_on FROM position_flags`).catch(() => []);
+    const flagMap      = new Map(flagRows.map(r => [r.symbol, !!r.autotrader_on]));
+
+    // Volume ratio map: today's vol / 21-day avg — used in autotrader eligibility badge
+    const volRows = await db.query(
+      `SELECT symbol,
+         MAX(CASE WHEN rn=1 THEN volume END) AS today_vol,
+         AVG(volume) AS avg_vol
+       FROM (
+         SELECT symbol, volume,
+           ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trade_date DESC) AS rn
+         FROM price_history
+         WHERE trade_date >= DATE_SUB(CURDATE(), INTERVAL 22 DAY)
+       ) t
+       GROUP BY symbol`
+    ).catch(() => []);
+    const volRatioMap = new Map(volRows.map(r => [
+      r.symbol,
+      r.today_vol && r.avg_vol > 0 ? r.today_vol / r.avg_vol : null
+    ]));
+
+    // SPY market regime for autotrader eligibility check
+    const spy = signalMap.get('SPY');
+    const spyRegime = !spy ? 'unknown' : !spy.above_200ma ? 'bear' : !spy.above_50ma ? 'caution' : 'bull';
 
     // ── Per-position price history (for the position table perf cells) ──
     const perfMap = new Map();
@@ -870,12 +978,57 @@ app.get('/', async (req, res) => {
       ? `<a href="/phoenix/toggle" class="btn btn-sm" style="background:#2d1b4e;color:#e9d8fd;border:1px solid #805ad5" onclick="return confirm('Turn Phoenix OFF?')">🔥 Phoenix: ON</a>`
       : `<a href="/phoenix/toggle" class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#718096;border:1px solid #4a5568" onclick="return confirm('Turn Phoenix ON? Trades execute at 9:35 AM.')">🔥 Phoenix: OFF</a>`;
 
+    // Long Haul: dividend payers, stable, 20%+ below 52wk high, not overvalued
+    const longHaulStocks = signals.filter(s => {
+      const dy   = s.div_yield != null ? parseFloat(s.div_yield) : 0;
+      const h52  = s.pct_from_52high != null ? parseFloat(s.pct_from_52high) : 0;
+      const pe   = s.pe_trailing != null ? parseFloat(s.pe_trailing) : null;
+      const fpe  = s.pe_forward  != null ? parseFloat(s.pe_forward)  : null;
+      const beta = s.beta != null ? parseFloat(s.beta) : 999;
+      const notOvervalued = (pe !== null && pe > 0 && pe < 35) || (fpe !== null && fpe > 0 && fpe < 28);
+      return dy > 0 && h52 <= -20 && notOvervalued && beta < 1.5;
+    }).sort((a, b) => parseFloat(b.div_yield) - parseFloat(a.div_yield));
+
+    const longHaulRows = longHaulStocks.map(s => {
+      const nameSafe = (s.name||'').replace(/'/g,"\\'");
+      const dy       = parseFloat(s.div_yield).toFixed(2);
+      const h52      = parseFloat(s.pct_from_52high).toFixed(1);
+      const pe       = s.pe_trailing ? parseFloat(s.pe_trailing).toFixed(1) : '—';
+      const fpe      = s.pe_forward  ? parseFloat(s.pe_forward).toFixed(1)  : '—';
+      const beta     = s.beta ? parseFloat(s.beta).toFixed(2) : '—';
+      const chg      = s.price_change_pct != null ? parseFloat(s.price_change_pct) : null;
+      const chgColor = chg !== null ? (chg >= 0 ? '#48bb78' : '#fc8181') : '#718096';
+      const priceTxt = `<span style="font-weight:600;color:${chgColor}">$${parseFloat(s.price||0).toFixed(2)}</span>`;
+      const chgTxt   = chg !== null ? `<span style="color:${chgColor}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>` : '—';
+      const scoreColor = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
+      const recBadge = s.recommendation === 'BUY'  ? '<span class="badge badge-buy">▲ BUY</span>'
+                     : s.recommendation === 'SELL' ? '<span class="badge badge-sell">▼ SELL</span>'
+                     :                               '<span class="badge badge-hold">● HOLD</span>';
+      return `<tr>
+        ${starCell(s.cross_type, s.golden_cross_ago)}
+        <td><b style="cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${s.symbol}')">${s.symbol}</b><br>
+          <span style="color:#718096;font-size:11px">${s.name||''}</span><br>
+          <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">
+            <button onclick="openNews('${s.symbol}','${nameSafe}')" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d">News</button>
+          </div>
+        </td>
+        <td>${priceTxt}<br>${chgTxt}</td>
+        <td><span style="color:#48bb78;font-weight:700">${dy}%</span></td>
+        <td><span style="color:#fc8181;font-weight:600">${h52}%</span></td>
+        <td>${pe}</td>
+        <td>${fpe}</td>
+        <td>${beta}</td>
+        <td>${recBadge}<br><span style="font-size:11px;color:${scoreColor}">${Math.round(s.score||0)}/100</span></td>
+        <td style="font-size:11px;color:#718096;max-width:200px">${s.sector||'—'}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="10" style="padding:16px;text-align:center;color:#718096">No Long Haul picks yet — data refreshes at 8:30 AM ET</td></tr>';
+
     // Phoenix signals (BUY + WATCH) for cross-referencing in Stocks table
     const phoenixSigs    = await getPhoenixSignals('WATCH').catch(() => []);
     const phoenixSigMap  = new Map(phoenixSigs.map(p => [p.symbol, p]));
 
-    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol))).join('');
-    const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap, portfolioReturns);
+    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol), noPickMap.get(s.symbol) ?? false, volRatioMap.get(s.symbol) ?? null, spyRegime)).join('');
+    const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap, portfolioReturns, flagMap);
     // Phoenix panel rows
     const phoenixPanelRows = phoenixSigs.filter(p => p.recommendation === 'BUY' || p.recommendation === 'WATCH').map(p => {
       const alpSig      = signalMap.get(p.symbol);
@@ -904,7 +1057,8 @@ app.get('/', async (req, res) => {
       const pScore      = `<span style="font-weight:700;color:${p.score>=60?'#e9d8fd':'#b794f4'}">${Math.round(p.score)}</span>`;
       const nameSafe    = (p.name||'').replace(/'/g,"\\'");
       return `<tr ${rowStyle}>
-        <td><b style="color:${isConfl?'#d69e2e':'#b794f4'}">${p.symbol}</b>${isConfl?' ⭐':''}${alpSig?'':' <span style="font-size:10px;color:#718096">(not in watchlist)</span>'}<br><span style="color:#718096;font-size:11px">${p.name||''}</span></td>
+        ${starCell(alpSig?.cross_type, alpSig?.golden_cross_ago)}
+        <td><b style="color:${isConfl?'#d69e2e':'#b794f4'};cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${p.symbol}')">${p.symbol}</b>${isConfl?' ⭐':''}${alpSig?'':' <span style="font-size:10px;color:#718096">(not in watchlist)</span>'}<br><span style="color:#718096;font-size:11px">${p.name||''}</span></td>
         <td>${priceTxt}</td><td>${chgTxt}</td>
         <td>${phxBadge}<br><span style="font-size:11px;color:#b794f4">${pScore}/100</span></td>
         <td>${alpBadge}</td>
@@ -913,9 +1067,12 @@ app.get('/', async (req, res) => {
         <td>${epsTxt}</td>
         <td>${buybackTxt}</td>
         <td style="font-size:11px;color:#718096;max-width:200px">${(p.why||'').split(' · ').slice(0,3).join(' · ')}</td>
-        <td><button onclick="openBuy('${p.symbol}','${p.price||0}','${nameSafe}')" class="btn btn-xs" style="background:#2d1b4e;color:#e9d8fd;border:1px solid #805ad5">Buy</button></td>
+        <td style="white-space:nowrap">
+          <a href="/watchlist/add-quick/${p.symbol}" class="btn btn-xs" style="background:#2d1b4e;color:#e9d8fd;border:1px solid #805ad5">+ Watch</a>
+          <button onclick="openNews('${p.symbol}','${nameSafe}')" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d;margin-top:4px;display:block">News</button>
+        </td>
       </tr>`;
-    }).join('') || `<tr><td colspan="11" style="padding:16px;text-align:center;color:#718096">No Phoenix candidates yet — screener runs at 8:30 AM ET or <a href="/refresh-now" style="color:#b794f4">refresh now</a></td></tr>`;
+    }).join('') || `<tr><td colspan="12" style="padding:16px;text-align:center;color:#718096">No Phoenix candidates yet — screener runs at 8:30 AM ET or <a href="/refresh-now" style="color:#b794f4">refresh now</a></td></tr>`;
 
     const discoverRows = picks.map(s => {
       const scoreColor  = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
@@ -927,18 +1084,19 @@ app.get('/', async (req, res) => {
       const dPriceTxt   = `<span style="font-weight:600;color:${dChgColor}">$${parseFloat(s.price||0).toFixed(2)}</span>`;
       const dChgTxt     = dChg !== null ? `<span style="font-weight:600;color:${dChgColor}">${dChg>=0?'+':''}${dChg.toFixed(2)}%</span>` : '—';
       return `<tr>
-        <td><b style="color:#b794f4">${s.symbol}</b><br><span style="color:#718096;font-size:11px">${s.name||''}</span></td>
+        <td style="text-align:center"><span class="star-none" title="Add to watchlist for golden cross data">☆</span></td>
+        <td><b style="color:#b794f4;cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${s.symbol}','${(s.name||'').replace(/'/g,"\\'")}'">${s.symbol}</b><br><span style="color:#718096;font-size:11px">${s.name||''}</span></td>
         <td>${dPriceTxt}</td>
         <td>${dChgTxt}</td>
         <td><span style="font-weight:700;color:${scoreColor}">${Math.round(s.score)}</span>/100</td>
         <td>${whyBtn}</td>
         <td style="font-size:11px;color:#718096;max-width:250px">${topSignals}</td>
         <td style="white-space:nowrap">
-          <button onclick="openBuy('${s.symbol}','${s.price||0}','${(s.name||'').replace(/'/g,"\\'")}')'" class="btn btn-success btn-xs">Buy</button>
-          <a href="/watchlist/add-quick/${s.symbol}" class="btn btn-xs" style="background:#2d2040;color:#b794f4;border:1px solid #6b46c1;margin-left:4px">+ Watch</a>
+          <a href="/watchlist/add-quick/${s.symbol}" class="btn btn-xs" style="background:#2d2040;color:#b794f4;border:1px solid #6b46c1">+ Watch</a>
+          <button onclick="openNews('${s.symbol}','${(s.name||'').replace(/'/g,"\\'")}')'" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d;margin-top:4px;display:block;width:100%">News</button>
         </td>
       </tr>`;
-    }).join('') || '<tr><td colspan="7" style="padding:12px;color:#718096;text-align:center">No new picks yet — universe scan runs at 8:30 AM ET. <a href="/scan-universe" style="color:#b794f4">Run Now</a></td></tr>';
+    }).join('') || '<tr><td colspan="8" style="padding:12px;color:#718096;text-align:center">No new picks yet — universe scan runs at 8:30 AM ET. <a href="/scan-universe" style="color:#b794f4">Run Now</a></td></tr>';
 
     res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <title>My Stocks Dashboard</title>${STYLE}
@@ -1037,6 +1195,7 @@ function showStrategyInfo(type) {
   <button class="tab-btn" data-tab="stocks" onclick="switchTab('stocks')">📊 Stocks · ${signals.length} · <span style="color:#48bb78">${buyCount} Buy</span></button>
   <button class="tab-btn" data-tab="discover" onclick="switchTab('discover')">🔭 Discover · ${picks.length}</button>
   <button class="tab-btn tab-phoenix" data-tab="phoenix" onclick="switchTab('phoenix')">🔥 Phoenix · <span style="color:#e9d8fd">${phoenixSigs.filter(p=>p.recommendation==='BUY').length} BUY</span> · ${phoenixSigs.filter(p=>p.recommendation==='WATCH').length} WATCH</button>
+  <button class="tab-btn" data-tab="longhaul" onclick="switchTab('longhaul')" style="color:#68d391">🌱 Long Haul · ${longHaulStocks.length}</button>
 </div>
 
 <!-- Portfolio tab -->
@@ -1066,6 +1225,7 @@ ${pfSection}
 <div class="tbl-wrap" style="max-height:calc(100vh - 220px);margin:0 24px 16px">
 <table id="stocks-table">
 <thead><tr>
+  <th style="width:30px;text-align:center;cursor:default">★</th>
   <th data-col="sym"    onclick="sortTable('sym')">Symbol / Name</th>
   <th data-col="price"  onclick="sortTable('price')">Price</th>
   <th data-col="chg"    onclick="sortTable('chg')">Chg%</th>
@@ -1103,6 +1263,7 @@ ${pfSection}
 <div class="tbl-wrap" style="max-height:calc(100vh - 200px);margin:0 24px 16px">
 <table>
 <thead><tr>
+  <th style="width:30px;text-align:center;cursor:default">★</th>
   <th>Symbol / Name</th>
   <th>Price</th>
   <th>Chg%</th>
@@ -1126,6 +1287,7 @@ ${pfSection}
 <div class="tbl-wrap" style="max-height:calc(100vh - 200px);margin:0 24px 16px">
 <table>
 <thead><tr style="background:#1a1540">
+  <th style="width:30px;text-align:center;cursor:default">★</th>
   <th>Symbol / Name</th>
   <th>Price</th><th>Chg%</th>
   <th>🔥 Phoenix</th>
@@ -1138,6 +1300,30 @@ ${pfSection}
   <th></th>
 </tr></thead>
 <tbody>${phoenixPanelRows}</tbody>
+</table>
+</div>
+</div>
+
+<!-- Long Haul tab -->
+<div id="tab-longhaul" class="tab-content">
+<div style="display:flex;align-items:center;gap:12px;padding:8px 24px;background:linear-gradient(135deg,#1a2e1a,#1e3d2e);border-bottom:1px solid #276749;font-size:11px;color:#68d391">
+  <span>${longHaulStocks.length} dividend payers · 20%+ below 52wk high · not overvalued · beta &lt; 1.5</span>
+</div>
+<div class="tbl-wrap" style="max-height:calc(100vh - 200px);margin:0 24px 16px">
+<table>
+<thead><tr style="background:#1a2e1a">
+  <th style="width:30px;text-align:center;cursor:default">★</th>
+  <th>Symbol / Name</th>
+  <th>Price</th>
+  <th>Div Yield</th>
+  <th>vs 52wk High</th>
+  <th>P/E</th>
+  <th>Fwd P/E</th>
+  <th>Beta</th>
+  <th>Signal</th>
+  <th>Sector</th>
+</tr></thead>
+<tbody>${longHaulRows}</tbody>
 </table>
 </div>
 </div>
@@ -1293,6 +1479,17 @@ ${pfSection}
   </div>
 </div>
 
+<!-- TradingView chart modal -->
+<div id="tv-modal" class="modal-bg" onclick="if(event.target===this)closeTVChart()" style="display:none">
+  <div style="background:#fff;border-radius:10px;width:96%;max-width:1100px;height:85vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+    <div class="modal-header" style="border-bottom:1px solid #e2e8f0">
+      <div class="modal-title" id="tv-modal-title">Chart</div>
+      <button class="modal-close" onclick="closeTVChart()">✕</button>
+    </div>
+    <iframe id="tv-iframe" src="" frameborder="0" style="flex:1;min-height:0;border-radius:0 0 10px 10px;width:100%"></iframe>
+  </div>
+</div>
+
 ${JS}
 </body></html>`);
   } catch (err) {
@@ -1321,7 +1518,28 @@ app.post('/watchlist/add', async (req, res) => {
 
 // ─── Remove ticker ────────────────────────────────────────────────────────────
 app.get('/watchlist/remove/:symbol', async (req, res) => {
-  await yh.removeTicker(req.params.symbol);
+  const sym = req.params.symbol.toUpperCase();
+  const positions = await getAlpacaPositions().catch(() => []);
+  if (positions.some(p => p.symbol === sym)) {
+    return res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">${STYLE}</head><body>
+      <div style="padding:60px 24px;max-width:480px;margin:0 auto;text-align:center">
+        <div style="font-size:52px;margin-bottom:16px">⚠️</div>
+        <h2 style="color:#c53030;margin-bottom:12px">Cannot Remove ${sym}</h2>
+        <p style="color:#4a5568;line-height:1.6;margin-bottom:24px">
+          <strong>${sym}</strong> is currently in your portfolio.<br>
+          Sell your position first, then remove it from the watchlist.
+        </p>
+        <a href="/" class="btn btn-primary">← Back to Dashboard</a>
+      </div></body></html>`);
+  }
+  await yh.removeTicker(sym);
+  res.redirect('/');
+});
+
+// ─── Toggle No Pick flag ──────────────────────────────────────────────────────
+app.get('/watchlist/:symbol/toggle-no-pick', async (req, res) => {
+  const sym = req.params.symbol.toUpperCase();
+  await db.query(`UPDATE watchlist SET no_pick = 1 - no_pick WHERE symbol = ?`, [sym]);
   res.redirect('/');
 });
 
@@ -1499,8 +1717,9 @@ app.post('/order', async (req, res) => {
     if (type === 'limit' && (!limitPrice || parseFloat(limitPrice) <= 0))
       return res.status(400).json({ error: 'limitPrice required for limit orders' });
 
+    const sym = String(symbol).toUpperCase();
     const order = await placeDirectOrder({
-      symbol:        String(symbol).toUpperCase(),
+      symbol:        sym,
       qty:           parseInt(qty),
       side:          orderSide,
       type,
@@ -1509,12 +1728,40 @@ app.post('/order', async (req, res) => {
       extendedHours: !!extendedHours,
     });
     await db.log('info', 'portfolio_order',
-      `${orderSide} order: ${qty} ${symbol} ${type} ${timeInForce}`, { orderId: order.id });
+      `${orderSide} order: ${qty} ${sym} ${type} ${timeInForce}`, { orderId: order.id });
+
+    // For manual buys: set autotrader=OFF only if this is a NEW position (not already held)
+    if (orderSide === 'buy') {
+      const existing = await db.queryOne(
+        `SELECT symbol FROM position_flags WHERE symbol=?`, [sym]
+      );
+      if (!existing) {
+        await db.query(
+          `INSERT INTO position_flags (symbol, autotrader_on) VALUES (?,0)
+           ON DUPLICATE KEY UPDATE autotrader_on=0, updated_at=NOW()`,
+          [sym]
+        );
+      }
+    }
+
     res.json({ id: order.id, status: order.status });
   } catch (err) {
     console.error('[Order]', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ─── Autotrader flag toggle ───────────────────────────────────────────────────
+app.get('/position/:symbol/toggle-autotrader', async (req, res) => {
+  const sym = req.params.symbol.toUpperCase();
+  const row = await db.queryOne(`SELECT autotrader_on FROM position_flags WHERE symbol=?`, [sym]);
+  const newVal = row ? (row.autotrader_on ? 0 : 1) : 1;
+  await db.query(
+    `INSERT INTO position_flags (symbol, autotrader_on) VALUES (?,?)
+     ON DUPLICATE KEY UPDATE autotrader_on=VALUES(autotrader_on), updated_at=NOW()`,
+    [sym, newVal]
+  );
+  res.redirect('/');
 });
 
 // ─── Cancel order ─────────────────────────────────────────────────────────────
@@ -1692,6 +1939,44 @@ tr:hover td{background:#f7fafc}
   } catch (err) {
     res.status(500).send(`<pre>Error: ${err.message}</pre>`);
   }
+});
+
+// ─── TradingView chart page (served into iframe) ──────────────────────────────
+app.get('/tv-chart/:symbol', (req, res) => {
+  const sym = req.params.symbol.toUpperCase().replace(/[^A-Z0-9.]/g, '');
+  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>html,body{margin:0;padding:0;height:100%;overflow:hidden}#chart{height:100%;width:100%}</style>
+</head><body>
+<div id="chart"></div>
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script>
+new TradingView.widget({
+  container_id: 'chart',
+  autosize: true,
+  symbol: '${sym}',
+  interval: 'D',
+  timezone: 'America/New_York',
+  theme: 'light',
+  style: '2',
+  locale: 'en',
+  range: '12M',
+  withdateranges: true,
+  hide_side_toolbar: false,
+  allow_symbol_change: true,
+  save_image: true,
+  studies: [
+    { id: 'MASimple@tv-basicstudies', inputs: { length: 50 },
+      overrides: { 'ma.color': '#E53E3E', 'ma.linewidth': 2 } },
+    { id: 'MASimple@tv-basicstudies', inputs: { length: 200 },
+      overrides: { 'ma.color': '#2B6CB0', 'ma.linewidth': 2 } }
+  ],
+  overrides: {
+    'mainSeriesProperties.lineStyle.color': '#000000',
+    'mainSeriesProperties.lineStyle.linewidth': 2
+  }
+});
+</script>
+</body></html>`);
 });
 
 // ─── Startup ──────────────────────────────────────────────────────────────────

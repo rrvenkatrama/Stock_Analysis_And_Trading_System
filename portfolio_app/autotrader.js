@@ -228,6 +228,10 @@ async function evaluate(execute = false) {
 
     // ── Phase 1: Exit evaluation (runs regardless of market regime) ───────────
     if (positions.length) {
+      // Load position_flags — only manage positions with autotrader_on=1
+      const flagRows = await db.query(`SELECT symbol, autotrader_on FROM position_flags`);
+      const flagMap  = new Map(flagRows.map(r => [r.symbol, r.autotrader_on]));
+
       const placeholders = positions.map(() => '?').join(',');
       const sigs = await db.query(
         `SELECT * FROM stock_signals WHERE symbol IN (${placeholders})`,
@@ -236,6 +240,8 @@ async function evaluate(execute = false) {
       const sigMap = new Map(sigs.map(s => [s.symbol, s]));
 
       for (const pos of positions) {
+        // Skip positions not managed by autotrader
+        if (!flagMap.get(pos.symbol)) continue;
         try {
           const exit = await evaluateExit(pos, sigMap.get(pos.symbol));
           if (!exit) continue;
@@ -310,7 +316,7 @@ async function evaluate(execute = false) {
         // Watchlist-only BUY candidates, score ≥65, sorted by score
         const candidates = await db.query(
           `SELECT ss.* FROM stock_signals ss
-           INNER JOIN watchlist w ON w.symbol = ss.symbol AND w.is_active = 1
+           INNER JOIN watchlist w ON w.symbol = ss.symbol AND w.is_active = 1 AND w.no_pick = 0
            WHERE ss.recommendation = 'BUY' AND ss.score >= 65 AND ss.price >= 5
            ORDER BY ss.score DESC
            LIMIT 20`
@@ -380,6 +386,12 @@ async function evaluate(execute = false) {
               action.executed = true;
               heldSymbols.add(sig.symbol);
               slotsUsed++;
+              // Mark as autotrader-managed
+              await db.query(
+                `INSERT INTO position_flags (symbol, autotrader_on) VALUES (?,1)
+                 ON DUPLICATE KEY UPDATE autotrader_on=1, updated_at=NOW()`,
+                [sig.symbol]
+              );
             } catch (e) {
               action.executed = false;
               action.error = e.message;

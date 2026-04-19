@@ -23,6 +23,9 @@ Thumbs.db
 # Claude Code settings — may contain server credentials
 .claude/
 
+# Claude memory files — personal context, not code
+memory/
+
 # Temp / build
 tmp/
 dist/
