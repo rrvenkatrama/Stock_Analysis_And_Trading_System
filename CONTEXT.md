@@ -83,16 +83,23 @@ Composite score 0–100 + probability estimate 35–85%. **Baseline = 50 (neutra
 
 ## My Stocks Scoring System (portfolio_app/analyzer.js)
 
-Score 0–100 clamped. **BUY ≥50 | HOLD ≥10 | SELL <10**
+**Signal-count based formula (Session 7):** Score = (positive_signals − negative_signals) / max(5, total_signals) × 100
+
+Score ranges **−100 to +100** (can be negative). **BUY >50% | HOLD 20–50% | SELL ≤20%**
 
 30+ signals across: MA crossovers (50/200 SMA), EMA 9/21 short-term swing timing, volume confirmation, RSI (14-period), MACD (12/26/9), sector-relative valuation (PE/PS/PEG), fundamental quality (EPS/revenue/ROE/D-E), dividend income, analyst consensus (Finnhub counts + Yahoo recommendationMean), short interest squeeze, market context (SPY above/below 200MA).
+
+**Each signal counts as ±1,** not weighted points. RSI thresholds (Session 7):
+- RSI < 30 or 30–45 → +1 signal
+- RSI 45–65 → neutral (no signal)
+- RSI ≥ 65 → −1 signal
 
 **Autotrader behavior with manual buys:** When user buys manually while autotrader is ON, the position is immediately executed. At next 9:35 AM run, autotrader evaluates ALL Alpaca positions — including manual buys — and will hard-stop (−8%) or soft-exit (50%) based on signal data. The 30-day time stop does NOT apply to manual positions (getDaysHeld() only reads autotrader_trades, returns null for manual).
 
 **Why high-score stocks may be skipped:**
 1. Signal data used = 8:30 AM snapshot; dashboard may show different scores if manually refreshed later
 2. Tier 2 blocks stocks >8% extended above 50MA (e.g. TWLO at 12% above)
-3. Tier 1 RSI window is 30–55, not just ≤65 — RSI=58 misses this confirmation
+3. Tier 1 RSI window is 30–65, not just ≤65 (neutral zone 45–65 has no contribution)
 4. Portfolio slots fill (sorted by score DESC, stops when maxPositions reached)
 
 ---
@@ -103,9 +110,9 @@ Score 0–100 clamped. **BUY ≥50 | HOLD ≥10 | SELL <10**
 
 **Tier 3 (Market Regime):** SPY above_200ma from stock_signals — outermost gate, no new buys in bear market.
 
-**Tier 2 (Quality Filter):** score ≥50, price ≥$5, RSI ≤65, not >8% extended above 50MA, watchlist-only.
+**Tier 2 (Quality Filter):** score >50%, price ≥$5, RSI ≤65, not >8% extended above 50MA, watchlist-only.
 
-**Tier 1 (Entry Gate):** score ≥65, ≥2 technical confirmations, no earnings within 5d, open portfolio slot available.
+**Tier 1 (Entry Gate):** ≥2 technical confirmations (RSI 30–65 window, MACD bullish, above 50MA, volume ≥1.3x), no earnings within 5d, open portfolio slot available.
 
 **Exit Rules:**
 - Hard stop 100% sell: price ≤ entry − 8%
