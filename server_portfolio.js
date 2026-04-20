@@ -665,6 +665,8 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
 <div class="portfolio-wrap">
   <div class="card">
     <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:${positions.length?'12':'0'}px;align-items:center">
+      <div class="stat"><div class="num" style="color:#e2e8f0">${equityTxt}</div><div class="lbl">Total Equity</div></div>
+      <div class="stat"><div class="num" style="color:#90cdf4">${cashTxt}</div><div class="lbl">Available Cash</div></div>
       <div class="stat"><div class="num" style="color:#63b3ed">$${totalValue.toLocaleString(undefined,{maximumFractionDigits:0})}</div><div class="lbl">Market Value</div></div>
       <div class="stat"><div class="num" style="color:${pnlColor}">${totalPnl>=0?'+':''}$${Math.abs(totalPnl).toFixed(0)}</div><div class="lbl">Unrealized P&L</div></div>
       <div class="stat"><div class="num" style="color:${pnlColor}">${totalPnlPct !== null ? (totalPnlPct>=0?'+':'')+totalPnlPct.toFixed(2)+'%' : '—'}</div><div class="lbl">Total Return</div></div>
