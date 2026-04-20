@@ -14,6 +14,68 @@ const db                                          = require('../db/db');
 
 let refreshRunning = false;
 
+// Update prices in database every 5 minutes during market hours
+async function updatePricesInDatabase() {
+  try {
+    // Check if we're in market hours: 9:30 AM - 4:00 PM ET, Mon-Fri
+    const now = new Date();
+    const etTime = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    const etDate = new Date(etTime);
+    const day = etDate.getDay();       // 0=Sun, 1-5=Mon-Fri, 6=Sat
+    const hours = etDate.getHours();   // 0-23
+    const mins = etDate.getMinutes();  // 0-59
+
+    // Only run Mon-Fri between 9:30 AM and 4:00 PM (16:00)
+    const isWeekday = day >= 1 && day <= 5;
+    const isAfter930 = hours > 9 || (hours === 9 && mins >= 30);
+    const isBeforeEOD = hours < 16;
+
+    if (!isWeekday || !isAfter930 || !isBeforeEOD) return;
+
+    const { getQuote } = require('../data/alpacaData');
+    const { getAlpacaPositions } = require('../trader/executor');
+
+    // Get symbols from watchlist + current portfolio positions
+    const [watchlist, positions] = await Promise.all([
+      db.query(`SELECT symbol FROM watchlist WHERE is_active = 1`),
+      getAlpacaPositions().catch(() => []),
+    ]);
+
+    // Combine symbols (unique)
+    const symbolSet = new Set();
+    watchlist.forEach(row => symbolSet.add(row.symbol));
+    positions.forEach(pos => symbolSet.add(pos.symbol));
+    const symbols = Array.from(symbolSet);
+
+    // Fetch real-time quotes in parallel batches
+    let updated = 0;
+    for (let i = 0; i < symbols.length; i += 15) {
+      const batch = symbols.slice(i, i + 15);
+      const results = await Promise.allSettled(
+        batch.map(sym => getQuote(sym).catch(() => null))
+      );
+
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+          const q = result.value;
+          await db.query(
+            'UPDATE stock_signals SET price = ?, price_change_pct = ?, generated_at = NOW() WHERE symbol = ?',
+            [q.price, q.changePct || 0, q.symbol]
+          );
+          updated++;
+        }
+      }
+
+      // Small delay between batches
+      if (i + 15 < symbols.length) await new Promise(r => setTimeout(r, 100));
+    }
+
+    if (updated > 0) console.log(`[Price Update] Updated ${updated} prices from Alpaca at ${etTime}`);
+  } catch (err) {
+    console.error('[Price Update] Error:', err.message);
+  }
+}
+
 async function runDailyRefresh(fullYear = false) {
   if (refreshRunning) {
     console.log('[Portfolio Scheduler] Refresh already running — skipping');
@@ -139,8 +201,13 @@ function startScheduler() {
 
   }, null, true, 'America/New_York');
 
-  console.log('[Portfolio Scheduler] Scheduled: 8:30 AM refresh + 9:35 AM Alpha autotrader (Mon-Fri ET)');
-  return { morningJob, tradeJob };
+  // Every 5 minutes during market hours (9:30 AM - 4:00 PM ET, Mon-Fri)
+  const priceUpdateJob = new CronJob('*/5 9-15 * * 1-5', () => {
+    updatePricesInDatabase();
+  }, null, true, 'America/New_York');
+
+  console.log('[Portfolio Scheduler] Scheduled: 8:30 AM refresh + 9:35 AM Alpha autotrader + every 5min price updates (9:30-16:00 ET, Mon-Fri)');
+  return { morningJob, tradeJob, priceUpdateJob };
 }
 
 module.exports = { startScheduler, runDailyRefresh };

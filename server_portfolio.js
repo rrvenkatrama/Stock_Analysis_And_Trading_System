@@ -692,76 +692,6 @@ function openTVChart(sym) {
 function closeTVChart() {}
 
 // ── Real-time price refresh (every 5 min during market hours) ────────────────
-async function refreshRealTimePrices() {
-  try {
-    const res = await fetch('/prices-refresh');
-    const quotes = await res.json();
-    if (!quotes || typeof quotes !== 'object') return;
-    console.log('Refreshing prices for', Object.keys(quotes).length, 'symbols');
-
-    // Update Stocks tab prices
-    const stocksTable = document.getElementById('stocks-table');
-    if (stocksTable) {
-      let updated = 0;
-      stocksTable.querySelectorAll('tbody tr').forEach(row => {
-        const sym = row.getAttribute('data-sym');
-        if (sym && quotes[sym]) {
-          const q = quotes[sym];
-          // Find price and change cells by data-val attribute
-          const allCells = row.querySelectorAll('td');
-          // Skip first cell (star), then: symbol/name, PRICE, CHANGE%
-          const priceCell = allCells[2];
-          const changeCell = allCells[3];
-          if (priceCell && changeCell) {
-            const chg = q.changePct || 0;
-            const priceColor = chg >= 0 ? '#48bb78' : '#fc8181';
-            priceCell.innerHTML = \`<span style="font-weight:600;color:\${priceColor}">$\${q.price.toFixed(2)}</span>\`;
-            priceCell.setAttribute('data-val', q.price);
-            changeCell.innerHTML = \`<span style="font-weight:600;color:\${priceColor}">\${chg>=0?'+':''}\${chg.toFixed(2)}%</span>\`;
-            changeCell.setAttribute('data-val', chg);
-            updated++;
-            if (sym === 'MRVL') console.log('Updated MRVL to', q.price);
-          }
-        }
-      });
-      console.log('Updated', updated, 'stock prices');
-    }
-
-    // Update Portfolio positions prices
-    document.querySelectorAll('.portfolio-wrap table tbody tr').forEach(row => {
-      const sym = row.querySelector('td b')?.textContent.trim();
-      if (sym && quotes[sym]) {
-        const q = quotes[sym];
-        const priceCells = row.querySelectorAll('td');
-        if (priceCells.length >= 4) {
-          const chg = q.changePct || 0;
-          const color = chg >= 0 ? '#48bb78' : '#fc8181';
-          priceCells[3].innerHTML = \`<span style="font-weight:600;color:\${color}">$\${q.price.toFixed(2)}</span>\`;
-        }
-      }
-    });
-  } catch (err) {
-    console.error('Price refresh failed:', err);
-  }
-}
-
-// Start auto-refresh every 5 min (only during market hours 9:30-16:00 ET)
-setInterval(() => {
-  const now = new Date();
-  const etTime = now.toLocaleString('en-US', {timeZone: 'America/New_York'});
-  const etDate = new Date(etTime);
-  const hours = etDate.getHours();
-  const mins = etDate.getMinutes();
-  const day = etDate.getDay();
-
-  // Market hours: 9:30 AM (9:30) to 4:00 PM (16:00), Mon-Fri
-  if (day >= 1 && day <= 5 && (hours > 9 || (hours === 9 && mins >= 30)) && hours < 16) {
-    refreshRealTimePrices();
-  }
-}, 300000); // 5 minutes = 300000ms
-
-// Trigger initial refresh on page load if during market hours
-refreshRealTimePrices();
 </script>`;
 
 // ─── My Portfolio section ─────────────────────────────────────────────────────
@@ -2268,52 +2198,6 @@ tr:hover td{background:#f7fafc}
 });
 
 // ─── Real-time prices endpoint ────────────────────────────────────────────────
-app.get('/prices-refresh', async (_, res) => {
-  try {
-    const { getQuote } = require('./data/alpacaData');
-    const quotes = {};
-
-    // Get symbols from watchlist + current portfolio positions
-    const [watchlist, positions] = await Promise.all([
-      db.query(`SELECT symbol FROM watchlist WHERE is_active = 1`),
-      getAlpacaPositions().catch(() => []),
-    ]);
-
-    // Combine watchlist and portfolio symbols (unique)
-    const symbolSet = new Set();
-    watchlist.forEach(row => symbolSet.add(row.symbol));
-    positions.forEach(pos => symbolSet.add(pos.symbol));
-    const symbols = Array.from(symbolSet);
-
-    // Fetch real-time quotes in parallel batches (Alpaca unlimited)
-    for (let i = 0; i < symbols.length; i += 15) {
-      const batch = symbols.slice(i, i + 15);
-      const results = await Promise.allSettled(
-        batch.map(sym => getQuote(sym).catch(err => {
-          console.error(`Quote fetch failed for ${sym}:`, err.message);
-          return null;
-        }))
-      );
-      results.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value) {
-          const q = result.value;
-          quotes[q.symbol] = {
-            price: q.price,
-            changePct: q.changePct || 0,
-          };
-        }
-      });
-      // Small delay between batches to avoid hammering the API
-      if (i + 15 < symbols.length) await new Promise(r => setTimeout(r, 100));
-    }
-
-    res.json(quotes);
-  } catch (err) {
-    console.error('Price refresh error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ─── TradingView chart page (served into iframe) ──────────────────────────────
 app.get('/tv-chart/:symbol', (req, res) => {
   const sym = req.params.symbol.toUpperCase().replace(/[^A-Z0-9.]/g, '');
