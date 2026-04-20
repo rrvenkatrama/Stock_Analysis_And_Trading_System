@@ -166,7 +166,10 @@ const FilterState = {
       this.eligibility = saved.eligibility || '';
       this.pickFlag = saved.pickFlag || '';
       this.inPortfolio = saved.inPortfolio || '';
-      this.applyFilters();
+      // Only apply filters if table exists
+      if (document.getElementById('stocks-table')) {
+        this.applyFilters();
+      }
       this.updateUI();
     } catch (e) {}
   },
@@ -188,14 +191,19 @@ const FilterState = {
   },
 
   updateUI() {
-    document.querySelector('input[placeholder*="Search"]').value = this.search;
-    document.querySelector('select[onchange*="filterRec"]').value = this.recommendation;
+    const searchEl = document.querySelector('input[placeholder*="Search"]');
+    if (searchEl) searchEl.value = this.search;
+    const recEl = document.querySelector('select[onchange*="filterRec"]');
+    if (recEl) recEl.value = this.recommendation;
     document.querySelectorAll('#gcf-all, #gcf-recent, #gcf-approaching, #gcf-active, #gcf-none').forEach(b => b.classList.remove('filter-btn-active'));
     const gcBtn = document.getElementById('gcf-' + this.goldenCross);
     if (gcBtn) gcBtn.classList.add('filter-btn-active');
-    document.getElementById('elig-filter').value = this.eligibility;
-    document.getElementById('pick-filter').value = this.pickFlag;
-    document.getElementById('port-filter').value = this.inPortfolio;
+    const eligEl = document.getElementById('elig-filter');
+    if (eligEl) eligEl.value = this.eligibility;
+    const pickEl = document.getElementById('pick-filter');
+    if (pickEl) pickEl.value = this.pickFlag;
+    const portEl = document.getElementById('port-filter');
+    if (portEl) portEl.value = this.inPortfolio;
   }
 };
 
@@ -623,12 +631,12 @@ function switchTab(name){
 })();
 
 // ── Restore filters from localStorage ──────────────────────────────────────────
-(function restoreFilters(){
+document.addEventListener('DOMContentLoaded', function restoreFilters(){
   try{
     FilterState.loadFromLocalStorage();
     FilterPresets.updatePresetUI();
   }catch(_){}
-})();
+});
 
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){closeWhy();closeBuy();closeSell();closeChart();closeNews();}
