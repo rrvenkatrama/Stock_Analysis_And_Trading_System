@@ -240,6 +240,7 @@ const W = {
 // New scoring: count positive and negative signals (not weighted)
 // Score = (positive_count - negative_count) / (positive_count + negative_count), clamped 0-100
 function computeScore(signals) {
+  console.log('[NEWSCORING] computeScore called - new formula active');
   const reasons = [];
   let positiveCount = 0;
   let negativeCount = 0;
@@ -253,6 +254,7 @@ function computeScore(signals) {
     rsi, aboveMa50, aboveMa200,
     goldenAgo, deathAgo, isGoldenActive, isDeathActive,
     priceCross50Ago, priceCross200Ago,
+    ma50, ma200, price,
     ema9, ema21, ema50ema,
     ema9BullCrossAgo, ema9BearCrossAgo,
     volRatio, priceChangePct,
@@ -446,11 +448,14 @@ function computeScore(signals) {
   if (marketBullish === true)  add(W.marketBullish, 'Bullish market (SPY above 200MA)');
   if (marketBullish === false) add(W.marketBearish, 'Bearish market (SPY below 200MA)');
 
-  // Calculate score: (positive_count - negative_count) / total_signals, clamped 0–100
+  // Calculate score: (positive_count - negative_count) / denominator
+  // denominator = max(5, total_signals)
+  // Score ranges from -100 to +100 (can be negative)
+  // BUY: > 50%, HOLD: 20-50%, SELL: <= 20%
   const totalSignals = positiveCount + negativeCount;
   const denominator = Math.max(5, totalSignals);
   const rawScore = totalSignals > 0 ? (positiveCount - negativeCount) / denominator : 0;
-  const finalScore = Math.max(0, Math.min(100, rawScore * 100));
+  const finalScore = rawScore * 100;  // Can be negative, no clamping
 
   const allSignals = reasons
     .sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts))
@@ -553,6 +558,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
     rsi, aboveMa50, aboveMa200,
     goldenAgo, deathAgo, isGoldenActive, isDeathActive,
     priceCross50Ago, priceCross200Ago,
+    ma50, ma200, price,
     ema9, ema21, ema50ema: ema50,
     ema9BullCrossAgo, ema9BearCrossAgo,
     volRatio, priceChangePct: changePct,
@@ -571,7 +577,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
 
   const recommendation =
     finalScore > 50 ? 'BUY' :
-    finalScore >= 10 ? 'HOLD' : 'SELL';
+    finalScore > 20 ? 'HOLD' : 'SELL';
 
   const crossType =
     isGoldenActive ? 'golden_cross' :
