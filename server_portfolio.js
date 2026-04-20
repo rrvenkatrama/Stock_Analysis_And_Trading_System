@@ -514,6 +514,70 @@ function openTVChart(sym) {
   );
 }
 function closeTVChart() {}
+
+// ── Real-time price refresh (every 5 min during market hours) ────────────────
+async function refreshRealTimePrices() {
+  try {
+    const res = await fetch('/prices-refresh');
+    const quotes = await res.json();
+    if (!quotes || typeof quotes !== 'object') return;
+
+    // Update Stocks tab prices
+    document.querySelectorAll('#stocks-table tbody tr').forEach(row => {
+      const sym = row.getAttribute('data-sym');
+      if (sym && quotes[sym]) {
+        const q = quotes[sym];
+        const priceCell = row.querySelector('td[data-val]');
+        if (priceCell) {
+          const chg = q.changePct || 0;
+          const color = chg >= 0 ? '#48bb78' : '#fc8181';
+          priceCell.innerHTML = \`<span style="font-weight:600;color:\${color}">$\${q.price.toFixed(2)}</span>\`;
+          priceCell.setAttribute('data-val', q.price);
+        }
+        const chgCell = row.querySelectorAll('td[data-val]')[1];
+        if (chgCell) {
+          const color = chg >= 0 ? '#48bb78' : '#fc8181';
+          chgCell.innerHTML = \`<span style="font-weight:600;color:\${color}">\${chg>=0?'+':''}\${chg.toFixed(2)}%</span>\`;
+          chgCell.setAttribute('data-val', chg);
+        }
+      }
+    });
+
+    // Update Portfolio positions prices
+    document.querySelectorAll('.portfolio-wrap table tbody tr').forEach(row => {
+      const sym = row.querySelector('td b')?.textContent.trim();
+      if (sym && quotes[sym]) {
+        const q = quotes[sym];
+        const priceCells = row.querySelectorAll('td');
+        if (priceCells.length >= 4) {
+          const chg = q.changePct || 0;
+          const color = chg >= 0 ? '#48bb78' : '#fc8181';
+          priceCells[3].innerHTML = \`<span style="font-weight:600;color:\${color}">$\${q.price.toFixed(2)}</span>\`;
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Price refresh failed:', err);
+  }
+}
+
+// Start auto-refresh every 5 min (only during market hours 9:30-16:00 ET)
+setInterval(() => {
+  const now = new Date();
+  const etTime = now.toLocaleString('en-US', {timeZone: 'America/New_York'});
+  const etDate = new Date(etTime);
+  const hours = etDate.getHours();
+  const mins = etDate.getMinutes();
+  const day = etDate.getDay();
+
+  // Market hours: 9:30 AM (9:30) to 4:00 PM (16:00), Mon-Fri
+  if (day >= 1 && day <= 5 && (hours > 9 || (hours === 9 && mins >= 30)) && hours < 16) {
+    refreshRealTimePrices();
+  }
+}, 300000); // 5 minutes = 300000ms
+
+// Trigger initial refresh on page load if during market hours
+refreshRealTimePrices();
 </script>`;
 
 // ─── My Portfolio section ─────────────────────────────────────────────────────
@@ -1995,6 +2059,37 @@ tr:hover td{background:#f7fafc}
 </div></body></html>`);
   } catch (err) {
     res.status(500).send(`<pre>Error: ${err.message}</pre>`);
+  }
+});
+
+// ─── Real-time prices endpoint ────────────────────────────────────────────────
+app.get('/prices-refresh', async (_, res) => {
+  try {
+    const { getQuote } = require('./data/alpacaData');
+    const symbols = await db.query(`SELECT symbol FROM watchlist WHERE is_active = 1`);
+    const quotes = {};
+
+    // Fetch real-time quotes in parallel batches (Alpaca unlimited)
+    for (let i = 0; i < symbols.length; i += 10) {
+      const batch = symbols.slice(i, i + 10);
+      const results = await Promise.allSettled(batch.map(r => getQuote(r.symbol)));
+      results.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          const q = result.value;
+          quotes[q.symbol] = {
+            price: q.price,
+            changePct: q.changePct || 0,
+          };
+        }
+      });
+      // Small delay between batches to avoid hammering the API
+      if (i + 10 < symbols.length) await new Promise(r => setTimeout(r, 50));
+    }
+
+    res.json(quotes);
+  } catch (err) {
+    console.error('Price refresh error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
