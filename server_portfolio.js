@@ -705,23 +705,16 @@ async function refreshRealTimePrices() {
         const sym = row.getAttribute('data-sym');
         if (sym && quotes[sym]) {
           const q = quotes[sym];
-          const cells = row.querySelectorAll('td');
-          if (cells.length > 1) {
-            // Price cell (2nd column, after star)
-            const priceCell = cells[1];
-            if (priceCell) {
-              const chg = q.changePct || 0;
-              const color = chg >= 0 ? '#48bb78' : '#fc8181';
-              priceCell.innerHTML = \`<span style="font-weight:600;color:\${color}">$\${q.price.toFixed(2)}</span>\`;
-              priceCell.setAttribute('data-val', q.price);
-            }
-            // Change % cell (3rd column)
-            const chgCell = cells[2];
-            if (chgCell) {
-              const color = chg >= 0 ? '#48bb78' : '#fc8181';
-              chgCell.innerHTML = \`<span style="font-weight:600;color:\${color}">\${chg>=0?'+':''}\${chg.toFixed(2)}%</span>\`;
-              chgCell.setAttribute('data-val', chg);
-            }
+          // Find price and change cells by data-val attribute (more reliable than index)
+          const cells = row.querySelectorAll('td[data-val]');
+          if (cells.length >= 2) {
+            const chg = q.changePct || 0;
+            const priceColor = chg >= 0 ? '#48bb78' : '#fc8181';
+            // cells[0] = price, cells[1] = change%
+            cells[0].innerHTML = \`<span style="font-weight:600;color:\${priceColor}">$\${q.price.toFixed(2)}</span>\`;
+            cells[0].setAttribute('data-val', q.price);
+            cells[1].innerHTML = \`<span style="font-weight:600;color:\${priceColor}">\${chg>=0?'+':''}\${chg.toFixed(2)}%</span>\`;
+            cells[1].setAttribute('data-val', chg);
           }
         }
       });
