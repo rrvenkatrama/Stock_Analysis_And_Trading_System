@@ -1,5 +1,5 @@
 # StockTrader — Plan & Current State
-Last updated: 2026-04-20 (session 7)
+Last updated: 2026-04-20 (session 8)
 Status: Phase 1 COMPLETE | Phase 2 COMPLETE | Phase 3 active | My Stocks Dashboard FULLY OPERATIONAL
 
 ─────────────────────────────────────────
@@ -183,6 +183,35 @@ SESSION 7 CHANGES (2026-04-20):
   - All 122 watchlist stocks recalculated with new RSI logic
   - Scores and signals updated in database
   - No errors; zero-error run
+
+─────────────────────────────────────────
+SESSION 8 CHANGES (2026-04-20):
+─────────────────────────────────────────
+
+[✅] Max autotrader positions increased: 4 → 15
+  - Allows buying up to 15 open positions instead of limiting to 4
+  - System config autorun_max_positions updated
+
+[✅] Portfolio deployment optimized: 50% → 80%
+  - Autotrader can now deploy up to 80% of total portfolio equity
+  - Maintains 20% min cash buffer (uninvested)
+  - Per-position max remains 10% (VIX-scaled)
+  - Formula: deployable = min(buying_power - cashBuffer, maxDeployable - invested)
+
+[✅] Portfolio header enhanced with key metrics
+  - Total Equity (black font) — full account value
+  - Available Cash (blue font) — uninvested capital
+  - Market Value, Unrealized P&L, Total Return %, Today's Gain %
+  - Positions count, Open Orders count
+  - All metrics visible at top of Portfolio tab
+
+[✅] Code integrity verified
+  - All 8 requirement categories passing
+  - 0 regressions detected
+  - Signal-count scoring working correctly
+  - Eligibility gates all 5 gates passing/failing correctly
+  - Position flags (autotrader ON/OFF) enforced properly
+  - Buy discipline (Stocks tab only) maintained
 
 ─────────────────────────────────────────
 MY STOCKS DASHBOARD (port 8081) ✅ OPERATIONAL

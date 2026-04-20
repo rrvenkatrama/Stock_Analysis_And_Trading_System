@@ -101,6 +101,12 @@ See [CLAUDE.md](CLAUDE.md) for complete deployment checklist and systemd service
 - Manual buy of existing position → flag unchanged
 - Autotrader exit/stop-loss only runs for flag=1 positions
 
+**Position & Deployment Limits:**
+- Max positions: 15 (autotrader can open up to 15 simultaneous positions)
+- Max per position: 10% of account (VIX-scaled down in high volatility)
+- Max total deployment: 80% of portfolio equity
+- Min cash buffer: 20% (always uninvested, ready for opportunities)
+
 **Scheduling:**
 - **8:30 AM ET (Mon–Fri):** Full refresh (price history + fundamentals), analysis, Phoenix screener, universe scan, email digest
 - **9:35 AM ET (Mon–Fri):** Alpha autotrader execution (buys + exits)

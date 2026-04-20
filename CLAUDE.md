@@ -106,11 +106,13 @@ Thresholds automatically drop in fear markets — no .env changes needed:
 - VIX ≥ 30 (high): base threshold − 12 pts
 - VIX ≥ 25 (elevated): base threshold − 6 pts
 
-## Position Sizing (portfolio.js)
+## Position Sizing (portfolio_app/autotrader.js)
 Uses ACTUAL Alpaca account equity (account.equity || account.portfolio_value), NOT params.account_size.
-- maxPerPosition = accountEquity × max_position_pct (10%)
-- deployable = buyingPower × portfolio_deploy_pct (50%)
+- maxPositions = 15 (autotrader can open up to 15 positions)
+- maxPerPosition = accountEquity × 10% (VIX-scaled down to 0.5x in high vol)
+- deployable = min(buyingPower - cashBuffer, maxDeployable) where maxDeployable = 80% of equity
 - perSlot = min(deployable / openSlots, maxPerPosition)
+- cashBuffer = 20% of equity (always uninvested)
 
 ## Autotrader — Manual Buy Interaction
 When user manually buys via the Buy button while autotrader is ON:

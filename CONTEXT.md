@@ -31,12 +31,11 @@ Two dashboards running on a home mini PC (192.168.1.156):
 | Parameter | Value |
 |-----------|-------|
 | Account size | $100K (paper) |
-| Max position | 10% ($10,000) |
+| Max position | 10% per position ($10K, VIX-scaled) |
 | Stop loss | 5% below entry (auto-placed) |
-| Max open positions | 4 |
-| Max new trades/day | 4 |
-| Cash buffer | 20% always |
-| Deploy per plan | 50% of buying power |
+| Max open positions | 15 (autotrader limit) |
+| Max deployable | 80% of portfolio equity |
+| Min cash buffer | 20% (always uninvested) |
 | Base score threshold | 55 (VIX-adaptive — drops in fear markets) |
 | Base probability threshold | 55% |
 
