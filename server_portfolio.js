@@ -130,23 +130,177 @@ function sortTable(col){
   });
   const tbody=t.querySelector('tbody');rows.forEach(r=>tbody.appendChild(r));
 }
-function filterRec(val){
-  document.querySelectorAll('#stocks-table tbody tr').forEach(r=>{
-    r.style.display=(val===''||r.dataset.rec===val)?'':'none';
-  });
-}
+// ── Enhanced filtering system with localStorage ────────────────────────────────
+const FilterState = {
+  search: '',
+  recommendation: '',
+  goldenCross: 'all',
+  eligibility: '',
+  pickFlag: '',
+  inPortfolio: '',
+
+  applyAll() {
+    this.saveToLocalStorage();
+    this.applyFilters();
+  },
+
+  saveToLocalStorage() {
+    try {
+      localStorage.setItem('stocks-filter-state', JSON.stringify({
+        search: this.search,
+        recommendation: this.recommendation,
+        goldenCross: this.goldenCross,
+        eligibility: this.eligibility,
+        pickFlag: this.pickFlag,
+        inPortfolio: this.inPortfolio,
+      }));
+    } catch (e) {}
+  },
+
+  loadFromLocalStorage() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('stocks-filter-state') || '{}');
+      this.search = saved.search || '';
+      this.recommendation = saved.recommendation || '';
+      this.goldenCross = saved.goldenCross || 'all';
+      this.eligibility = saved.eligibility || '';
+      this.pickFlag = saved.pickFlag || '';
+      this.inPortfolio = saved.inPortfolio || '';
+      this.applyFilters();
+      this.updateUI();
+    } catch (e) {}
+  },
+
+  applyFilters() {
+    document.querySelectorAll('#stocks-table tbody tr').forEach(r => {
+      const searchMatch = !this.search ||
+        (r.dataset.sym || '').toLowerCase().includes(this.search.toLowerCase()) ||
+        (r.dataset.name || '').toLowerCase().includes(this.search.toLowerCase());
+
+      const recMatch = !this.recommendation || r.dataset.rec === this.recommendation;
+      const gcMatch = this.goldenCross === 'all' || (r.dataset.cross || 'none') === this.goldenCross;
+      const eligMatch = !this.eligibility || r.dataset.eligible === this.eligibility;
+      const pickMatch = !this.pickFlag || r.dataset.pick === this.pickFlag;
+      const portfolioMatch = !this.inPortfolio || r.dataset.inport === this.inPortfolio;
+
+      r.style.display = (searchMatch && recMatch && gcMatch && eligMatch && pickMatch && portfolioMatch) ? '' : 'none';
+    });
+  },
+
+  updateUI() {
+    document.querySelector('input[placeholder*="Search"]').value = this.search;
+    document.querySelector('select[onchange*="filterRec"]').value = this.recommendation;
+    document.querySelectorAll('#gcf-all, #gcf-recent, #gcf-approaching, #gcf-active, #gcf-none').forEach(b => b.classList.remove('filter-btn-active'));
+    const gcBtn = document.getElementById('gcf-' + this.goldenCross);
+    if (gcBtn) gcBtn.classList.add('filter-btn-active');
+    document.getElementById('elig-filter').value = this.eligibility;
+    document.getElementById('pick-filter').value = this.pickFlag;
+    document.getElementById('port-filter').value = this.inPortfolio;
+  }
+};
+
 function filterSearch(val){
-  val=val.toLowerCase();
-  document.querySelectorAll('#stocks-table tbody tr').forEach(r=>{
-    r.style.display=((r.dataset.sym||'').toLowerCase().includes(val)||(r.dataset.name||'').toLowerCase().includes(val))?'':'none';
-  });
+  FilterState.search = val;
+  FilterState.applyAll();
 }
+
+function filterRec(val){
+  FilterState.recommendation = val;
+  FilterState.applyAll();
+}
+
 function filterGoldenCross(state){
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('filter-btn-active'));
-  document.getElementById('gcf-'+state).classList.add('filter-btn-active');
-  document.querySelectorAll('#stocks-table tbody tr').forEach(r=>{
-    r.style.display=(state==='all'||(r.dataset.cross||'none')===state)?'':'none';
+  FilterState.goldenCross = state;
+  FilterState.applyAll();
+}
+
+function filterEligibility(val){
+  FilterState.eligibility = val;
+  FilterState.applyAll();
+}
+
+function filterPickFlag(val){
+  FilterState.pickFlag = val;
+  FilterState.applyAll();
+}
+
+function filterPortfolio(val){
+  FilterState.inPortfolio = val;
+  FilterState.applyAll();
+}
+
+function clearAllFilters(){
+  FilterState.search = '';
+  FilterState.recommendation = '';
+  FilterState.goldenCross = 'all';
+  FilterState.eligibility = '';
+  FilterState.pickFlag = '';
+  FilterState.inPortfolio = '';
+  FilterState.applyAll();
+  FilterState.updateUI();
+}
+
+// ── Filter presets (save/load filter combinations) ─────────────────────────────
+const FilterPresets = {
+  get() {
+    try { return JSON.parse(localStorage.getItem('stocks-filter-presets') || '{}'); }
+    catch (e) { return {}; }
+  },
+
+  save(name, state) {
+    const presets = this.get();
+    presets[name] = state;
+    try { localStorage.setItem('stocks-filter-presets', JSON.stringify(presets)); }
+    catch (e) {}
+  },
+
+  load(name) {
+    const presets = this.get();
+    if (presets[name]) {
+      FilterState.search = presets[name].search || '';
+      FilterState.recommendation = presets[name].recommendation || '';
+      FilterState.goldenCross = presets[name].goldenCross || 'all';
+      FilterState.eligibility = presets[name].eligibility || '';
+      FilterState.pickFlag = presets[name].pickFlag || '';
+      FilterState.inPortfolio = presets[name].inPortfolio || '';
+      FilterState.applyAll();
+      FilterState.updateUI();
+    }
+  },
+
+  delete(name) {
+    const presets = this.get();
+    delete presets[name];
+    try { localStorage.setItem('stocks-filter-presets', JSON.stringify(presets)); }
+    catch (e) {}
+    this.updatePresetUI();
+  },
+
+  updatePresetUI() {
+    const presets = this.get();
+    const list = document.getElementById('preset-list');
+    if (!list) return;
+    const html = Object.keys(presets).map(name => {
+      const safe = name.replace(/'/g, "\\'");
+      return '<button onclick="FilterPresets.load(\''+safe+'\')" class="btn btn-sm" style="background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8">'+name+' <span onclick="FilterPresets.delete(\''+safe+'\');event.stopPropagation()" style="cursor:pointer;font-weight:700">×</span></button>';
+    }).join(' ');
+    list.innerHTML = html;
+  }
+};
+
+function saveCurrentFilter(){
+  const name = prompt('Save this filter as:');
+  if (!name) return;
+  FilterPresets.save(name, {
+    search: FilterState.search,
+    recommendation: FilterState.recommendation,
+    goldenCross: FilterState.goldenCross,
+    eligibility: FilterState.eligibility,
+    pickFlag: FilterState.pickFlag,
+    inPortfolio: FilterState.inPortfolio,
   });
+  FilterPresets.updatePresetUI();
+  alert('Filter "' + name + '" saved!');
 }
 
 // ── Why modal ─────────────────────────────────────────────────────────────────
@@ -466,6 +620,14 @@ function switchTab(name){
     const saved=localStorage.getItem('active-tab')||'portfolio';
     switchTab(saved);
   }catch(_){switchTab('portfolio');}
+})();
+
+// ── Restore filters from localStorage ──────────────────────────────────────────
+(function restoreFilters(){
+  try{
+    FilterState.loadFromLocalStorage();
+    FilterPresets.updatePresetUI();
+  }catch(_){}
 })();
 
 document.addEventListener('keydown',e=>{
@@ -920,7 +1082,10 @@ function stockRow(s, upgrade, phxSig, pickFlag, volRatio, spyRegime, positionSet
   const gcState = s.cross_type === 'golden_cross' && s.golden_cross_ago !== null && parseInt(s.golden_cross_ago) <= 5 ? 'recent'
                 : s.cross_type === 'golden_cross' ? 'active'
                 : s.cross_type === 'approaching_golden_cross' ? 'approaching' : 'none';
-  return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" data-cross="${gcState}" ${rowStyle}>
+  const eligibleState = !hasBlockedGate ? 'eligible' : 'blocked';
+  const pickState = pickFlag === 1 ? 'pick' : 'noselect';
+  const portfolioState = positionSet.has(s.symbol) ? 'in' : 'out';
+  return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" data-cross="${gcState}" data-eligible="${eligibleState}" data-pick="${pickState}" data-inport="${portfolioState}" ${rowStyle}>
     ${starCell(s.cross_type, s.golden_cross_ago)}
     <td><b style="cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${s.symbol}','${nameSafe}')">${s.symbol}</b>${isConfluence ? ' <span title="Both Alpha and Phoenix signal BUY" style="color:#d69e2e;font-size:12px">⭐</span>' : ''}${assetTag}<br><span style="color:#718096;font-size:11px">${s.name||''}</span>
       <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:nowrap;align-items:center;white-space:nowrap;overflow-x:auto">
@@ -1330,20 +1495,38 @@ ${pfSection}
   <div class="stat" style="margin:0"><div class="num" style="color:#c53030;font-size:16px">${sellCount}</div><div class="lbl">Sell</div></div>
 </div>
 <div class="filter-bar">
-  <input type="text" placeholder="Search symbol or name…" oninput="filterSearch(this.value)" style="width:180px">
+  <input type="text" placeholder="Search symbol or name…" oninput="filterSearch(this.value)" style="width:150px">
   <select onchange="filterRec(this.value)" style="width:auto">
-    <option value="">All</option>
-    <option value="BUY">BUY only</option>
-    <option value="HOLD">HOLD only</option>
-    <option value="SELL">SELL only</option>
+    <option value="">Signal: All</option>
+    <option value="BUY">Signal: BUY only</option>
+    <option value="HOLD">Signal: HOLD only</option>
+    <option value="SELL">Signal: SELL only</option>
   </select>
-  <span style="color:#718096;font-size:11px;margin-left:12px">Golden Cross:</span>
-  <button onclick="filterGoldenCross('all')" id="gcf-all" class="filter-btn filter-btn-active" style="font-size:11px;padding:4px 10px;margin:0 2px">All</button>
-  <button onclick="filterGoldenCross('recent')" id="gcf-recent" class="filter-btn" style="font-size:11px;padding:4px 10px;margin:0 2px">⭐ Recent</button>
-  <button onclick="filterGoldenCross('approaching')" id="gcf-approaching" class="filter-btn" style="font-size:11px;padding:4px 10px;margin:0 2px">🟢 Approaching</button>
-  <button onclick="filterGoldenCross('active')" id="gcf-active" class="filter-btn" style="font-size:11px;padding:4px 10px;margin:0 2px">★ Active</button>
-  <button onclick="filterGoldenCross('none')" id="gcf-none" class="filter-btn" style="font-size:11px;padding:4px 10px;margin:0 2px">☆ None</button>
+  <select id="elig-filter" onchange="filterEligibility(this.value)" style="width:auto">
+    <option value="">Status: All</option>
+    <option value="eligible">Status: ✓ Eligible</option>
+    <option value="blocked">Status: ⚠ Blocked</option>
+  </select>
+  <select id="pick-filter" onchange="filterPickFlag(this.value)" style="width:auto">
+    <option value="">Pick: All</option>
+    <option value="pick">Pick: ✓ Yes</option>
+    <option value="noselect">Pick: 🚫 No</option>
+  </select>
+  <select id="port-filter" onchange="filterPortfolio(this.value)" style="width:auto">
+    <option value="">Portfolio: All</option>
+    <option value="in">Portfolio: In</option>
+    <option value="out">Portfolio: Not In</option>
+  </select>
+  <span style="color:#718096;font-size:11px;margin-left:8px">Golden Cross:</span>
+  <button onclick="filterGoldenCross('all')" id="gcf-all" class="filter-btn filter-btn-active" style="font-size:11px;padding:3px 8px;margin:0 1px">All</button>
+  <button onclick="filterGoldenCross('recent')" id="gcf-recent" class="filter-btn" style="font-size:11px;padding:3px 8px;margin:0 1px">⭐</button>
+  <button onclick="filterGoldenCross('approaching')" id="gcf-approaching" class="filter-btn" style="font-size:11px;padding:3px 8px;margin:0 1px">🟢</button>
+  <button onclick="filterGoldenCross('active')" id="gcf-active" class="filter-btn" style="font-size:11px;padding:3px 8px;margin:0 1px">★</button>
+  <button onclick="filterGoldenCross('none')" id="gcf-none" class="filter-btn" style="font-size:11px;padding:3px 8px;margin:0 1px">☆</button>
+  <button onclick="clearAllFilters()" class="btn" style="background:#f7fafc;color:#4a5568;border:1px solid #e2e8f0;font-size:11px;padding:4px 10px;margin-left:auto">Clear All</button>
+  <button onclick="saveCurrentFilter()" class="btn" style="background:#f0fff4;color:#276749;border:1px solid #9ae6b4;font-size:11px;padding:4px 10px">Save Filter</button>
 </div>
+<div id="preset-list" style="padding:8px 24px;background:#f7fafc;border-bottom:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap;font-size:11px"></div>
 <div class="tbl-wrap" style="max-height:calc(100vh - 220px);margin:0 24px 16px">
 <table id="stocks-table">
 <thead><tr>
