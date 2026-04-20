@@ -697,27 +697,34 @@ async function refreshRealTimePrices() {
     const res = await fetch('/prices-refresh');
     const quotes = await res.json();
     if (!quotes || typeof quotes !== 'object') return;
+    console.log('Refreshing prices for', Object.keys(quotes).length, 'symbols');
 
     // Update Stocks tab prices
     const stocksTable = document.getElementById('stocks-table');
     if (stocksTable) {
+      let updated = 0;
       stocksTable.querySelectorAll('tbody tr').forEach(row => {
         const sym = row.getAttribute('data-sym');
         if (sym && quotes[sym]) {
           const q = quotes[sym];
-          // Find price and change cells by data-val attribute (more reliable than index)
-          const cells = row.querySelectorAll('td[data-val]');
-          if (cells.length >= 2) {
+          // Find price and change cells by data-val attribute
+          const allCells = row.querySelectorAll('td');
+          // Skip first cell (star), then: symbol/name, PRICE, CHANGE%
+          const priceCell = allCells[2];
+          const changeCell = allCells[3];
+          if (priceCell && changeCell) {
             const chg = q.changePct || 0;
             const priceColor = chg >= 0 ? '#48bb78' : '#fc8181';
-            // cells[0] = price, cells[1] = change%
-            cells[0].innerHTML = \`<span style="font-weight:600;color:\${priceColor}">$\${q.price.toFixed(2)}</span>\`;
-            cells[0].setAttribute('data-val', q.price);
-            cells[1].innerHTML = \`<span style="font-weight:600;color:\${priceColor}">\${chg>=0?'+':''}\${chg.toFixed(2)}%</span>\`;
-            cells[1].setAttribute('data-val', chg);
+            priceCell.innerHTML = \`<span style="font-weight:600;color:\${priceColor}">$\${q.price.toFixed(2)}</span>\`;
+            priceCell.setAttribute('data-val', q.price);
+            changeCell.innerHTML = \`<span style="font-weight:600;color:\${priceColor}">\${chg>=0?'+':''}\${chg.toFixed(2)}%</span>\`;
+            changeCell.setAttribute('data-val', chg);
+            updated++;
+            if (sym === 'MRVL') console.log('Updated MRVL to', q.price);
           }
         }
       });
+      console.log('Updated', updated, 'stock prices');
     }
 
     // Update Portfolio positions prices
