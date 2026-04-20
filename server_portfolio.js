@@ -911,7 +911,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
       <div class="stat"><div class="num" style="color:${pnlColor}">${totalPnl>=0?'+':''}$${Math.abs(totalPnl).toFixed(0)}</div><div class="lbl">Unrealized P&L</div></div>
       <div class="stat"><div class="num" style="color:${pnlColor}">${totalPnlPct !== null ? (totalPnlPct>=0?'+':'')+totalPnlPct.toFixed(2)+'%' : '—'}</div><div class="lbl">Total Return</div></div>
       <div class="stat"><div class="num" style="color:${todayColor}">${totalTodayPct !== null ? (totalTodayPct>=0?'+':'')+totalTodayPct.toFixed(2)+'%' : '—'}</div><div class="lbl">Today's Gain</div></div>
-      <div class="stat"><div class="num" style="color:#e2e8f0">${positions.length}</div><div class="lbl">Positions</div></div>
+      <div class="stat"><div class="num" style="color:#000">${positions.length}</div><div class="lbl">Positions</div></div>
       <div class="stat"><div class="num" style="color:#3182ce">${openOrders.length}</div><div class="lbl">Open Orders</div></div>
     </div>
     ${positions.length ? `<div style="display:flex;gap:0;flex-wrap:wrap;background:#0f1320;border-radius:8px;padding:8px 16px;margin-bottom:12px;align-items:center;gap:4px">
