@@ -623,12 +623,12 @@ function switchTab(name){
   if(btn)btn.classList.add('active');
   try{localStorage.setItem('active-tab',name);}catch(_){}
 }
-(function restoreTab(){
+document.addEventListener('DOMContentLoaded', function restoreTab(){
   try{
     const saved=localStorage.getItem('active-tab')||'portfolio';
     switchTab(saved);
   }catch(_){switchTab('portfolio');}
-})();
+});
 
 // ── Restore filters from localStorage ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function restoreFilters(){
