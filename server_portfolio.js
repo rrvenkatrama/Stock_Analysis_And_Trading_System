@@ -288,15 +288,17 @@ const FilterPresets = {
     const presets = this.get();
     const list = document.getElementById('preset-list');
     if (!list) return;
-    const html = Object.keys(presets).map((name, idx) => {
-      const btnId = 'preset-btn-' + idx;
-      const delId = 'preset-del-' + idx;
-      return '<div style="display:inline-flex;align-items:center;gap:3px;background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8;border-radius:4px;padding:4px 8px;font-size:11px">'
-        + '<span onclick="FilterPresets.load(\'' + name.replace(/'/g, '\\\'') + '\')" style="cursor:pointer;flex:1">' + name + '</span>'
-        + '<span onclick="FilterPresets.delete(\'' + name.replace(/'/g, '\\\'') + '\'); FilterPresets.updatePresetUI();" style="cursor:pointer;font-weight:700;color:#c53030">×</span>'
-        + '</div>';
-    }).join('');
-    list.innerHTML = html;
+    list.innerHTML = '';
+    Object.keys(presets).forEach((name, idx) => {
+      const div = document.createElement('div');
+      div.style.cssText = 'display:inline-flex;align-items:center;gap:3px;background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer';
+      div.innerHTML = '<span style="flex:1">' + name + '</span><span style="font-weight:700;color:#c53030;margin-left:3px">×</span>';
+      const loadBtn = div.querySelector('span:first-child');
+      const delBtn = div.querySelector('span:last-child');
+      loadBtn.onclick = () => FilterPresets.load(name);
+      delBtn.onclick = (e) => { FilterPresets.delete(name); FilterPresets.updatePresetUI(); e.stopPropagation(); };
+      list.appendChild(div);
+    });
   }
 };
 
