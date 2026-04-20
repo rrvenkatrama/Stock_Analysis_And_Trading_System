@@ -825,7 +825,7 @@ function stockRow(s, upgrade, phxSig, pickFlag, volRatio, spyRegime, positionSet
   return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" data-cross="${gcState}" ${rowStyle}>
     ${starCell(s.cross_type, s.golden_cross_ago)}
     <td><b style="cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${s.symbol}','${nameSafe}')">${s.symbol}</b>${isConfluence ? ' <span title="Both Alpha and Phoenix signal BUY" style="color:#d69e2e;font-size:12px">⭐</span>' : ''}${assetTag}<br><span style="color:#718096;font-size:11px">${s.name||''}</span>
-      <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+      <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:nowrap;align-items:center;white-space:nowrap;overflow-x:auto">
         ${buyBtn}
         ${eligibilityBadge}
         ${pickToggleBtn}
