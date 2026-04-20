@@ -699,25 +699,33 @@ async function refreshRealTimePrices() {
     if (!quotes || typeof quotes !== 'object') return;
 
     // Update Stocks tab prices
-    document.querySelectorAll('#stocks-table tbody tr').forEach(row => {
-      const sym = row.getAttribute('data-sym');
-      if (sym && quotes[sym]) {
-        const q = quotes[sym];
-        const priceCell = row.querySelector('td[data-val]');
-        if (priceCell) {
-          const chg = q.changePct || 0;
-          const color = chg >= 0 ? '#48bb78' : '#fc8181';
-          priceCell.innerHTML = \`<span style="font-weight:600;color:\${color}">$\${q.price.toFixed(2)}</span>\`;
-          priceCell.setAttribute('data-val', q.price);
+    const stocksTable = document.getElementById('stocks-table');
+    if (stocksTable) {
+      stocksTable.querySelectorAll('tbody tr').forEach(row => {
+        const sym = row.getAttribute('data-sym');
+        if (sym && quotes[sym]) {
+          const q = quotes[sym];
+          const cells = row.querySelectorAll('td');
+          if (cells.length > 1) {
+            // Price cell (2nd column, after star)
+            const priceCell = cells[1];
+            if (priceCell) {
+              const chg = q.changePct || 0;
+              const color = chg >= 0 ? '#48bb78' : '#fc8181';
+              priceCell.innerHTML = \`<span style="font-weight:600;color:\${color}">$\${q.price.toFixed(2)}</span>\`;
+              priceCell.setAttribute('data-val', q.price);
+            }
+            // Change % cell (3rd column)
+            const chgCell = cells[2];
+            if (chgCell) {
+              const color = chg >= 0 ? '#48bb78' : '#fc8181';
+              chgCell.innerHTML = \`<span style="font-weight:600;color:\${color}">\${chg>=0?'+':''}\${chg.toFixed(2)}%</span>\`;
+              chgCell.setAttribute('data-val', chg);
+            }
+          }
         }
-        const chgCell = row.querySelectorAll('td[data-val]')[1];
-        if (chgCell) {
-          const color = chg >= 0 ? '#48bb78' : '#fc8181';
-          chgCell.innerHTML = \`<span style="font-weight:600;color:\${color}">\${chg>=0?'+':''}\${chg.toFixed(2)}%</span>\`;
-          chgCell.setAttribute('data-val', chg);
-        }
-      }
-    });
+      });
+    }
 
     // Update Portfolio positions prices
     document.querySelectorAll('.portfolio-wrap table tbody tr').forEach(row => {
