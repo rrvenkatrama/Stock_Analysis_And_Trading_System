@@ -313,11 +313,11 @@ async function evaluate(execute = false) {
       if (openSlots <= 0) {
         results.skipped.push({ reason: `Portfolio full: ${heldSymbols.size}/${maxPositions} positions` });
       } else {
-        // Watchlist-only BUY candidates, pick_flag=1 AND score > 50%, sorted by score
+        // Watchlist-only BUY candidates, pick_flag=1 AND recommendation=BUY, sorted by score
         const candidates = await db.query(
           `SELECT ss.* FROM stock_signals ss
            INNER JOIN watchlist w ON w.symbol = ss.symbol AND w.is_active = 1 AND w.pick_flag = 1
-           WHERE ss.recommendation = 'BUY' AND ss.score > 50 AND ss.price >= 5
+           WHERE ss.recommendation = 'BUY' AND ss.price >= 5
            ORDER BY ss.score DESC
            LIMIT 20`
         );

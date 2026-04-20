@@ -1,5 +1,5 @@
 # StockTrader — Plan & Current State
-Last updated: 2026-04-19 (session 6)
+Last updated: 2026-04-20 (session 7)
 Status: Phase 1 COMPLETE | Phase 2 COMPLETE | Phase 3 active | My Stocks Dashboard FULLY OPERATIONAL
 
 ─────────────────────────────────────────
@@ -153,6 +153,38 @@ SESSION 6 CHANGES (2026-04-19):
   - Server-side check against live Alpaca positions
 
 ─────────────────────────────────────────
+SESSION 7 CHANGES (2026-04-20):
+─────────────────────────────────────────
+
+[✅] Signal-count scoring system (analyzer.js):
+  - Changed from weighted points to binary signal counting
+  - Score = (positive_signals - negative_signals) / max(5, total_signals) × 100
+  - Score ranges -100 to +100 (can be negative)
+  - Thresholds: BUY >50% | HOLD 20–50% | SELL ≤20%
+
+[✅] RSI thresholds updated (analyzer.js):
+  - RSI < 30 → +1 signal (oversold, bullish)
+  - RSI 30–45 → +1 signal (recovering, bullish)
+  - RSI 45–65 → +0 signal (neutral zone, no contribution)
+  - RSI ≥ 65 → −1 signal (overbought, bearish)
+  - Extended neutral zone; lowered overbought threshold from >70 to ≥65
+
+[✅] Eligibility gates popup enhanced (server_portfolio.js):
+  - ? button shows ALL 5 gates with pass/fail indicators (✓/✗)
+  - Gate 1: Market Regime (BULL/BEAR/CAUTION/UNKNOWN)
+  - Gate 2: Score > 50%
+  - Gate 3: RSI (30–65)
+  - Gate 4: Not Overextended (≤8% above 50DMA)
+  - Gate 5: Tier 1 Confirmations (≥2/4)
+  - Shows passing gates (✓ green) AND failing gates (✗ red)
+  - JSON-based gate data with HTML entity escaping for proper display
+
+[✅] Full refresh executed with new scoring (23:35–23:41, 320s)
+  - All 122 watchlist stocks recalculated with new RSI logic
+  - Scores and signals updated in database
+  - No errors; zero-error run
+
+─────────────────────────────────────────
 MY STOCKS DASHBOARD (port 8081) ✅ OPERATIONAL
 ─────────────────────────────────────────
 
@@ -160,9 +192,10 @@ Service: stocktrader_portfolio.service (port 8081)
 Dashboard: http://192.168.1.156:8081/
 Key files: server_portfolio.js, portfolio_app/*.js
 
-Scoring: 0–100. BUY ≥50 | HOLD ≥10 | SELL <10
+Scoring: Signal-count based. BUY >50% | HOLD 20–50% | SELL ≤20%
 30+ signals: MA crossovers, EMA 9/21, RSI, MACD, volume, valuation, fundamentals,
              analyst consensus, short interest, market context
+             (Each condition = +1 or −1 signal, not weighted points)
 
 ─────────────────────────────────────────
 KNOWN ISSUES (April 2026)
@@ -174,6 +207,7 @@ KNOWN ISSUES (April 2026)
 4. Analyst ratings NULL in stock_signals — fixed in code, repopulates at next 8:30 AM refresh
 5. shares_buyback_pct always null — Finnhub free tier doesn't provide buyback data
 6. Long Haul criteria may need tuning — first run, review results
+7. RSI signal only appears in "Why" popup when outside neutral zone (45–65)
 
 ─────────────────────────────────────────
 PENDING / NEXT STEPS

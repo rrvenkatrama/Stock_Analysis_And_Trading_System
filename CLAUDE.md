@@ -246,7 +246,8 @@ Conditions checked at 9:35 AM using 8:30 AM snapshot data.
 - portfolio_app/universe.js: UNIVERSE array + scanUniverse() + getTopPicks()
 
 ### My Stocks Scoring (portfolio_app/analyzer.js)
-Score 0–100 clamped. BUY ≥50 | HOLD ≥10 | SELL <10
+Signal-count based: Score = (positive_signals - negative_signals) / max(5, total_signals) × 100
+BUY >50 | HOLD 20–50 | SELL ≤20 (score can be negative)
 
 **MA signals (50 vs 200 SMA):**
 - Golden cross today: +20 | ≤5 sessions ago: +14 | active (50>200): +8
@@ -278,8 +279,8 @@ Score 0–100 clamped. BUY ≥50 | HOLD ≥10 | SELL <10
 - Price up + volume 1.2–1.5x avg: +4
 
 **RSI (14-period):**
-- RSI <30 (deeply oversold): +10 | 30–45 (recovering): +15
-- 45–60 (neutral-bullish): +5 | >70 (overbought): −15
+- RSI < 30 (oversold): +1 signal | 30–45 (recovering): +1 signal
+- RSI 45–65 (neutral): no signal | RSI ≥ 65 (overbought): −1 signal
 
 **MACD (12/26/9):**
 - Bullish cross ≤1 session: +12 | 2–5 sessions ago: +7

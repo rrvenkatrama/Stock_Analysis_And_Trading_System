@@ -166,14 +166,28 @@ function showWhy(sym,why,updatedAt){
 }
 function closeWhy(){document.getElementById('why-modal').style.display='none';}
 
-function showBlock(sym,blockStr){
-  document.getElementById('why-modal-sym').textContent=sym+' — Autotrader Blocked';
-  const reasons=blockStr.split('|');
-  const html=reasons.map(r=>'<div style="padding:7px 0;border-bottom:1px solid #edf2f7;color:#c05621">⚠ '+r+'</div>').join('');
-  document.getElementById('why-modal-body').innerHTML=
-    '<div style="padding:6px 0 10px;border-bottom:2px solid #fed7aa;color:#9c4221;font-weight:700;font-size:13px;margin-bottom:4px">These conditions are blocking the autotrader from buying this stock:</div>'
-    +html
-    +'<div style="margin-top:12px;font-size:11px;color:#a0aec0">Conditions are checked at 9:35 AM using 8:30 AM snapshot data.</div>';
+function showBlock(sym,gateJson){
+  document.getElementById('why-modal-sym').textContent=sym+' — Autotrader Eligibility';
+  try{
+    const gates=JSON.parse(gateJson);
+    let html='';
+    for(const g of gates){
+      const icon=g.pass?'✓':'✗';
+      const color=g.pass?'#22543d':'#742a2a';
+      const bgColor=g.pass?'#c6f6d5':'#fed7d7';
+      const border=g.pass?'#9ae6b4':'#fc8181';
+      const detailStr=g.detail||'';
+      const msgStr=g.msg?' — '+g.msg:'';
+      html+='<div style="padding:9px;border:1px solid '+border+';background:'+bgColor+';border-radius:4px;margin-bottom:6px;color:'+color+'">'
+        +'<span style="font-weight:700;font-size:14px">'+icon+'</span> <span style="font-weight:600">'+g.name+'</span> '
+        +'<span style="font-weight:700;color:#2d3748">'+detailStr+'</span>'+msgStr
+        +'</div>';
+    }
+    document.getElementById('why-modal-body').innerHTML=html
+      +'<div style="margin-top:12px;font-size:11px;color:#a0aec0">Conditions are checked at 9:35 AM using 8:30 AM snapshot data.</div>';
+  }catch(e){
+    document.getElementById('why-modal-body').innerHTML='<div style="color:#c53030">Error parsing eligibility data</div>';
+  }
   document.getElementById('why-modal').style.display='flex';
 }
 
@@ -760,36 +774,54 @@ function stockRow(s, upgrade, phxSig, pickFlag, volRatio, spyRegime, positionSet
     ? `<button class="btn btn-xs" style="background:#f7fafc;color:#a0aec0;border:1px solid #e2e8f0;cursor:not-allowed" disabled>Buy</button>`
     : `<button onclick="openBuy('${s.symbol}','${s.price||0}','${nameSafe}')" class="btn btn-success btn-xs">Buy</button>`;
   // ── Eligibility status (read-only) ───────────────────────────────────────
-  const blocks = [];
-  if (spyRegime === 'bear')    blocks.push('Market BEAR mode — SPY below 200DMA, no new entries');
-  if (spyRegime === 'caution') blocks.push('Market CAUTION mode — SPY below 50DMA (correction), no new entries');
-  if (spyRegime === 'unknown') blocks.push('SPY not in signals — autotrader defaulting to no entries');
-  if ((s.score || 0) <= 50)    blocks.push(`Score ${Math.round(s.score||0)}/100 — need >50% for entry`);
-  if (s.rsi != null && parseFloat(s.rsi) > 65) blocks.push(`RSI ${parseFloat(s.rsi).toFixed(1)} — need ≤65 (overbought)`);
+  const gates = [];
+
+  // Gate 1: Market Regime
+  const marketOk = spyRegime === 'bull';
+  let marketMsg = '';
+  if (spyRegime === 'bear') marketMsg = 'SPY below 200DMA (BEAR mode)';
+  else if (spyRegime === 'caution') marketMsg = 'SPY below 50DMA (CAUTION mode)';
+  else if (spyRegime === 'unknown') marketMsg = 'SPY not in signals';
+  gates.push({ name: 'Market Regime', pass: marketOk, detail: spyRegime ? spyRegime.toUpperCase() : 'UNKNOWN', msg: marketMsg });
+
+  // Gate 2: Score > 50%
+  const scoreVal = parseFloat(s.score || 0);
+  const scoreOk = scoreVal > 50;
+  gates.push({ name: 'Score > 50%', pass: scoreOk, detail: `${Math.round(scoreVal)}/100`, msg: scoreOk ? '' : `${Math.round(scoreVal)}/100 is ≤50%` });
+
+  // Gate 3: RSI in 30–65 window
+  const rsiVal = s.rsi != null ? parseFloat(s.rsi) : null;
+  const rsiOk = rsiVal !== null && rsiVal >= 30 && rsiVal <= 65;
+  gates.push({ name: 'RSI (30–65)', pass: rsiOk, detail: rsiVal !== null ? rsiVal.toFixed(1) : '?', msg: rsiOk ? '' : `RSI ${rsiVal !== null ? rsiVal.toFixed(1) : '?'} is outside 30–65` });
+
+  // Gate 4: ≤8% above 50DMA
   const ma50v = s.ma50 ? parseFloat(s.ma50) : null;
   const priceV = s.price ? parseFloat(s.price) : null;
-  if (ma50v && priceV && priceV > ma50v * 1.08) {
-    const pct = ((priceV / ma50v - 1) * 100).toFixed(1);
-    blocks.push(`${pct}% above 50DMA — need ≤8% for entry`);
-  }
-  // Tier 1 confirmations
-  const rsiVal = s.rsi != null ? parseFloat(s.rsi) : null;
-  let conf = 0, confMiss = [];
-  if (rsiVal !== null && rsiVal >= 30 && rsiVal <= 65) conf++; else confMiss.push(`RSI ${rsiVal !== null ? rsiVal.toFixed(1) : '?'} not in 30–65 window`);
-  if (['bullish','above_signal'].includes(s.macd_trend)) conf++; else confMiss.push(`MACD ${s.macd_trend || 'unknown'}`);
-  if (s.above_50ma) conf++; else confMiss.push('Below 50DMA');
-  const vr = volRatio != null ? parseFloat(volRatio) : null;
-  if (vr !== null && vr >= 1.3) conf++; else confMiss.push(`Volume ${vr !== null ? vr.toFixed(2)+'x' : '?'} < 1.3x avg`);
-  if (conf < 2) blocks.push(`Only ${conf}/4 confirmations: ${confMiss.join('; ')}`);
+  let pctAbove = null;
+  if (ma50v && priceV && ma50v > 0) pctAbove = (priceV / ma50v - 1) * 100;
+  const overextendOk = !ma50v || !priceV || pctAbove === null || pctAbove <= 8;
+  gates.push({ name: 'Not Overextended (≤8% above 50DMA)', pass: overextendOk, detail: pctAbove !== null ? pctAbove.toFixed(1) + '%' : '?', msg: overextendOk ? '' : `${pctAbove.toFixed(1)}% above 50DMA exceeds 8% limit` });
 
+  // Gate 5: Tier 1 Confirmations ≥2/4
+  let conf = 0, confDetails = [];
+  if (rsiVal !== null && rsiVal >= 30 && rsiVal <= 65) { conf++; confDetails.push('RSI 30–65'); } else confDetails.push('RSI outside 30–65');
+  if (['bullish','above_signal'].includes(s.macd_trend)) { conf++; confDetails.push('MACD bullish'); } else confDetails.push(`MACD ${s.macd_trend || '?'}`);
+  if (s.above_50ma) { conf++; confDetails.push('Above 50MA'); } else confDetails.push('Below 50MA');
+  const vr = volRatio != null ? parseFloat(volRatio) : null;
+  if (vr !== null && vr >= 1.3) { conf++; confDetails.push(`Vol ${vr.toFixed(2)}x`); } else confDetails.push(`Vol ${vr !== null ? vr.toFixed(2)+'x' : '?'}`);
+  const tier1Ok = conf >= 2;
+  gates.push({ name: 'Tier 1 Confirmations (≥2/4)', pass: tier1Ok, detail: `${conf}/4`, msg: tier1Ok ? confDetails.join('; ') : `Only ${conf}/4: ${confDetails.join('; ')}` });
+
+  // Check if any gate fails
+  const hasBlockedGate = gates.some(g => !g.pass);
   let eligibilityBadge;
-  if (blocks.length === 0) {
+  if (!hasBlockedGate) {
     eligibilityBadge = `<span class="badge" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749;font-weight:600">✓ Eligible</span>`;
   } else {
-    const blockSafe = blocks.map(b => b.replace(/'/g,"\\'")).join('|');
+    const gateJson = JSON.stringify(gates).replace(/"/g, '&quot;');
     eligibilityBadge = `<span style="display:inline-flex;align-items:center;gap:3px">
       <span class="badge" style="background:#3d2a00;color:#f6ad55;border:1px solid #c05621;font-weight:600">⚠ Blocked</span>
-      <button onclick="showBlock('${s.symbol}','${blockSafe}')" class="btn btn-xs" style="background:#3d2a00;color:#f6ad55;border:1px solid #c05621;padding:3px 5px;font-weight:700">?</button>
+      <button onclick="showBlock('${s.symbol}','${gateJson}')" class="btn btn-xs" style="background:#3d2a00;color:#f6ad55;border:1px solid #c05621;padding:3px 5px;font-weight:700">?</button>
     </span>`;
   }
 
