@@ -129,13 +129,14 @@ function countConfirmations(sig, volRatio) {
 }
 
 // ─── Position sizing ─────────────────────────────────────────────────────────
-// Keeps 20% cash buffer; deploys 50% of remaining buying power across open slots.
-// vixMult scales maxPerPos down in high-volatility markets (0.5 – 1.0).
+// Keeps 20% cash buffer; deploys up to 80% of portfolio across open slots.
+// maxPerPos capped at 10% per position. vixMult scales down in high-volatility (0.5–1.0).
 function calcPositionSize(accountEquity, buyingPower, openSlots, price, vixMult = 1.0) {
-  const cashBuffer = accountEquity * 0.20;
-  const deployable = Math.max(0, (buyingPower - cashBuffer) * 0.50);
-  const maxPerPos  = accountEquity * 0.10 * vixMult;
-  const perSlot    = Math.min(deployable / Math.max(openSlots, 1), maxPerPos);
+  const cashBuffer = accountEquity * 0.20;           // Always keep 20% uninvested
+  const maxDeployable = accountEquity * 0.80;        // Up to 80% of portfolio
+  const deployable = Math.min(buyingPower - cashBuffer, maxDeployable - (accountEquity - buyingPower));
+  const maxPerPos  = accountEquity * 0.10 * vixMult; // 10% per position
+  const perSlot    = Math.min(Math.max(0, deployable / Math.max(openSlots, 1)), maxPerPos);
   return Math.floor(perSlot / price);
 }
 
