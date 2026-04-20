@@ -2263,13 +2263,29 @@ tr:hover td{background:#f7fafc}
 app.get('/prices-refresh', async (_, res) => {
   try {
     const { getQuote } = require('./data/alpacaData');
-    const symbols = await db.query(`SELECT symbol FROM watchlist WHERE is_active = 1`);
     const quotes = {};
 
+    // Get symbols from watchlist + current portfolio positions
+    const [watchlist, positions] = await Promise.all([
+      db.query(`SELECT symbol FROM watchlist WHERE is_active = 1`),
+      getAlpacaPositions().catch(() => []),
+    ]);
+
+    // Combine watchlist and portfolio symbols (unique)
+    const symbolSet = new Set();
+    watchlist.forEach(row => symbolSet.add(row.symbol));
+    positions.forEach(pos => symbolSet.add(pos.symbol));
+    const symbols = Array.from(symbolSet);
+
     // Fetch real-time quotes in parallel batches (Alpaca unlimited)
-    for (let i = 0; i < symbols.length; i += 10) {
-      const batch = symbols.slice(i, i + 10);
-      const results = await Promise.allSettled(batch.map(r => getQuote(r.symbol)));
+    for (let i = 0; i < symbols.length; i += 15) {
+      const batch = symbols.slice(i, i + 15);
+      const results = await Promise.allSettled(
+        batch.map(sym => getQuote(sym).catch(err => {
+          console.error(`Quote fetch failed for ${sym}:`, err.message);
+          return null;
+        }))
+      );
       results.forEach((result) => {
         if (result.status === 'fulfilled' && result.value) {
           const q = result.value;
@@ -2280,7 +2296,7 @@ app.get('/prices-refresh', async (_, res) => {
         }
       });
       // Small delay between batches to avoid hammering the API
-      if (i + 10 < symbols.length) await new Promise(r => setTimeout(r, 50));
+      if (i + 15 < symbols.length) await new Promise(r => setTimeout(r, 100));
     }
 
     res.json(quotes);
