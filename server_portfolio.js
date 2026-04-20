@@ -774,9 +774,9 @@ function perfCell(p) {
     ? `<span style="color:${v>=0?'#276749':'#c53030'};font-weight:600">${v>=0?'+':''}${v.toFixed(1)}%</span>`
     : '<span style="color:#a0aec0">—</span>';
   return `<table class="perf-tbl">
-    <tr><td style="color:#4a5568">1W</td><td>${f(p?.w1)}</td><td style="color:#4a5568;padding-left:6px">1M</td><td>${f(p?.m1)}</td></tr>
-    <tr><td style="color:#4a5568">3M</td><td>${f(p?.m3)}</td><td style="color:#4a5568;padding-left:6px">6M</td><td>${f(p?.m6)}</td></tr>
-    <tr><td style="color:#4a5568">1Y</td><td>${f(p?.y1)}</td><td style="color:#4a5568;padding-left:6px">YTD</td><td>${f(p?.ytd)}</td></tr>
+    <tr><td style="color:#ffffff;font-weight:600">1W</td><td>${f(p?.w1)}</td><td style="color:#ffffff;font-weight:600;padding-left:6px">1M</td><td>${f(p?.m1)}</td></tr>
+    <tr><td style="color:#ffffff;font-weight:600">3M</td><td>${f(p?.m3)}</td><td style="color:#ffffff;font-weight:600;padding-left:6px">6M</td><td>${f(p?.m6)}</td></tr>
+    <tr><td style="color:#ffffff;font-weight:600">1Y</td><td>${f(p?.y1)}</td><td style="color:#ffffff;font-weight:600;padding-left:6px">YTD</td><td>${f(p?.ytd)}</td></tr>
   </table>`;
 }
 
@@ -915,14 +915,14 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
       <div class="stat"><div class="num" style="color:#3182ce">${openOrders.length}</div><div class="lbl">Open Orders</div></div>
     </div>
     ${positions.length ? `<div style="display:flex;gap:0;flex-wrap:wrap;background:#0f1320;border-radius:8px;padding:8px 16px;margin-bottom:12px;align-items:center;gap:4px">
-      <span style="font-size:11px;color:#718096;margin-right:8px;white-space:nowrap">Portfolio returns:</span>
-      <span style="font-size:11px;color:#4a5568;margin-right:2px">1D</span>${prFmt(pr.d1)}&ensp;
-      <span style="font-size:11px;color:#4a5568;margin-right:2px">1W</span>${prFmt(pr.w1)}&ensp;
-      <span style="font-size:11px;color:#4a5568;margin-right:2px">1M</span>${prFmt(pr.m1)}&ensp;
-      <span style="font-size:11px;color:#4a5568;margin-right:2px">3M</span>${prFmt(pr.m3)}&ensp;
-      <span style="font-size:11px;color:#4a5568;margin-right:2px">6M</span>${prFmt(pr.m6)}&ensp;
-      <span style="font-size:11px;color:#4a5568;margin-right:2px">YTD</span>${prFmt(pr.ytd)}&ensp;
-      <span style="font-size:11px;color:#4a5568;margin-right:2px">1Y</span>${prFmt(pr.y1)}
+      <span style="font-size:11px;color:#ffffff;margin-right:8px;white-space:nowrap;font-weight:600">Portfolio returns:</span>
+      <span style="font-size:11px;color:#ffffff;margin-right:2px">1D</span>${prFmt(pr.d1)}&ensp;
+      <span style="font-size:11px;color:#ffffff;margin-right:2px">1W</span>${prFmt(pr.w1)}&ensp;
+      <span style="font-size:11px;color:#ffffff;margin-right:2px">1M</span>${prFmt(pr.m1)}&ensp;
+      <span style="font-size:11px;color:#ffffff;margin-right:2px">3M</span>${prFmt(pr.m3)}&ensp;
+      <span style="font-size:11px;color:#ffffff;margin-right:2px">6M</span>${prFmt(pr.m6)}&ensp;
+      <span style="font-size:11px;color:#ffffff;margin-right:2px">YTD</span>${prFmt(pr.ytd)}&ensp;
+      <span style="font-size:11px;color:#ffffff;margin-right:2px">1Y</span>${prFmt(pr.y1)}
     </div>` : ''}
     ${positions.length ? `
     <div style="font-size:11px;font-weight:700;color:#718096;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Positions</div>
