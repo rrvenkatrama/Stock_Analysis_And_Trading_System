@@ -6,8 +6,8 @@
 //   CAUTION: SPY above 200MA but below 50MA → correction in progress, block entries
 //   BEAR:    SPY below 200MA                → bear market, block entries
 //   UNKNOWN: SPY not in stock_signals       → block entries (safe default)
-// Tier 2 (Quality Filter): score ≥50, price ≥$5, RSI ≤65, not >8% extended above 50MA
-// Tier 1 (Entry Gate):     score ≥65, ≥2 technical confirmations, no earnings within 5d
+// Tier 2 (Quality Filter): score ≥50%, price ≥$5, RSI ≤65, not >8% extended above 50MA
+// Tier 1 (Entry Gate):     pick_flag=1, score >50%, ≥2 technical confirmations, no earnings within 5d
 //
 // Exit rules:
 //   Hard stop  (100% sell): price ≤ entry − 8%
@@ -313,11 +313,11 @@ async function evaluate(execute = false) {
       if (openSlots <= 0) {
         results.skipped.push({ reason: `Portfolio full: ${heldSymbols.size}/${maxPositions} positions` });
       } else {
-        // Watchlist-only BUY candidates, score ≥65, sorted by score
+        // Watchlist-only BUY candidates, pick_flag=1 AND score > 50%, sorted by score
         const candidates = await db.query(
           `SELECT ss.* FROM stock_signals ss
-           INNER JOIN watchlist w ON w.symbol = ss.symbol AND w.is_active = 1 AND w.no_pick = 0
-           WHERE ss.recommendation = 'BUY' AND ss.score >= 65 AND ss.price >= 5
+           INNER JOIN watchlist w ON w.symbol = ss.symbol AND w.is_active = 1 AND w.pick_flag = 1
+           WHERE ss.recommendation = 'BUY' AND ss.score > 50 AND ss.price >= 5
            ORDER BY ss.score DESC
            LIMIT 20`
         );

@@ -88,6 +88,9 @@ input[type=text]:focus,input[type=number]:focus,select:focus{border-color:#3182c
 .chart-modal-box{background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;max-width:820px;width:96%;max-height:92vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.15)}
 .chart-ctrl-btn{padding:4px 10px;font-size:11px;font-weight:600;border-radius:4px;cursor:pointer;border:1px solid #e2e8f0;background:#f7fafc;color:#4a5568}
 .chart-ctrl-btn.active{background:#ebf8ff;color:#2b6cb0;border-color:#bee3f8}
+.filter-btn{background:#2d3748;color:#718096;border:1px solid #4a5568;border-radius:4px;cursor:pointer}
+.filter-btn:hover{background:#4a5568;color:#a0aec0}
+.filter-btn-active{background:#3182ce;color:#bee3f8;border-color:#2b6cb0}
 .perf-tbl td{padding:1px 6px 1px 0;border:none;font-size:11px;background:none}
 #stocks-table th:nth-child(1){position:sticky;left:0;z-index:3;background:#f0f4f8;width:30px;text-align:center}
 #stocks-table td:nth-child(1){position:sticky;left:0;z-index:2;background:#ffffff;width:30px;text-align:center}
@@ -136,6 +139,13 @@ function filterSearch(val){
   val=val.toLowerCase();
   document.querySelectorAll('#stocks-table tbody tr').forEach(r=>{
     r.style.display=((r.dataset.sym||'').toLowerCase().includes(val)||(r.dataset.name||'').toLowerCase().includes(val))?'':'none';
+  });
+}
+function filterGoldenCross(state){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('filter-btn-active'));
+  document.getElementById('gcf-'+state).classList.add('filter-btn-active');
+  document.querySelectorAll('#stocks-table tbody tr').forEach(r=>{
+    r.style.display=(state==='all'||(r.dataset.cross||'none')===state)?'':'none';
   });
 }
 
@@ -682,7 +692,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
 }
 
 // ─── Stock table row ──────────────────────────────────────────────────────────
-function stockRow(s, upgrade, phxSig, isNoPick, volRatio, spyRegime) {
+function stockRow(s, upgrade, phxSig, pickFlag, volRatio, spyRegime, positionSet) {
   const recBadge = s.recommendation === 'BUY'  ? '<span class="badge badge-buy">▲ BUY</span>'
                  : s.recommendation === 'SELL' ? '<span class="badge badge-sell">▼ SELL</span>'
                  :                               '<span class="badge badge-hold">● HOLD</span>';
@@ -749,42 +759,46 @@ function stockRow(s, upgrade, phxSig, isNoPick, volRatio, spyRegime) {
   const buyBtn = isEtf
     ? `<button class="btn btn-xs" style="background:#f7fafc;color:#a0aec0;border:1px solid #e2e8f0;cursor:not-allowed" disabled>Buy</button>`
     : `<button onclick="openBuy('${s.symbol}','${s.price||0}','${nameSafe}')" class="btn btn-success btn-xs">Buy</button>`;
-  // ── Autotrader eligibility badge ─────────────────────────────────────────
-  let noPickBtn;
-  if (isNoPick) {
-    noPickBtn = `<a href="/watchlist/${s.symbol}/toggle-no-pick" class="btn btn-xs" style="background:#742a2a;color:#feb2b2;border:1px solid #c53030" title="No Pick: autotrader will NOT buy this. Click to enable.">🚫 No Pick</a>`;
-  } else {
-    const blocks = [];
-    if (spyRegime === 'bear')    blocks.push('Market BEAR mode — SPY below 200DMA, no new entries');
-    if (spyRegime === 'caution') blocks.push('Market CAUTION mode — SPY below 50DMA (correction), no new entries');
-    if (spyRegime === 'unknown') blocks.push('SPY not in signals — autotrader defaulting to no entries');
-    if ((s.score || 0) < 65)    blocks.push(`Score ${Math.round(s.score||0)}/100 — need ≥65 for entry`);
-    if (s.rsi != null && parseFloat(s.rsi) > 65) blocks.push(`RSI ${parseFloat(s.rsi).toFixed(1)} — need ≤65 (overbought)`);
-    const ma50v = s.ma50 ? parseFloat(s.ma50) : null;
-    const priceV = s.price ? parseFloat(s.price) : null;
-    if (ma50v && priceV && priceV > ma50v * 1.08) {
-      const pct = ((priceV / ma50v - 1) * 100).toFixed(1);
-      blocks.push(`${pct}% above 50DMA — need ≤8% for entry`);
-    }
-    // Tier 1 confirmations
-    const rsiVal = s.rsi != null ? parseFloat(s.rsi) : null;
-    let conf = 0, confMiss = [];
-    if (rsiVal !== null && rsiVal >= 30 && rsiVal <= 65) conf++; else confMiss.push(`RSI ${rsiVal !== null ? rsiVal.toFixed(1) : '?'} not in 30–65 window`);
-    if (['bullish','above_signal'].includes(s.macd_trend)) conf++; else confMiss.push(`MACD ${s.macd_trend || 'unknown'}`);
-    if (s.above_50ma) conf++; else confMiss.push('Below 50DMA');
-    const vr = volRatio != null ? parseFloat(volRatio) : null;
-    if (vr !== null && vr >= 1.3) conf++; else confMiss.push(`Volume ${vr !== null ? vr.toFixed(2)+'x' : '?'} < 1.3x avg`);
-    if (conf < 2) blocks.push(`Only ${conf}/4 confirmations: ${confMiss.join('; ')}`);
+  // ── Eligibility status (read-only) ───────────────────────────────────────
+  const blocks = [];
+  if (spyRegime === 'bear')    blocks.push('Market BEAR mode — SPY below 200DMA, no new entries');
+  if (spyRegime === 'caution') blocks.push('Market CAUTION mode — SPY below 50DMA (correction), no new entries');
+  if (spyRegime === 'unknown') blocks.push('SPY not in signals — autotrader defaulting to no entries');
+  if ((s.score || 0) <= 50)    blocks.push(`Score ${Math.round(s.score||0)}/100 — need >50% for entry`);
+  if (s.rsi != null && parseFloat(s.rsi) > 65) blocks.push(`RSI ${parseFloat(s.rsi).toFixed(1)} — need ≤65 (overbought)`);
+  const ma50v = s.ma50 ? parseFloat(s.ma50) : null;
+  const priceV = s.price ? parseFloat(s.price) : null;
+  if (ma50v && priceV && priceV > ma50v * 1.08) {
+    const pct = ((priceV / ma50v - 1) * 100).toFixed(1);
+    blocks.push(`${pct}% above 50DMA — need ≤8% for entry`);
+  }
+  // Tier 1 confirmations
+  const rsiVal = s.rsi != null ? parseFloat(s.rsi) : null;
+  let conf = 0, confMiss = [];
+  if (rsiVal !== null && rsiVal >= 30 && rsiVal <= 65) conf++; else confMiss.push(`RSI ${rsiVal !== null ? rsiVal.toFixed(1) : '?'} not in 30–65 window`);
+  if (['bullish','above_signal'].includes(s.macd_trend)) conf++; else confMiss.push(`MACD ${s.macd_trend || 'unknown'}`);
+  if (s.above_50ma) conf++; else confMiss.push('Below 50DMA');
+  const vr = volRatio != null ? parseFloat(volRatio) : null;
+  if (vr !== null && vr >= 1.3) conf++; else confMiss.push(`Volume ${vr !== null ? vr.toFixed(2)+'x' : '?'} < 1.3x avg`);
+  if (conf < 2) blocks.push(`Only ${conf}/4 confirmations: ${confMiss.join('; ')}`);
 
-    if (blocks.length === 0) {
-      noPickBtn = `<a href="/watchlist/${s.symbol}/toggle-no-pick" class="btn btn-xs" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749" title="Autotrader-eligible now. Click to mark No Pick.">✓ Eligible</a>`;
-    } else {
-      const blockSafe = blocks.map(b => b.replace(/'/g,"\\'")).join('|');
-      noPickBtn = `<span style="display:inline-flex;align-items:center;gap:3px">
-        <a href="/watchlist/${s.symbol}/toggle-no-pick" class="btn btn-xs" style="background:#3d2a00;color:#f6ad55;border:1px solid #c05621" title="Autotrader blocked. Click to mark No Pick.">⚠ Blocked</a>
-        <button onclick="showBlock('${s.symbol}','${blockSafe}')" class="btn btn-xs" style="background:#3d2a00;color:#f6ad55;border:1px solid #c05621;padding:3px 5px;font-weight:700">?</button>
-      </span>`;
-    }
+  let eligibilityBadge;
+  if (blocks.length === 0) {
+    eligibilityBadge = `<span class="badge" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749;font-weight:600">✓ Eligible</span>`;
+  } else {
+    const blockSafe = blocks.map(b => b.replace(/'/g,"\\'")).join('|');
+    eligibilityBadge = `<span style="display:inline-flex;align-items:center;gap:3px">
+      <span class="badge" style="background:#3d2a00;color:#f6ad55;border:1px solid #c05621;font-weight:600">⚠ Blocked</span>
+      <button onclick="showBlock('${s.symbol}','${blockSafe}')" class="btn btn-xs" style="background:#3d2a00;color:#f6ad55;border:1px solid #c05621;padding:3px 5px;font-weight:700">?</button>
+    </span>`;
+  }
+
+  // ── Pick/No Pick toggle button ───────────────────────────────────────────
+  let pickToggleBtn;
+  if (pickFlag === 1) {
+    pickToggleBtn = `<a href="/watchlist/toggle-pick/${s.symbol}" class="btn btn-xs" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749" title="Stock marked for autotrader. Click to unmark.">✓ Pick</a>`;
+  } else {
+    pickToggleBtn = `<a href="/watchlist/toggle-pick/${s.symbol}" class="btn btn-xs" style="background:#742a2a;color:#feb2b2;border:1px solid #c53030" title="Stock NOT marked for autotrader. Click to mark.">🚫 No Pick</a>`;
   }
 
   const sectorTxt = s.sector ? `<span style="font-size:11px;color:#718096">${s.sector}</span>` : '—';
@@ -805,12 +819,16 @@ function stockRow(s, upgrade, phxSig, isNoPick, volRatio, spyRegime) {
   }
 
   const rowStyle = isConfluence ? 'style="background:linear-gradient(90deg,rgba(234,179,8,.08),transparent)"' : '';
-  return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" ${rowStyle}>
+  const gcState = s.cross_type === 'golden_cross' && s.golden_cross_ago !== null && parseInt(s.golden_cross_ago) <= 5 ? 'recent'
+                : s.cross_type === 'golden_cross' ? 'active'
+                : s.cross_type === 'approaching_golden_cross' ? 'approaching' : 'none';
+  return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" data-cross="${gcState}" ${rowStyle}>
     ${starCell(s.cross_type, s.golden_cross_ago)}
     <td><b style="cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${s.symbol}','${nameSafe}')">${s.symbol}</b>${isConfluence ? ' <span title="Both Alpha and Phoenix signal BUY" style="color:#d69e2e;font-size:12px">⭐</span>' : ''}${assetTag}<br><span style="color:#718096;font-size:11px">${s.name||''}</span>
-      <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">
+      <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
         ${buyBtn}
-        ${noPickBtn}
+        ${eligibilityBadge}
+        ${pickToggleBtn}
         <button onclick="openNews('${s.symbol}','${nameSafe}')" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d">News</button>
         <a href="/watchlist/remove/${s.symbol}" class="btn btn-danger btn-xs"
            onclick="return confirm('Remove ${s.symbol}?')">✕</a>
@@ -818,6 +836,7 @@ function stockRow(s, upgrade, phxSig, isNoPick, volRatio, spyRegime) {
     </td>
     <td data-val="${s.price||0}">${price}</td>
     <td data-val="${chg??-999}">${chgTxt}</td>
+    <td style="text-align:center;font-size:11px;font-weight:600;color:${positionSet.has(s.symbol) ? '#276749' : '#718096'}">${positionSet.has(s.symbol) ? '✓ In Portfolio' : 'Not in Portfolio'}</td>
     <td>${recBadge}<br>${scoreBar}<span style="font-size:11px;color:${scoreColor}">${parseFloat(s.score||0).toFixed(0)}/100</span></td>
     <td>${phxBadge}</td>
     <td>${whyBtn}</td>
@@ -860,8 +879,8 @@ app.get('/', async (req, res) => {
 
     const signalMap    = new Map(signals.map(s => [s.symbol, s]));
     const upgradeMap   = new Map(recentUpgrades.map(u => [u.symbol, u]));
-    const noPickRows   = await db.query(`SELECT symbol, no_pick FROM watchlist WHERE is_active = 1`).catch(() => []);
-    const noPickMap    = new Map(noPickRows.map(r => [r.symbol, !!r.no_pick]));
+    const pickFlagRows = await db.query(`SELECT symbol, pick_flag FROM watchlist WHERE is_active = 1`).catch(() => []);
+    const pickFlagMap  = new Map(pickFlagRows.map(r => [r.symbol, r.pick_flag ?? 0]));
     const flagRows     = await db.query(`SELECT symbol, autotrader_on FROM position_flags`).catch(() => []);
     const flagMap      = new Map(flagRows.map(r => [r.symbol, !!r.autotrader_on]));
 
@@ -1027,7 +1046,8 @@ app.get('/', async (req, res) => {
     const phoenixSigs    = await getPhoenixSignals('WATCH').catch(() => []);
     const phoenixSigMap  = new Map(phoenixSigs.map(p => [p.symbol, p]));
 
-    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol), noPickMap.get(s.symbol) ?? false, volRatioMap.get(s.symbol) ?? null, spyRegime)).join('');
+    const positionSet = new Set(positions.map(p => p.symbol));
+    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol), pickFlagMap.get(s.symbol) ?? 0, volRatioMap.get(s.symbol) ?? null, spyRegime, positionSet)).join('');
     const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap, portfolioReturns, flagMap);
     // Phoenix panel rows
     const phoenixPanelRows = phoenixSigs.filter(p => p.recommendation === 'BUY' || p.recommendation === 'WATCH').map(p => {
@@ -1057,7 +1077,6 @@ app.get('/', async (req, res) => {
       const pScore      = `<span style="font-weight:700;color:${p.score>=60?'#e9d8fd':'#b794f4'}">${Math.round(p.score)}</span>`;
       const nameSafe    = (p.name||'').replace(/'/g,"\\'");
       return `<tr ${rowStyle}>
-        ${starCell(alpSig?.cross_type, alpSig?.golden_cross_ago)}
         <td><b style="color:${isConfl?'#d69e2e':'#b794f4'};cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${p.symbol}')">${p.symbol}</b>${isConfl?' ⭐':''}${alpSig?'':' <span style="font-size:10px;color:#718096">(not in watchlist)</span>'}<br><span style="color:#718096;font-size:11px">${p.name||''}</span></td>
         <td>${priceTxt}</td><td>${chgTxt}</td>
         <td>${phxBadge}<br><span style="font-size:11px;color:#b794f4">${pScore}/100</span></td>
@@ -1072,7 +1091,7 @@ app.get('/', async (req, res) => {
           <button onclick="openNews('${p.symbol}','${nameSafe}')" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d;margin-top:4px;display:block">News</button>
         </td>
       </tr>`;
-    }).join('') || `<tr><td colspan="12" style="padding:16px;text-align:center;color:#718096">No Phoenix candidates yet — screener runs at 8:30 AM ET or <a href="/refresh-now" style="color:#b794f4">refresh now</a></td></tr>`;
+    }).join('') || `<tr><td colspan="11" style="padding:16px;text-align:center;color:#718096">No Phoenix candidates yet — screener runs at 8:30 AM ET or <a href="/refresh-now" style="color:#b794f4">refresh now</a></td></tr>`;
 
     const discoverRows = picks.map(s => {
       const scoreColor  = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
@@ -1084,7 +1103,6 @@ app.get('/', async (req, res) => {
       const dPriceTxt   = `<span style="font-weight:600;color:${dChgColor}">$${parseFloat(s.price||0).toFixed(2)}</span>`;
       const dChgTxt     = dChg !== null ? `<span style="font-weight:600;color:${dChgColor}">${dChg>=0?'+':''}${dChg.toFixed(2)}%</span>` : '—';
       return `<tr>
-        <td style="text-align:center"><span class="star-none" title="Add to watchlist for golden cross data">☆</span></td>
         <td><b style="color:#b794f4;cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${s.symbol}','${(s.name||'').replace(/'/g,"\\'")}'">${s.symbol}</b><br><span style="color:#718096;font-size:11px">${s.name||''}</span></td>
         <td>${dPriceTxt}</td>
         <td>${dChgTxt}</td>
@@ -1096,7 +1114,7 @@ app.get('/', async (req, res) => {
           <button onclick="openNews('${s.symbol}','${(s.name||'').replace(/'/g,"\\'")}')'" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d;margin-top:4px;display:block;width:100%">News</button>
         </td>
       </tr>`;
-    }).join('') || '<tr><td colspan="8" style="padding:12px;color:#718096;text-align:center">No new picks yet — universe scan runs at 8:30 AM ET. <a href="/scan-universe" style="color:#b794f4">Run Now</a></td></tr>';
+    }).join('') || '<tr><td colspan="7" style="padding:12px;color:#718096;text-align:center">No new picks yet — universe scan runs at 8:30 AM ET. <a href="/scan-universe" style="color:#b794f4">Run Now</a></td></tr>';
 
     res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <title>My Stocks Dashboard</title>${STYLE}
@@ -1221,6 +1239,12 @@ ${pfSection}
     <option value="HOLD">HOLD only</option>
     <option value="SELL">SELL only</option>
   </select>
+  <span style="color:#718096;font-size:11px;margin-left:12px">Golden Cross:</span>
+  <button onclick="filterGoldenCross('all')" id="gcf-all" class="filter-btn filter-btn-active" style="font-size:11px;padding:4px 10px;margin:0 2px">All</button>
+  <button onclick="filterGoldenCross('recent')" id="gcf-recent" class="filter-btn" style="font-size:11px;padding:4px 10px;margin:0 2px">⭐ Recent</button>
+  <button onclick="filterGoldenCross('approaching')" id="gcf-approaching" class="filter-btn" style="font-size:11px;padding:4px 10px;margin:0 2px">🟢 Approaching</button>
+  <button onclick="filterGoldenCross('active')" id="gcf-active" class="filter-btn" style="font-size:11px;padding:4px 10px;margin:0 2px">★ Active</button>
+  <button onclick="filterGoldenCross('none')" id="gcf-none" class="filter-btn" style="font-size:11px;padding:4px 10px;margin:0 2px">☆ None</button>
 </div>
 <div class="tbl-wrap" style="max-height:calc(100vh - 220px);margin:0 24px 16px">
 <table id="stocks-table">
@@ -1229,6 +1253,7 @@ ${pfSection}
   <th data-col="sym"    onclick="sortTable('sym')">Symbol / Name</th>
   <th data-col="price"  onclick="sortTable('price')">Price</th>
   <th data-col="chg"    onclick="sortTable('chg')">Chg%</th>
+  <th style="width:110px;text-align:center">Portfolio</th>
   <th data-col="score"  onclick="sortTable('score')">⚡ Alpha</th>
   <th data-col="phx">🔥 Phoenix</th>
   <th data-col="why">Why</th>
@@ -1263,7 +1288,6 @@ ${pfSection}
 <div class="tbl-wrap" style="max-height:calc(100vh - 200px);margin:0 24px 16px">
 <table>
 <thead><tr>
-  <th style="width:30px;text-align:center;cursor:default">★</th>
   <th>Symbol / Name</th>
   <th>Price</th>
   <th>Chg%</th>
@@ -1287,7 +1311,6 @@ ${pfSection}
 <div class="tbl-wrap" style="max-height:calc(100vh - 200px);margin:0 24px 16px">
 <table>
 <thead><tr style="background:#1a1540">
-  <th style="width:30px;text-align:center;cursor:default">★</th>
   <th>Symbol / Name</th>
   <th>Price</th><th>Chg%</th>
   <th>🔥 Phoenix</th>
@@ -1536,10 +1559,10 @@ app.get('/watchlist/remove/:symbol', async (req, res) => {
   res.redirect('/');
 });
 
-// ─── Toggle No Pick flag ──────────────────────────────────────────────────────
-app.get('/watchlist/:symbol/toggle-no-pick', async (req, res) => {
+// ─── Toggle Pick/No Pick flag ────────────────────────────────────────────────
+app.get('/watchlist/toggle-pick/:symbol', async (req, res) => {
   const sym = req.params.symbol.toUpperCase();
-  await db.query(`UPDATE watchlist SET no_pick = 1 - no_pick WHERE symbol = ?`, [sym]);
+  await db.query(`UPDATE watchlist SET pick_flag = 1 - pick_flag WHERE symbol = ?`, [sym]);
   res.redirect('/');
 });
 

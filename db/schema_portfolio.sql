@@ -13,8 +13,10 @@ CREATE TABLE IF NOT EXISTS watchlist (
   sector      VARCHAR(60),
   asset_type  ENUM('stock','etf','fund','other') DEFAULT 'stock',
   is_active   TINYINT(1)   DEFAULT 1,
+  pick_flag   TINYINT(1)   DEFAULT 0,    -- 0 = No Pick (default), 1 = Pick
   added_at    DATETIME     DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_active (is_active)
+  INDEX idx_active (is_active),
+  INDEX idx_pick_flag (pick_flag)
 );
 
 -- ─── PRICE HISTORY ────────────────────────────────────────────
@@ -87,8 +89,9 @@ CREATE TABLE IF NOT EXISTS stock_signals (
   fwd_pe_improving    TINYINT(1) DEFAULT 0,   -- forward < trailing
   dividend_yield      DECIMAL(6,2),
 
-  -- Composite recommendation
-  score               DECIMAL(6,2),
+  -- Composite recommendation (new scoring: signal count based)
+  score               DECIMAL(6,2),   -- percentage 0-100 calculated as (positive-negative)/denominator*100
+  signal_count        INT DEFAULT 5,  -- denominator: max(5, number_of_signals_fired)
   recommendation      ENUM('BUY','HOLD','SELL') DEFAULT 'HOLD',
   why                 TEXT,   -- top signals in plain English
 

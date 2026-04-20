@@ -237,10 +237,17 @@ const W = {
 };
 
 // ─── Compute score and generate reasons ──────────────────────────────────────
+// New scoring: count positive and negative signals (not weighted)
+// Score = (positive_count - negative_count) / (positive_count + negative_count), clamped 0-100
 function computeScore(signals) {
   const reasons = [];
-  let score = 0;
-  const add = (pts, label) => { score += pts; reasons.push({ pts, label }); };
+  let positiveCount = 0;
+  let negativeCount = 0;
+  const add = (pts, label) => {
+    if (pts > 0) positiveCount++;
+    else if (pts < 0) negativeCount++;
+    reasons.push({ pts, label });
+  };
 
   const {
     rsi, aboveMa50, aboveMa200,
@@ -439,16 +446,19 @@ function computeScore(signals) {
   if (marketBullish === true)  add(W.marketBullish, 'Bullish market (SPY above 200MA)');
   if (marketBullish === false) add(W.marketBearish, 'Bearish market (SPY below 200MA)');
 
-  // Clamp to 0–100
-  const finalScore = Math.max(0, Math.min(100, score));
+  // Calculate score: (positive_count - negative_count) / total_signals, clamped 0–100
+  const totalSignals = positiveCount + negativeCount;
+  const denominator = Math.max(5, totalSignals);
+  const rawScore = totalSignals > 0 ? (positiveCount - negativeCount) / denominator : 0;
+  const finalScore = Math.max(0, Math.min(100, rawScore * 100));
 
   const allSignals = reasons
     .sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts))
     .map(r => `${r.pts > 0 ? '+' : ''}${r.pts}: ${r.label}`)
     .join(' | ');
-  const topReasons = `Score: ${finalScore}/100 | ${allSignals}`;
+  const topReasons = `Score: ${finalScore.toFixed(0)}/100 (${positiveCount}/${denominator} signals bullish) | ${allSignals}`;
 
-  return { finalScore, reasons, topReasons };
+  return { finalScore, reasons, topReasons, positiveCount, negativeCount, denominator };
 }
 
 // ─── Analyze a single symbol ──────────────────────────────────────────────────
@@ -557,10 +567,10 @@ async function analyzeSymbol(symbol, quoteData = null) {
     isStock,
   };
 
-  const { finalScore, topReasons } = computeScore(signals);
+  const { finalScore, topReasons, positiveCount, negativeCount, denominator } = computeScore(signals);
 
   const recommendation =
-    finalScore >= 50 ? 'BUY' :
+    finalScore > 50 ? 'BUY' :
     finalScore >= 10 ? 'HOLD' : 'SELL';
 
   const crossType =
@@ -582,8 +592,8 @@ async function analyzeSymbol(symbol, quoteData = null) {
       target_mean, target_high, target_low,
       ema9_bull_cross_ago, ema9_bear_cross_ago,
       analyst_buy, analyst_sell, analyst_hold,
-      score, recommendation, why
-    ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      score, signal_count, recommendation, why
+    ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON DUPLICATE KEY UPDATE
       name=COALESCE(VALUES(name),name), sector=COALESCE(VALUES(sector),sector),
       asset_type=COALESCE(VALUES(asset_type),asset_type),
@@ -612,7 +622,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
       analyst_buy=COALESCE(VALUES(analyst_buy),analyst_buy),
       analyst_sell=COALESCE(VALUES(analyst_sell),analyst_sell),
       analyst_hold=COALESCE(VALUES(analyst_hold),analyst_hold),
-      score=VALUES(score), recommendation=VALUES(recommendation), why=VALUES(why)`,
+      score=VALUES(score), signal_count=VALUES(signal_count), recommendation=VALUES(recommendation), why=VALUES(why)`,
     [
       symbol,
       resolved?.name   || null,
@@ -655,6 +665,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
       analystSell ?? null,
       analystHold ?? null,
       Math.round(finalScore * 100) / 100,
+      denominator,
       recommendation,
       topReasons,
     ]
