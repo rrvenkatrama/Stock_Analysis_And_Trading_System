@@ -970,6 +970,69 @@ async function deleteGroup(id) {
   }
 }
 
+// ── Transactions ───────────────────────────────────────────────────────────────
+let allTransactions = [];
+
+async function loadTransactions() {
+  try {
+    const resp = await fetch('/api/transactions');
+    const json = await resp.json();
+    if (json.success) {
+      allTransactions = json.data || [];
+      renderTransactions(allTransactions);
+    }
+  } catch (e) {
+    console.error('Error loading transactions:', e);
+  }
+}
+
+function renderTransactions(txns) {
+  const tbody = document.getElementById('txn-body');
+  if (!txns.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:16px;color:#718096">No transactions found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = txns.map(t => {
+    const date = t.timestamp ? new Date(t.timestamp).toLocaleString('en-US', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '—';
+    const actionColor = t.action === 'buy' ? '#48bb78' : '#fc8181';
+    const actionLabel = t.action.toUpperCase();
+    const sourceLabel = t.source === 'autotrader' ? '⚡ Autotrader' : '👤 Manual';
+    const sourceBg = t.source === 'autotrader' ? 'rgba(49, 130, 206, 0.1)' : 'rgba(160, 174, 192, 0.1)';
+    const pnl = t.pnl || t.pnl_pct ? \`<span style="color:\${t.pnl >= 0 ? '#48bb78' : '#fc8181'}">\${t.pnl ? '$' + t.pnl.toFixed(2) : ''} \${t.pnl_pct ? t.pnl_pct.toFixed(1) + '%' : ''}</span>\` : '—';
+
+    return \`<tr>
+      <td>\${date}</td>
+      <td><strong>\${t.symbol}</strong></td>
+      <td><span style="color:\${actionColor};font-weight:600">\${actionLabel}</span></td>
+      <td>\${t.shares}</td>
+      <td>$\${parseFloat(t.price || 0).toFixed(2)}</td>
+      <td><span style="background:\${sourceBg};padding:2px 6px;border-radius:3px;font-size:11px">\${sourceLabel}</span></td>
+      <td style="max-width:200px;font-size:11px;color:#718096">\${t.reason || '—'}</td>
+      <td>\${pnl}</td>
+    </tr>\`;
+  }).join('');
+}
+
+function filterTransactions() {
+  const search = document.getElementById('txn-search').value.toUpperCase();
+  const source = document.getElementById('txn-source').value;
+  const action = document.getElementById('txn-action').value;
+
+  const filtered = allTransactions.filter(t => {
+    const matchSearch = !search || t.symbol.includes(search);
+    const matchSource = !source || t.source === source;
+    const matchAction = !action || t.action === action;
+    return matchSearch && matchSource && matchAction;
+  });
+
+  renderTransactions(filtered);
+}
+
+document.addEventListener('DOMContentLoaded', function initTransactions(){
+  try { loadTransactions(); } catch(_){}
+});
+
 // ── Real-time price refresh (every 5 min during market hours) ────────────────
 </script>`;
 
@@ -1635,6 +1698,7 @@ window._buyingPower = ${buyingPower.toFixed(2)};
   <button class="tab-btn" data-tab="discover" onclick="switchTab('discover')">🔭 Discover · ${picks.length}</button>
   <button class="tab-btn tab-phoenix" data-tab="phoenix" onclick="switchTab('phoenix')">🔥 Phoenix · <span style="color:#e9d8fd">${phoenixSigs.filter(p=>p.recommendation==='BUY').length} BUY</span> · ${phoenixSigs.filter(p=>p.recommendation==='WATCH').length} WATCH</button>
   <button class="tab-btn" data-tab="longhaul" onclick="switchTab('longhaul')" style="color:#68d391">🌱 Long Haul · ${longHaulStocks.length}</button>
+  <button class="tab-btn" data-tab="transactions" onclick="switchTab('transactions')">📜 Transactions</button>
 </div>
 
 <!-- Portfolio tab -->
@@ -1790,6 +1854,42 @@ ${pfSection}
   <th>Sector</th>
 </tr></thead>
 <tbody>${longHaulRows}</tbody>
+</table>
+</div>
+</div>
+
+<!-- Transactions tab -->
+<div id="tab-transactions" class="tab-content">
+<div style="padding:16px 24px">
+  <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+    <input type="text" id="txn-search" placeholder="Search symbol..." onkeyup="filterTransactions()" style="padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:12px;width:150px" />
+    <select id="txn-source" onchange="filterTransactions()" style="padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:12px">
+      <option value="">All Sources</option>
+      <option value="autotrader">Autotrader</option>
+      <option value="manual">Manual</option>
+    </select>
+    <select id="txn-action" onchange="filterTransactions()" style="padding:6px 10px;border:1px solid #cbd5e0;border-radius:4px;font-size:12px">
+      <option value="">All Actions</option>
+      <option value="buy">Buys</option>
+      <option value="sell">Sells</option>
+    </select>
+  </div>
+</div>
+<div class="tbl-wrap" style="max-height:calc(100vh - 220px);margin:0 24px 16px">
+<table id="txn-table">
+<thead><tr>
+  <th>Date</th>
+  <th>Symbol</th>
+  <th>Action</th>
+  <th>Shares</th>
+  <th>Price</th>
+  <th>Source</th>
+  <th>Reason</th>
+  <th>P&L</th>
+</tr></thead>
+<tbody id="txn-body" style="font-size:12px">
+  <tr><td colspan="8" style="text-align:center;padding:16px;color:#718096">Loading transactions...</td></tr>
+</tbody>
 </table>
 </div>
 </div>
@@ -2289,6 +2389,57 @@ app.get('/api/positions', async (req, res) => {
   ]);
   res.json({ positions, orders });
 });
+
+app.get('/api/transactions', async (req, res) => {
+  try {
+    // Get autotrader transactions
+    const autotraderTxns = await db.query(`
+      SELECT
+        id,
+        symbol,
+        action,
+        qty as shares,
+        price,
+        executed_at as timestamp,
+        'autotrader' as source,
+        strategy,
+        exit_reason as reason
+      FROM autotrader_trades
+      ORDER BY executed_at DESC
+      LIMIT 200
+    `);
+
+    // Get manual trades (filled only)
+    const manualTxns = await db.query(`
+      SELECT
+        id,
+        symbol,
+        side as action,
+        shares,
+        COALESCE(fill_price, entry_price) as price,
+        COALESCE(filled_at, approved_at, created_at) as timestamp,
+        'manual' as source,
+        NULL as strategy,
+        COALESCE(close_reason, 'pending') as reason,
+        pnl,
+        pnl_pct
+      FROM trades
+      WHERE status IN ('filled', 'closed')
+      ORDER BY filled_at DESC
+      LIMIT 200
+    `);
+
+    // Combine and sort by timestamp
+    const combined = [...autotraderTxns, ...manualTxns]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, 200);
+
+    res.json({ success: true, data: combined });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/docs/scoring', (_, res) => res.sendFile(require('path').join(__dirname, 'scoringmethodology.html')));
 app.get('/health', (_, res) => res.json({ status: 'ok', port: PORT, mode: cfg.alpaca.isPaper ? 'paper' : 'live' }));
 
