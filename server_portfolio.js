@@ -759,7 +759,7 @@ async function loadGroups() {
         el.style.cssText = 'padding:8px;cursor:pointer;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;';
         el.onmouseover = () => el.style.background = '#f9fafb';
         el.onmouseout = () => el.style.background = '';
-        el.onclick = () => selectGroup(g.id, g.name);
+        el.onclick = () => selectGroup(g.id, g.name, el);
         el.innerHTML = '<span onclick="event.stopPropagation()" style="flex:1;font-size:12px">' + g.name + '</span>' +
           '<button onclick="event.stopPropagation();renameGroup(' + g.id + ')" style="background:none;border:none;color:#4299e1;cursor:pointer;font-size:12px;padding:0 4px">✏</button>' +
           '<button onclick="event.stopPropagation();deleteGroup(' + g.id + ')" style="background:none;border:none;color:#f56565;cursor:pointer;font-size:12px;padding:0 4px">🗑</button>';
@@ -774,14 +774,14 @@ async function loadGroups() {
 let currentSelectedGroupId = null;
 let currentSelectedGroupName = null;
 
-async function selectGroup(id, name) {
+async function selectGroup(id, name, el) {
   currentSelectedGroupId = id;
   currentSelectedGroupName = name;
   document.getElementById('add-stocks-btn').textContent = 'Add Selected to ' + name;
   await loadGroupStocks(id);
   // Highlight selected group
-  document.querySelectorAll('#watchlist-groups-list > div').forEach(el => el.style.background = '');
-  event.target.closest('div').style.background = '#edf2f7';
+  document.querySelectorAll('#watchlist-groups-list > div').forEach(div => div.style.background = '');
+  if (el) el.style.background = '#edf2f7';
 }
 
 async function loadGroupStocks(id) {
