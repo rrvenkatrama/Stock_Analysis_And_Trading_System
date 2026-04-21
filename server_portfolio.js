@@ -759,10 +759,25 @@ async function loadGroups() {
         el.style.cssText = 'padding:8px;cursor:pointer;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;';
         el.onmouseover = () => el.style.background = '#f9fafb';
         el.onmouseout = () => el.style.background = '';
+        const span = document.createElement('span');
+        span.textContent = g.name;
+        span.style.cssText = 'flex:1;font-size:12px;cursor:pointer';
+        span.onclick = (e) => { e.stopPropagation(); selectGroup(g.id, g.name, el); };
+        el.appendChild(span);
+
+        const btnRename = document.createElement('button');
+        btnRename.textContent = '✏';
+        btnRename.style.cssText = 'background:none;border:none;color:#4299e1;cursor:pointer;font-size:12px;padding:0 4px';
+        btnRename.onclick = (e) => { e.stopPropagation(); renameGroup(g.id); };
+        el.appendChild(btnRename);
+
+        const btnDelete = document.createElement('button');
+        btnDelete.textContent = '🗑';
+        btnDelete.style.cssText = 'background:none;border:none;color:#f56565;cursor:pointer;font-size:12px;padding:0 4px';
+        btnDelete.onclick = (e) => { e.stopPropagation(); deleteGroup(g.id); };
+        el.appendChild(btnDelete);
+
         el.onclick = () => selectGroup(g.id, g.name, el);
-        el.innerHTML = '<span onclick="event.stopPropagation()" style="flex:1;font-size:12px">' + g.name + '</span>' +
-          '<button onclick="event.stopPropagation();renameGroup(' + g.id + ')" style="background:none;border:none;color:#4299e1;cursor:pointer;font-size:12px;padding:0 4px">✏</button>' +
-          '<button onclick="event.stopPropagation();deleteGroup(' + g.id + ')" style="background:none;border:none;color:#f56565;cursor:pointer;font-size:12px;padding:0 4px">🗑</button>';
         list.appendChild(el);
       });
     }
