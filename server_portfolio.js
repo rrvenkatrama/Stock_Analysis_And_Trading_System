@@ -666,6 +666,14 @@ document.addEventListener('DOMContentLoaded', function restoreFilters(){
   try{
     FilterState.loadFromLocalStorage();
     FilterPresets.updatePresetUI();
+    // Load watchlist dropdown and restore selected watchlist
+    loadWatchlistDropdown().then(() => {
+      const sel = document.getElementById('watchlist-filter');
+      if (FilterState.watchlist && sel) {
+        sel.value = FilterState.watchlist;
+        filterByWatchlist(FilterState.watchlist);
+      }
+    }).catch(() => {});
   }catch(_){}
 });
 
@@ -1687,14 +1695,16 @@ ${pfSection}
     <option value="">Watchlist: All Stocks</option>
   </select>
   <button onclick="openWatchlistModal()" class="btn" style="background:#2d3748;color:#e2e8f0;font-size:11px;padding:4px 10px">☰ Manage Watchlists</button>
-  <span style="color:#718096;font-size:11px;margin-left:8px">Golden Cross:</span>
+  <button onclick="clearAllFilters()" class="btn" style="background:#f7fafc;color:#4a5568;border:1px solid #e2e8f0;font-size:11px;padding:4px 10px;margin-left:auto">Clear All</button>
+  <button onclick="saveCurrentFilter()" class="btn" style="background:#f0fff4;color:#276749;border:1px solid #9ae6b4;font-size:11px;padding:4px 10px">Save Filter</button>
+</div>
+<div style="padding:8px 24px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+  <span style="color:#718096;font-size:11px">Golden Cross:</span>
   <button onclick="filterGoldenCross('all')" id="gcf-all" class="filter-btn filter-btn-active" style="font-size:11px;padding:3px 8px;margin:0 1px">All</button>
   <button onclick="filterGoldenCross('recent')" id="gcf-recent" class="filter-btn" style="font-size:11px;padding:3px 8px;margin:0 1px">⭐</button>
   <button onclick="filterGoldenCross('approaching')" id="gcf-approaching" class="filter-btn" style="font-size:11px;padding:3px 8px;margin:0 1px">🟢</button>
   <button onclick="filterGoldenCross('active')" id="gcf-active" class="filter-btn" style="font-size:11px;padding:3px 8px;margin:0 1px">★</button>
   <button onclick="filterGoldenCross('none')" id="gcf-none" class="filter-btn" style="font-size:11px;padding:3px 8px;margin:0 1px">☆</button>
-  <button onclick="clearAllFilters()" class="btn" style="background:#f7fafc;color:#4a5568;border:1px solid #e2e8f0;font-size:11px;padding:4px 10px;margin-left:auto">Clear All</button>
-  <button onclick="saveCurrentFilter()" class="btn" style="background:#f0fff4;color:#276749;border:1px solid #9ae6b4;font-size:11px;padding:4px 10px">Save Filter</button>
 </div>
 <div id="preset-list" style="padding:8px 24px;background:#f7fafc;border-bottom:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap;font-size:11px"></div>
 <div class="tbl-wrap" style="max-height:calc(100vh - 220px);margin:0 24px 16px">
