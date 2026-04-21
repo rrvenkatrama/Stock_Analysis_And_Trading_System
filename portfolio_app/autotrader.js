@@ -22,6 +22,7 @@ const axios   = require('axios');
 const cfg     = require('../config/env');
 const db      = require('../db/db');
 const finnhub = require('../data/finnhub');
+const settingsCache = require('./settingsCache');
 
 // ─── Alpaca API helpers ───────────────────────────────────────────────────────
 function headers() {
@@ -107,40 +108,55 @@ async function getDaysHeld(symbol) {
   return Math.floor((Date.now() - new Date(row.executed_at).getTime()) / 86400000);
 }
 
-// ─── Tier 2: Quality filter ───────────────────────────────────────────────────
+// ─── Tier 2: Quality filter (uses settings.gates) ──────────────────────────────
 function passesTier2(sig) {
   if (!sig) return false;
-  if (sig.score < 50)                              return false;
-  if (!sig.price || sig.price < 5)                 return false;
-  if (sig.rsi !== null && sig.rsi > 65)            return false; // not overbought
-  if (sig.ma50 && sig.price > sig.ma50 * 1.08)    return false; // not extended >8% above 50MA
+  const gatesSettings = settingsCache.getGates();
+  const scoreThreshold = gatesSettings.score_threshold !== undefined ? gatesSettings.score_threshold : 50;
+  const buySettings = settingsCache.getBuy();
+  const minPrice = buySettings.min_price !== undefined ? buySettings.min_price : 5;
+  const rsiMax = gatesSettings.rsi_max !== undefined ? gatesSettings.rsi_max : 65;
+  const overextensionPct = gatesSettings.overextension_pct !== undefined ? gatesSettings.overextension_pct : 8;
+
+  if (sig.score < scoreThreshold) return false;
+  if (!sig.price || sig.price < minPrice) return false;
+  if (sig.rsi !== null && sig.rsi > rsiMax) return false;
+  if (sig.ma50 && sig.price > sig.ma50 * (1 + overextensionPct / 100)) return false;
   return true;
 }
 
-// ─── Count Tier 1 technical confirmations ────────────────────────────────────
-// Require ≥2: RSI 30–65, MACD bullish/above signal, above 50MA, volume ≥1.3x
+// ─── Count Tier 1 technical confirmations (uses settings.gates) ─────────────────
+// Returns count of confirmations; eligibility requires ≥ min_confirmations
 function countConfirmations(sig, volRatio) {
+  const gatesSettings = settingsCache.getGates();
+  const rsiMin = gatesSettings.rsi_min !== undefined ? gatesSettings.rsi_min : 30;
+  const rsiMax = gatesSettings.rsi_max !== undefined ? gatesSettings.rsi_max : 65;
+
   let n = 0;
-  if (sig.rsi !== null && sig.rsi >= 30 && sig.rsi <= 65)       n++;
-  if (['bullish', 'above_signal'].includes(sig.macd_trend))      n++;
-  if (sig.above_50ma)                                            n++;
-  if (volRatio !== null && volRatio >= 1.3)                      n++;
+  if (sig.rsi !== null && sig.rsi >= rsiMin && sig.rsi <= rsiMax) n++;
+  if (['bullish', 'above_signal'].includes(sig.macd_trend)) n++;
+  if (sig.above_50ma) n++;
+  if (volRatio !== null && volRatio >= 1.3) n++;
   return n;
 }
 
-// ─── Position sizing ─────────────────────────────────────────────────────────
-// Keeps 20% cash buffer; deploys up to 80% of portfolio across open slots.
-// maxPerPos capped at 10% per position. vixMult scales down in high-volatility (0.5–1.0).
+// ─── Position sizing (uses settings.limits) ──────────────────────────────────
+// Respects min cash buffer, max deployment, and per-position limits from settings
 function calcPositionSize(accountEquity, buyingPower, openSlots, price, vixMult = 1.0) {
-  const cashBuffer = accountEquity * 0.20;           // Always keep 20% uninvested
-  const maxDeployable = accountEquity * 0.80;        // Up to 80% of portfolio
+  const limitsSettings = settingsCache.getLimits();
+  const minCashBufferPct = limitsSettings.min_cash_buffer_pct !== undefined ? limitsSettings.min_cash_buffer_pct : 20;
+  const maxDeploymentPct = limitsSettings.max_deployment_pct !== undefined ? limitsSettings.max_deployment_pct : 80;
+  const maxPerPositionPct = limitsSettings.max_per_position_pct !== undefined ? limitsSettings.max_per_position_pct : 10;
+
+  const cashBuffer = accountEquity * (minCashBufferPct / 100);
+  const maxDeployable = accountEquity * (maxDeploymentPct / 100);
   const deployable = Math.min(buyingPower - cashBuffer, maxDeployable - (accountEquity - buyingPower));
-  const maxPerPos  = accountEquity * 0.10 * vixMult; // 10% per position
+  const maxPerPos  = accountEquity * (maxPerPositionPct / 100) * vixMult;
   const perSlot    = Math.min(Math.max(0, deployable / Math.max(openSlots, 1)), maxPerPos);
   return Math.floor(perSlot / price);
 }
 
-// ─── Evaluate exit for a single open position ─────────────────────────────────
+// ─── Evaluate exit for a single open position (uses settings.sell) ────────────
 // Returns { qty, sellPct, reason } or null (hold)
 async function evaluateExit(position, sig) {
   const currentPrice = parseFloat(position.current_price);
@@ -149,8 +165,15 @@ async function evaluateExit(position, sig) {
   const pnlPct       = ((currentPrice - avgEntry) / avgEntry) * 100;
   const daysHeld     = await getDaysHeld(position.symbol);
 
-  // Hard stop: -8% below entry → 100% sell
-  if (pnlPct <= -8) {
+  const sellSettings = settingsCache.getSell();
+  const hardStopPct = sellSettings.hard_stop_pct !== undefined ? sellSettings.hard_stop_pct : -8;
+  const softExitScore = sellSettings.soft_exit_score !== undefined ? sellSettings.soft_exit_score : 25;
+  const softExitRsi = sellSettings.soft_exit_rsi !== undefined ? sellSettings.soft_exit_rsi : 75;
+  const emaCrossDays = sellSettings.ema_cross_days !== undefined ? sellSettings.ema_cross_days : 3;
+  const timeStopDays = sellSettings.time_stop_days !== undefined ? sellSettings.time_stop_days : 30;
+
+  // Hard stop
+  if (pnlPct <= hardStopPct) {
     return { qty, sellPct: 100, reason: `Hard stop: ${pnlPct.toFixed(1)}% from entry` };
   }
 
@@ -159,21 +182,21 @@ async function evaluateExit(position, sig) {
   const softSell = (reason) => ({ qty: qty === 1 ? 1 : halfQty, sellPct: qty === 1 ? 100 : 50, reason });
 
   if (sig) {
-    if (sig.score < 25)
+    if (sig.score < softExitScore)
       return softSell(`Score deteriorated to ${sig.score}`);
 
-    if (sig.rsi !== null && sig.rsi > 75)
+    if (sig.rsi !== null && sig.rsi > softExitRsi)
       return softSell(`RSI overbought (${sig.rsi?.toFixed ? sig.rsi.toFixed(1) : sig.rsi})`);
 
-    if (sig.ema9_bear_cross_ago !== null && sig.ema9_bear_cross_ago !== undefined && sig.ema9_bear_cross_ago <= 3)
+    if (sig.ema9_bear_cross_ago !== null && sig.ema9_bear_cross_ago !== undefined && sig.ema9_bear_cross_ago <= emaCrossDays)
       return softSell(`EMA 9 crossed below EMA 21 (${sig.ema9_bear_cross_ago}d ago)`);
 
     if (sig.macd_trend === 'bearish')
       return softSell('MACD turned bearish');
   }
 
-  // Time stop: held ≥30 days with no gain
-  if (daysHeld !== null && daysHeld >= 30 && pnlPct <= 0)
+  // Time stop
+  if (daysHeld !== null && daysHeld >= timeStopDays && pnlPct <= 0)
     return softSell(`Time stop: ${daysHeld}d held, no gain`);
 
   return null; // hold

@@ -1356,71 +1356,14 @@ window._buyingPower = ${buyingPower.toFixed(2)};
   <a href="/refresh-now" class="btn btn-primary btn-sm">↻ Refresh Now</a>
   <span style="display:flex;align-items:center;gap:4px">
     ${alphaBtn}
-    <button onclick="showStrategyInfo('alpha')" style="background:none;border:none;color:#718096;cursor:pointer;font-size:14px;padding:0 2px" title="About Alpha strategy">ℹ</button>
   </span>
   <span style="display:flex;align-items:center;gap:4px">
     ${phoenixBtn}
-    <button onclick="showStrategyInfo('phoenix')" style="background:none;border:none;color:#718096;cursor:pointer;font-size:14px;padding:0 2px" title="About Phoenix strategy">ℹ</button>
   </span>
-  <a href="/docs/scoring" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#bee3f8">📖 Alpha Guide</a>
-  <a href="/docs/phoenix" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#e9d8fd">🔥 Phoenix Guide</a>
+  <a href="/settings" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fbbf24">⚙ Settings</a>
   <a href="http://192.168.1.156:3001/dashboard" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#bee3f8">↗ Swing Trader</a>
 </div>
 
-<!-- Strategy Info Modal -->
-<div id="strategy-info-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#1a1f2e;border-radius:12px;padding:32px;max-width:520px;width:90%;border:1px solid #2d3748;position:relative">
-    <button onclick="document.getElementById('strategy-info-modal').style.display='none'" style="position:absolute;top:12px;right:16px;background:none;border:none;color:#718096;font-size:20px;cursor:pointer">×</button>
-    <div id="strategy-info-content"></div>
-  </div>
-</div>
-<script>
-function showStrategyInfo(type) {
-  const modal = document.getElementById('strategy-info-modal');
-  const content = document.getElementById('strategy-info-content');
-  if (type === 'alpha') {
-    content.innerHTML = \`
-      <div style="color:#63b3ed;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Strategy A</div>
-      <div style="color:#fff;font-size:20px;font-weight:800;margin-bottom:14px">⚡ Alpha — Quality Growth Timing</div>
-      <p style="color:#a0aec0;font-size:13px;line-height:1.7;margin-bottom:10px">
-        Buys fundamentally strong stocks at <strong style="color:#bee3f8">technically optimal entry moments</strong>.
-        Uses 30+ signals across technicals (RSI, MACD, moving averages, volume), fundamentals (PE, EPS growth, ROE),
-        analyst consensus, and short interest.
-      </p>
-      <ul style="color:#a0aec0;font-size:13px;padding-left:18px;line-height:2">
-        <li>Score ≥ 65 on composite 30+ signal engine</li>
-        <li>RSI in 30–65 range (healthy entry zone, not overbought)</li>
-        <li>Price above 50-day moving average</li>
-        <li>Not &gt;8% extended above 50DMA (not chasing)</li>
-        <li>MACD bullish or above signal line</li>
-        <li>SPY must be above both 200DMA and 50DMA (bull regime)</li>
-      </ul>
-      <p style="color:#718096;font-size:12px;margin-top:10px">Hold: days to weeks · Hard stop: −8% · Exit on signal deterioration</p>
-      <a href="/docs/scoring" style="display:inline-block;margin-top:12px;color:#63b3ed;font-size:13px">📖 Full Alpha Scoring Guide →</a>
-    \`;
-  } else {
-    content.innerHTML = \`
-      <div style="color:#b794f4;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Strategy B</div>
-      <div style="color:#fff;font-size:20px;font-weight:800;margin-bottom:14px">🔥 Phoenix — Deep Value Contrarian</div>
-      <p style="color:#a0aec0;font-size:13px;line-height:1.7;margin-bottom:10px">
-        Buys fundamentally excellent companies that have been <strong style="color:#e9d8fd">deeply discounted by market fear</strong>,
-        not by fundamental damage. Deliberately buys when technicals look bad — that's the fear discount.
-      </p>
-      <ul style="color:#a0aec0;font-size:13px;padding-left:18px;line-height:2">
-        <li>≥ 40% below 52-week high (deep fear discount required)</li>
-        <li>Price below where it was 1 year ago (confirmed downtrend)</li>
-        <li>EPS growth &gt; 0% — earnings still growing (not a value trap)</li>
-        <li>Revenue growth &gt; 0% — top line intact</li>
-        <li>Forward P/E or P/S below sector average (objectively cheap)</li>
-        <li>Bonus: stock buybacks, analyst buy consensus, strong ROE</li>
-      </ul>
-      <p style="color:#718096;font-size:12px;margin-top:10px">Hold: weeks to months · Hard stop: −15% · Exit on fundamental deterioration</p>
-      <a href="/docs/phoenix" style="display:inline-block;margin-top:12px;color:#b794f4;font-size:13px">🔥 Full Phoenix Strategy Guide →</a>
-    \`;
-  }
-  modal.style.display = 'flex';
-}
-</script>
 
 <!-- Tab navigation -->
 <div class="tab-nav">
@@ -1538,8 +1481,6 @@ ${pfSection}
 <div id="tab-phoenix" class="tab-content">
 <div style="display:flex;align-items:center;gap:12px;padding:8px 24px;background:linear-gradient(135deg,#1a1540,#2d1b4e);border-bottom:1px solid #553c9a;font-size:11px;color:#b794f4">
   <span>${phoenixSigs.filter(p=>p.recommendation==='BUY').length} BUY · ${phoenixSigs.filter(p=>p.recommendation==='WATCH').length} WATCH · fundamentally strong, deeply discounted</span>
-  <span style="flex:1"></span>
-  <button onclick="showStrategyInfo('phoenix')" style="background:none;border:1px solid #805ad5;color:#b794f4;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">ℹ What is Phoenix?</button>
 </div>
 <div class="tbl-wrap" style="max-height:calc(100vh - 200px);margin:0 24px 16px">
 <table>
@@ -2234,6 +2175,813 @@ new TradingView.widget({
 });
 </script>
 </body></html>`);
+});
+
+// ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
+const settings = require('./portfolio_app/settings');
+
+app.get('/settings', async (req, res) => {
+  try {
+    const allSettings = await settings.getSettings();
+    const signalWeights = await settings.getSignalWeights();
+    const marketRegime = await settings.getMarketRegime();
+    const changelog = await settings.getChangelog(10);
+
+    // Format changelog for display
+    const changeLog = changelog.map(log => {
+      // mysql2 auto-parses JSON columns
+      const changes = log.change_json
+        ? (typeof log.change_json === 'string' ? JSON.parse(log.change_json) : log.change_json)
+        : {};
+      return {
+        time: new Date(log.changed_at).toLocaleString('en-US', {timeZone:'America/New_York',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),
+        category: log.category,
+        changedBy: log.changed_by,
+        changes
+      };
+    });
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Autotrader Settings</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #1e293b;
+      padding-bottom: 15px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      color: #f1f5f9;
+    }
+    .header-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border: 1px solid #475569;
+      background: #1e293b;
+      color: #e2e8f0;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .btn:hover { background: #334155; }
+    .btn.primary {
+      background: #3b82f6;
+      border-color: #2563eb;
+      color: white;
+    }
+    .btn.primary:hover { background: #2563eb; }
+    .btn.danger {
+      background: #dc2626;
+      border-color: #991b1b;
+      color: white;
+    }
+    .btn.danger:hover { background: #b91c1c; }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #1e293b;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: 12px 20px;
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { color: #cbd5e1; }
+    .tab-btn.active {
+      color: #3b82f6;
+      border-bottom-color: #3b82f6;
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease-in;
+    }
+    .tab-content.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .section {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .section h3 {
+      margin: 0 0 15px 0;
+      font-size: 16px;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .info-banner {
+      background: #1e3a8a;
+      border-left: 4px solid #3b82f6;
+      padding: 12px 15px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #bfdbfe;
+    }
+    .setting-group {
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #334155;
+    }
+    .setting-group:last-child { border-bottom: none; }
+
+    .setting-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .setting-row.full { grid-template-columns: 1fr; }
+
+    .setting-label {
+      font-size: 13px;
+      color: #cbd5e1;
+      font-weight: 500;
+    }
+    .setting-help {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    input[type="number"], input[type="text"], select {
+      padding: 8px 12px;
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #e2e8f0;
+      border-radius: 4px;
+      font-size: 13px;
+      flex: 1;
+    }
+    input[type="number"] { width: 80px; }
+    input[type="number"]:focus, input[type="text"]:focus, select:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    }
+
+    .signal-weights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+    }
+    .signal-card {
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 12px;
+      border-radius: 4px;
+    }
+    .signal-card .name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 4px;
+    }
+    .signal-card .type {
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+    .signal-card .weight-input {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .signal-card input {
+      flex: 1;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    .status-badge.bull { background: #1a3a1a; color: #86efac; }
+    .status-badge.caution { background: #3d2a00; color: #fbbf24; }
+    .status-badge.bear { background: #742a2a; color: #fca5a5; }
+    .status-badge.unknown { background: #1e293b; color: #94a3b8; }
+
+    .changelog {
+      max-height: 300px;
+      overflow-y: auto;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      padding: 12px;
+    }
+    .changelog-entry {
+      font-size: 12px;
+      padding: 8px;
+      border-bottom: 1px solid #334155;
+      color: #cbd5e1;
+    }
+    .changelog-entry:last-child { border-bottom: none; }
+    .changelog-time {
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .status-message {
+      padding: 12px 15px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-size: 13px;
+      display: none;
+    }
+    .status-message.show { display: block; }
+    .status-message.success {
+      background: #1a3a1a;
+      border: 1px solid #4ade80;
+      color: #86efac;
+    }
+    .status-message.error {
+      background: #742a2a;
+      border: 1px solid #f87171;
+      color: #fca5a5;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🔧 Autotrader Settings</h1>
+    <div class="header-buttons">
+      <a href="/" class="btn" style="background:rgba(255,255,255,.15);color:#e2e8f0">← Dashboard</a>
+      <button class="btn" onclick="resetAllToDefaults()">Reset to Defaults</button>
+      <button class="btn primary" onclick="saveAllChanges()">Save Changes</button>
+    </div>
+  </div>
+
+  <div id="statusMessage" class="status-message"></div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tab1')">1. Market Regime</button>
+    <button class="tab-btn" onclick="switchTab('tab2')">2. Eligibility Gates</button>
+    <button class="tab-btn" onclick="switchTab('tab3')">3. Buy Criteria</button>
+    <button class="tab-btn" onclick="switchTab('tab4')">4. Sell/Exit</button>
+    <button class="tab-btn" onclick="switchTab('tab5')">5. Score Formula</button>
+    <button class="tab-btn" onclick="switchTab('tab6')">6. Signal Weights</button>
+    <button class="tab-btn" onclick="switchTab('tab7')">7. Golden Cross</button>
+    <button class="tab-btn" onclick="switchTab('tab8')">8. Position Limits</button>
+  </div>
+
+  <!-- TAB 1: MARKET REGIME (Read-only) -->
+  <div id="tab1" class="tab-content active">
+    <div class="section">
+      <h3>📊 Market Regime (Informational - Read Only)</h3>
+      <div class="info-banner">
+        Market regime is determined by SPY position relative to moving averages. This controls whether autotrader can enter new positions.
+      </div>
+
+      <div class="setting-row full">
+        <div>
+          <div class="setting-label">Current Regime</div>
+          <div style="margin-top: 8px; font-size: 14px;">
+            <span class="status-badge ${marketRegime.regime}">${marketRegime.regime.toUpperCase()}</span>
+            <span style="color: #94a3b8;">${marketRegime.details}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <h3>Regime Rules</h3>
+        <div style="font-size: 13px; color: #cbd5e1; line-height: 1.8;">
+          <p><strong style="color: #86efac;">BULL:</strong> SPY > 200MA AND SPY > 50MA → Entries Allowed</p>
+          <p><strong style="color: #fbbf24;">CAUTION:</strong> SPY > 200MA BUT SPY < 50MA → No Entries (correction in progress)</p>
+          <p><strong style="color: #fca5a5;">BEAR:</strong> SPY < 200MA → No Entries (bear market)</p>
+          <p><strong style="color: #94a3b8;">UNKNOWN:</strong> SPY not found → No Entries (safe default)</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: ELIGIBILITY GATES -->
+  <div id="tab2" class="tab-content">
+    <div class="section">
+      <h3>✓ Eligibility Gates (5 Required to Pass)</h3>
+      <div class="info-banner">
+        All 5 gates must pass for a stock to be marked "✓ Eligible". Any failure = "⚠ Blocked"
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Gate 2: Score Threshold</div>
+        <div class="setting-help">Minimum score % required (0-100)</div>
+        <div class="input-group">
+          <input type="number" id="scoreThreshold" min="0" max="100" value="${allSettings.gates.score_threshold}" />%
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Gate 3: RSI Window</div>
+        <div class="setting-help">RSI must be within this range (avoid oversold <30 and overbought >65)</div>
+        <div class="input-group">
+          <input type="number" id="rsiMin" min="0" max="50" value="${allSettings.gates.rsi_min}" /> to <input type="number" id="rsiMax" min="50" max="100" value="${allSettings.gates.rsi_max}" />
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Gate 4: Overextension Limit</div>
+        <div class="setting-help">Max % above 50-day moving average (entry risk if too extended)</div>
+        <div class="input-group">
+          <input type="number" id="overextensionPct" min="0" max="50" step="0.5" value="${allSettings.gates.overextension_pct}" />%
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Gate 5: Tier 1 Confirmations</div>
+        <div class="setting-help">Minimum technical confirmations needed (RSI window, MACD bullish, >50MA, volume)</div>
+        <div class="input-group">
+          <input type="number" id="minConfirmations" min="1" max="4" value="${allSettings.gates.min_confirmations}" /> of 4
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: BUY ENTRY CRITERIA -->
+  <div id="tab3" class="tab-content">
+    <div class="section">
+      <h3>📈 Buy Entry Criteria</h3>
+      <div class="info-banner">
+        pick_flag=1 is REQUIRED and cannot be disabled. This ensures only manually marked stocks are bought.
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Minimum Price</div>
+        <div class="setting-help">Avoid penny stocks and micro-caps</div>
+        <div class="input-group">
+          <input type="number" id="minPrice" min="1" step="0.50" value="${allSettings.buy.min_price}" />
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Pick Flag</div>
+        <div style="font-size: 13px; color: #cbd5e1; margin-top: 8px;">
+          <strong>✓ REQUIRED AND CANNOT BE DISABLED</strong><br/>
+          Only stocks with pick_flag=1 in watchlist can be bought
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Exclude Stocks with Earnings Within</div>
+        <div class="setting-help">Avoid earnings volatility (days ahead)</div>
+        <div class="input-group">
+          <input type="number" id="excludeEarningsDays" min="0" max="30" value="${allSettings.buy.exclude_earnings_days}" /> days
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: SELL/EXIT CRITERIA -->
+  <div id="tab4" class="tab-content">
+    <div class="section">
+      <h3>🔴 Exit Rules</h3>
+      <div class="info-banner">
+        Applies only to positions with autotrader_on=1. Manual positions are never auto-sold.
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Hard Stop Loss %</div>
+        <div class="setting-help">Price drop triggers 100% sell (default -8%)</div>
+        <div class="input-group">
+          <input type="number" id="hardStopPct" min="-50" max="0" step="0.5" value="${allSettings.sell.hard_stop_pct}" />%
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Soft Exit: Score Below</div>
+        <div class="setting-help">Score drop triggers 50% sell</div>
+        <div class="input-group">
+          <input type="number" id="softExitScore" min="0" max="100" value="${allSettings.sell.soft_exit_score}" />%
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Soft Exit: RSI Above</div>
+        <div class="setting-help">Overbought signal triggers 50% sell</div>
+        <div class="input-group">
+          <input type="number" id="softExitRsi" min="50" max="100" value="${allSettings.sell.soft_exit_rsi}" />
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Soft Exit: EMA Cross Days</div>
+        <div class="setting-help">EMA 9 below EMA 21 within N days triggers 50% sell</div>
+        <div class="input-group">
+          <input type="number" id="emaCrossDays" min="1" max="10" value="${allSettings.sell.ema_cross_days}" /> days
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Time Stop: Days Held</div>
+        <div class="setting-help">Hold ≥N days with no gain triggers 50% sell</div>
+        <div class="input-group">
+          <input type="number" id="timeStopDays" min="5" max="90" value="${allSettings.sell.time_stop_days}" /> days
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: SCORE FORMULA -->
+  <div id="tab5" class="tab-content">
+    <div class="section">
+      <h3>📊 Signal-Count Scoring Formula</h3>
+      <div class="info-banner">
+        Signal weights (Tab 6) determine signal strength. Score range: −100 to +100
+      </div>
+
+      <div class="setting-group">
+        <div style="background: #0f172a; padding: 15px; border-radius: 4px; margin-bottom: 15px; font-family: monospace; font-size: 12px;">
+          Score = (Σ Positive Signals − Σ Negative Signals) / max(5, Total Signals) × 100
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">BUY Threshold</div>
+        <div class="input-group">
+          <input type="number" id="scoreThresholdBuy" min="0" max="100" value="${allSettings.scoring.score_threshold_buy}" />%
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">HOLD Range</div>
+        <div class="input-group">
+          <input type="number" id="scoreHoldMin" min="0" max="50" value="${allSettings.scoring.score_threshold_hold_min}" />% to <input type="number" id="scoreHoldMax" min="20" max="100" value="${allSettings.scoring.score_threshold_hold_max}" />%
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">SELL Threshold</div>
+        <div class="input-group">
+          Score ≤ <input type="number" id="scoreThresholdSell" min="0" max="50" value="${allSettings.scoring.score_threshold_sell}" />%
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 6: SIGNAL WEIGHTS -->
+  <div id="tab6" class="tab-content">
+    <div class="section">
+      <h3>⚖️ Signal Weights (Default=1.0)</h3>
+      <div class="info-banner">
+        Each signal defaults to weight 1.0 (counts as +1 or -1). Increase to 2.0 or 3.0 to emphasize important signals. Example: Golden Cross weight 3.0 = counts as +3 when it fires.
+      </div>
+
+      <div id="signalWeightsContainer"></div>
+    </div>
+  </div>
+
+  <!-- TAB 7: GOLDEN CROSS -->
+  <div id="tab7" class="tab-content">
+    <div class="section">
+      <h3>☀️ Golden Cross Detection & Signals</h3>
+      <div class="info-banner">
+        Golden cross = 50MA crosses above 200MA. "Pulsing glow" shows fresh crosses after stable period below.
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Fast MA Period (SMA)</div>
+        <div class="setting-help">Usually 50 days</div>
+        <div class="input-group">
+          <input type="number" id="gcFastMa" min="20" max="100" value="${allSettings.golden_cross.detection_fast_ma}" /> days
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Slow MA Period (SMA)</div>
+        <div class="setting-help">Usually 200 days</div>
+        <div class="input-group">
+          <input type="number" id="gcSlowMa" min="100" max="300" value="${allSettings.golden_cross.detection_slow_ma}" /> days
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Pulsing Glow (⭐) Criteria</div>
+        <div class="setting-help">Golden cross within last X days AND was below GC for prior Y sessions</div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Recent Cross Window</div>
+        <div class="setting-help">Golden cross must have occurred within this many days</div>
+        <div class="input-group">
+          <input type="number" id="gcPulsingDays" min="1" max="30" value="${allSettings.golden_cross.pulsing_glow_days}" /> days ago
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Stable Period (Before Cross)</div>
+        <div class="setting-help">Must have been below GC for this many consecutive trading sessions before the cross (prevents yo-yo)</div>
+        <div class="input-group">
+          <input type="number" id="gcStableSessions" min="5" max="60" value="${allSettings.golden_cross.stable_period_sessions}" /> trading sessions
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Golden Cross Signal Weight</div>
+        <div class="setting-help">Set via Tab 6 - Signal Weights</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 8: POSITION LIMITS -->
+  <div id="tab8" class="tab-content">
+    <div class="section">
+      <h3>💰 Position & Deployment Limits</h3>
+      <div class="info-banner">
+        Account-wide constraints. Cash buffer + Deployment should equal ~100%.
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Max Open Positions</div>
+        <div class="setting-help">Autotrader can hold up to N simultaneous positions</div>
+        <div class="input-group">
+          <input type="number" id="maxPositions" min="1" max="30" value="${allSettings.limits.max_positions}" /> positions
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Max Per Position %</div>
+        <div class="setting-help">Maximum equity per position (before VIX scaling)</div>
+        <div class="input-group">
+          <input type="number" id="maxPerPositionPct" min="1" max="50" step="0.5" value="${allSettings.limits.max_per_position_pct}" />% of equity
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Max Total Deployment %</div>
+        <div class="setting-help">Maximum total equity deployed into positions</div>
+        <div class="input-group">
+          <input type="number" id="maxDeploymentPct" min="20" max="95" step="5" value="${allSettings.limits.max_deployment_pct}" />%
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Min Cash Buffer %</div>
+        <div class="setting-help">Always uninvested, ready for opportunities</div>
+        <div class="input-group">
+          <input type="number" id="minCashBufferPct" min="5" max="50" step="5" value="${allSettings.limits.min_cash_buffer_pct}" />%
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">VIX 20-30 Position Size Multiplier</div>
+        <div class="setting-help">Scales down position size in elevated volatility</div>
+        <div class="input-group">
+          <input type="number" id="vix2030Mult" min="0.1" max="1.0" step="0.05" value="${allSettings.limits.vix_20_30_mult}" />x
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">VIX >30 Position Size Multiplier</div>
+        <div class="setting-help">Scales down position size in high volatility</div>
+        <div class="input-group">
+          <input type="number" id="vix30PlusMult" min="0.1" max="1.0" step="0.05" value="${allSettings.limits.vix_30_plus_mult}" />x
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Recent Changes</h3>
+      <div class="changelog">
+        ${changeLog.length === 0
+          ? '<div class="changelog-entry" style="color: #64748b;">No recent changes</div>'
+          : changeLog.map(log => `
+            <div class="changelog-entry">
+              <div class="changelog-time">${log.time}</div>
+              <div style="color: #cbd5e1; margin-top: 2px;">
+                <strong>${log.category}</strong> by ${log.changedBy}
+              </div>
+            </div>
+          `).join('')
+        }
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(tabName).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('statusMessage');
+  el.textContent = msg;
+  el.className = \`status-message show \${type}\`;
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+async function saveAllChanges() {
+  try {
+    const gatesData = {
+      score_threshold: parseFloat(document.getElementById('scoreThreshold').value),
+      rsi_min: parseFloat(document.getElementById('rsiMin').value),
+      rsi_max: parseFloat(document.getElementById('rsiMax').value),
+      overextension_pct: parseFloat(document.getElementById('overextensionPct').value),
+      min_confirmations: parseInt(document.getElementById('minConfirmations').value)
+    };
+
+    const buyData = {
+      min_price: parseFloat(document.getElementById('minPrice').value),
+      require_pick_flag: 1,
+      exclude_earnings_days: parseInt(document.getElementById('excludeEarningsDays').value)
+    };
+
+    const sellData = {
+      hard_stop_pct: parseFloat(document.getElementById('hardStopPct').value),
+      soft_exit_score: parseFloat(document.getElementById('softExitScore').value),
+      soft_exit_rsi: parseFloat(document.getElementById('softExitRsi').value),
+      ema_cross_days: parseInt(document.getElementById('emaCrossDays').value),
+      time_stop_days: parseInt(document.getElementById('timeStopDays').value)
+    };
+
+    const scoringData = {
+      score_threshold_buy: parseFloat(document.getElementById('scoreThresholdBuy').value),
+      score_threshold_hold_min: parseFloat(document.getElementById('scoreHoldMin').value),
+      score_threshold_hold_max: parseFloat(document.getElementById('scoreHoldMax').value),
+      score_threshold_sell: parseFloat(document.getElementById('scoreThresholdSell').value)
+    };
+
+    const gcData = {
+      detection_fast_ma: parseInt(document.getElementById('gcFastMa').value),
+      detection_slow_ma: parseInt(document.getElementById('gcSlowMa').value),
+      pulsing_glow_days: parseInt(document.getElementById('gcPulsingDays').value),
+      stable_period_sessions: parseInt(document.getElementById('gcStableSessions').value)
+    };
+
+    const limitsData = {
+      max_positions: parseInt(document.getElementById('maxPositions').value),
+      max_per_position_pct: parseFloat(document.getElementById('maxPerPositionPct').value),
+      max_deployment_pct: parseFloat(document.getElementById('maxDeploymentPct').value),
+      min_cash_buffer_pct: parseFloat(document.getElementById('minCashBufferPct').value),
+      vix_20_30_mult: parseFloat(document.getElementById('vix2030Mult').value),
+      vix_30_plus_mult: parseFloat(document.getElementById('vix30PlusMult').value)
+    };
+
+    // Save all settings
+    await Promise.all([
+      fetch('/api/settings/gates', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(gatesData) }),
+      fetch('/api/settings/buy', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(buyData) }),
+      fetch('/api/settings/sell', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(sellData) }),
+      fetch('/api/settings/scoring', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(scoringData) }),
+      fetch('/api/settings/golden_cross', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(gcData) }),
+      fetch('/api/settings/limits', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(limitsData) })
+    ]);
+
+    // Save signal weights
+    document.querySelectorAll('.signal-weight-input').forEach(async input => {
+      const name = input.getAttribute('data-signal');
+      const weight = parseFloat(input.value);
+      await fetch('/api/signal-weight/' + name, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({weight}) });
+    });
+
+    showStatus('✓ All settings saved successfully', 'success');
+  } catch (err) {
+    showStatus('✗ Error saving: ' + err.message, 'error');
+  }
+}
+
+async function resetAllToDefaults() {
+  if (!confirm('Reset all settings to defaults? This cannot be undone.')) return;
+  try {
+    const res = await fetch('/api/settings/reset', { method: 'POST' });
+    if (res.ok) {
+      showStatus('✓ Settings reset to defaults', 'success');
+      setTimeout(() => location.reload(), 1000);
+    }
+  } catch (err) {
+    showStatus('✗ Error: ' + err.message, 'error');
+  }
+}
+
+// Populate signal weights
+async function populateSignalWeights() {
+  const res = await fetch('/api/signal-weights');
+  const weights = await res.json();
+  const container = document.getElementById('signalWeightsContainer');
+  const html = Object.entries(weights).map(([type, signals]) => {
+    return '<div class="setting-group"><h4 style="color: #cbd5e1; margin: 10px 0;">' + type.replace(/_/g, ' ').toUpperCase() + '</h4><div class="signal-weights-grid">' + signals.map(s => {
+      return '<div class="signal-card"><div class="name">' + s.name.replace(/_/g, ' ') + '</div><div class="type">' + type + '</div><div class="weight-input"><input type="number" class="signal-weight-input" data-signal="' + s.name + '" min="-10" max="10" step="0.5" value="' + s.weight + '" /><span style="color: #64748b; font-size: 12px;">x</span></div><div class="setting-help" style="margin-top: 4px;">' + (s.description || '') + '</div></div>';
+    }).join('') + '</div></div>';
+  }).join('');
+  container.innerHTML = html;
+}
+
+populateSignalWeights();
+</script>
+</body>
+</html>`;
+
+    res.send(html);
+  } catch (err) {
+    res.status(500).send(`<pre>Error: ${err.message}</pre>`);
+  }
+});
+
+// ─── SETTINGS API ENDPOINTS ────────────────────────────────────────────────────
+
+app.post('/api/settings/:category', async (req, res) => {
+  try {
+    const { category } = req.params;
+    const updated = await settings.updateSettings(category, req.body, 'web');
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/signal-weights', async (req, res) => {
+  try {
+    const weights = await settings.getSignalWeights();
+    res.json(weights);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/signal-weight/:signal', async (req, res) => {
+  try {
+    const { signal } = req.params;
+    const { weight } = req.body;
+    const updated = await settings.updateSignalWeight(signal, weight, 'web');
+    res.json({ success: true, weight: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/settings/reset', async (req, res) => {
+  try {
+    // Reset all settings to defaults
+    const defaults = {
+      gates: {score_threshold:50,rsi_min:30,rsi_max:65,overextension_pct:8,min_confirmations:2},
+      buy: {min_price:5,require_pick_flag:1,exclude_earnings_days:5},
+      sell: {hard_stop_pct:-8,soft_exit_score:25,soft_exit_rsi:75,ema_cross_days:3,time_stop_days:30},
+      scoring: {score_threshold_buy:50,score_threshold_hold_min:20,score_threshold_hold_max:50,score_threshold_sell:20},
+      golden_cross: {detection_fast_ma:50,detection_slow_ma:200,pulsing_glow_days:5,stable_period_sessions:20},
+      limits: {max_positions:15,max_per_position_pct:10,max_deployment_pct:80,min_cash_buffer_pct:20,vix_20_30_mult:0.75,vix_30_plus_mult:0.50}
+    };
+    for (const [cat, data] of Object.entries(defaults)) {
+      await settings.updateSettings(cat, data, 'reset');
+    }
+    // Reset signal weights
+    await db.query('UPDATE signal_weights SET weight = 1.0');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Startup ──────────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ const { scoreAll: runPhoenixScreener }               = require('./phoenix_screen
 const { sendDailyDigest, sendErrorAlert, sendAutotraderEmail } = require('../notifier/email');
 const { getAlpacaPositions }                      = require('../trader/executor');
 const db                                          = require('../db/db');
+const settingsCache                               = require('./settingsCache');
 
 let refreshRunning = false;
 
@@ -173,6 +174,11 @@ async function runDailyRefresh(fullYear = false) {
 }
 
 function startScheduler() {
+  // Initialize settings cache
+  settingsCache.initializeCache().catch(err => {
+    console.error('[Settings Cache] Initialization failed:', err.message);
+  });
+
   // 8:30 AM ET Monday–Friday — full data refresh + analysis + recommendations
   const morningJob = new CronJob('0 30 8 * * 1-5', () => {
     console.log('[Portfolio Scheduler] Cron fired — 8:30 AM ET');
@@ -206,8 +212,13 @@ function startScheduler() {
     updatePricesInDatabase();
   }, null, true, 'America/New_York');
 
-  console.log('[Portfolio Scheduler] Scheduled: 8:30 AM refresh + 9:35 AM Alpha autotrader + every 5min price updates (9:30-16:00 ET, Mon-Fri)');
-  return { morningJob, tradeJob, priceUpdateJob };
+  // 4:05 PM ET Mon-Fri — final price capture after market close
+  const closeJob = new CronJob('0 5 16 * * 1-5', () => {
+    updatePricesInDatabase();
+  }, null, true, 'America/New_York');
+
+  console.log('[Portfolio Scheduler] Scheduled: 8:30 AM refresh + 9:35 AM Alpha autotrader + every 5min price updates (9:30-16:00 ET) + 4:05 PM close snapshot (Mon-Fri)');
+  return { morningJob, tradeJob, priceUpdateJob, closeJob };
 }
 
 module.exports = { startScheduler, runDailyRefresh };
