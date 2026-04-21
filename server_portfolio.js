@@ -1479,18 +1479,6 @@ app.get('/', async (req, res) => {
       ? '<span class="badge-paper">📄 PAPER</span>'
       : '<span class="badge-live">💰 LIVE</span>';
 
-    const autorunRow    = await db.queryOne(`SELECT config_value FROM system_config WHERE config_group='autotrader' AND config_key='autorun_enabled'`);
-    const autorunOn     = autorunRow?.config_value === '1';
-    const phoenixRow    = await db.queryOne(`SELECT config_value FROM system_config WHERE config_group='phoenix' AND config_key='phoenix_enabled'`);
-    const phoenixOn     = phoenixRow?.config_value === '1';
-
-    const alphaBtn = autorunOn
-      ? `<a href="/autorun/toggle" class="btn btn-sm" style="background:#1a365d;color:#bee3f8;border:1px solid #3182ce" onclick="return confirm('Turn Alpha OFF?')">⚡ Alpha: ON</a>`
-      : `<a href="/autorun/toggle" class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#718096;border:1px solid #4a5568" onclick="return confirm('Turn Alpha ON? Trades execute at 9:35 AM.')">⚡ Alpha: OFF</a>`;
-    const phoenixBtn = phoenixOn
-      ? `<a href="/phoenix/toggle" class="btn btn-sm" style="background:#2d1b4e;color:#e9d8fd;border:1px solid #805ad5" onclick="return confirm('Turn Phoenix OFF?')">🔥 Phoenix: ON</a>`
-      : `<a href="/phoenix/toggle" class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#718096;border:1px solid #4a5568" onclick="return confirm('Turn Phoenix ON? Trades execute at 9:35 AM.')">🔥 Phoenix: OFF</a>`;
-
     // Long Haul: dividend payers, stable, 20%+ below 52wk high, not overvalued
     const longHaulStocks = signals.filter(s => {
       const dy   = s.div_yield != null ? parseFloat(s.div_yield) : 0;
@@ -1633,12 +1621,6 @@ window._buyingPower = ${buyingPower.toFixed(2)};
     <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
   </form>
   <a href="/refresh-now" class="btn btn-primary btn-sm">↻ Refresh Now</a>
-  <span style="display:flex;align-items:center;gap:4px">
-    ${alphaBtn}
-  </span>
-  <span style="display:flex;align-items:center;gap:4px">
-    ${phoenixBtn}
-  </span>
   <a href="/settings" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fbbf24">⚙ Settings</a>
   <a href="http://192.168.1.156:3001/dashboard" class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#bee3f8">↗ Swing Trader</a>
 </div>
