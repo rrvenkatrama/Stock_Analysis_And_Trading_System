@@ -1165,7 +1165,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
 }
 
 // ─── Stock table row ──────────────────────────────────────────────────────────
-function stockRow(s, upgrade, phxSig, pickFlag, volRatio, spyRegime, positionSet) {
+function stockRow(s, upgrade, phxSig, pickFlag, volRatio, spyRegime, positionSet, allSettings) {
   const recBadge = s.recommendation === 'BUY'  ? '<span class="badge badge-buy">▲ BUY</span>'
                  : s.recommendation === 'SELL' ? '<span class="badge badge-sell">▼ SELL</span>'
                  :                               '<span class="badge badge-hold">● HOLD</span>';
@@ -1253,13 +1253,14 @@ function stockRow(s, upgrade, phxSig, pickFlag, volRatio, spyRegime, positionSet
   const rsiOk = rsiVal !== null && rsiVal >= 30 && rsiVal <= 65;
   gates.push({ name: 'RSI (30–65)', pass: rsiOk, detail: rsiVal !== null ? rsiVal.toFixed(1) : '?', msg: rsiOk ? '' : `RSI ${rsiVal !== null ? rsiVal.toFixed(1) : '?'} is outside 30–65` });
 
-  // Gate 4: ≤8% above 50DMA
+  // Gate 4: overextension limit above 50DMA
   const ma50v = s.ma50 ? parseFloat(s.ma50) : null;
   const priceV = s.price ? parseFloat(s.price) : null;
   let pctAbove = null;
   if (ma50v && priceV && ma50v > 0) pctAbove = (priceV / ma50v - 1) * 100;
-  const overextendOk = !ma50v || !priceV || pctAbove === null || pctAbove <= 8;
-  gates.push({ name: 'Not Overextended (≤8% above 50DMA)', pass: overextendOk, detail: pctAbove !== null ? pctAbove.toFixed(1) + '%' : '?', msg: overextendOk ? '' : `${pctAbove.toFixed(1)}% above 50DMA exceeds 8% limit` });
+  const overextensionLimit = allSettings?.gates?.overextension_pct !== undefined ? allSettings.gates.overextension_pct : 8;
+  const overextendOk = !ma50v || !priceV || pctAbove === null || pctAbove <= overextensionLimit;
+  gates.push({ name: `Not Overextended (≤${overextensionLimit}% above 50DMA)`, pass: overextendOk, detail: pctAbove !== null ? pctAbove.toFixed(1) + '%' : '?', msg: overextendOk ? '' : `${pctAbove.toFixed(1)}% above 50DMA exceeds ${overextensionLimit}% limit` });
 
   // Gate 5: Tier 1 Confirmations ≥2/4
   let conf = 0, confDetails = [];
@@ -1354,7 +1355,7 @@ function stockRow(s, upgrade, phxSig, pickFlag, volRatio, spyRegime, positionSet
 // ─── Main dashboard route ─────────────────────────────────────────────────────
 app.get('/', async (req, res) => {
   try {
-    const [signals, positions, openOrders, account, clock, picks, recentUpgrades] = await Promise.all([
+    const [signals, positions, openOrders, account, clock, picks, recentUpgrades, allSettings] = await Promise.all([
       db.query(`SELECT * FROM stock_signals ORDER BY score DESC`),
       getAlpacaPositions().catch(() => []),
       getOpenOrders().catch(() => []),
@@ -1369,6 +1370,7 @@ app.get('/', async (req, res) => {
          WHERE a.grade_date >= DATE_SUB(NOW(), INTERVAL 90 DAY)
          ORDER BY a.grade_date DESC`
       ).catch(() => []),
+      settings.getSettings().catch(() => ({ gates: { overextension_pct: 8 } })),
     ]);
 
     const signalMap    = new Map(signals.map(s => [s.symbol, s]));
@@ -1529,7 +1531,7 @@ app.get('/', async (req, res) => {
     const phoenixSigMap  = new Map(phoenixSigs.map(p => [p.symbol, p]));
 
     const positionSet = new Set(positions.map(p => p.symbol));
-    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol), pickFlagMap.get(s.symbol) ?? 0, volRatioMap.get(s.symbol) ?? null, spyRegime, positionSet)).join('');
+    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol), pickFlagMap.get(s.symbol) ?? 0, volRatioMap.get(s.symbol) ?? null, spyRegime, positionSet, allSettings)).join('');
     const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap, portfolioReturns, flagMap);
     // Phoenix panel rows
     const phoenixPanelRows = phoenixSigs.filter(p => p.recommendation === 'BUY' || p.recommendation === 'WATCH').map(p => {
