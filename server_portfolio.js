@@ -138,6 +138,8 @@ const FilterState = {
   eligibility: '',
   pickFlag: '',
   inPortfolio: '',
+  watchlist: '',
+  watchlistSymbols: new Set(),
 
   applyAll() {
     this.saveToLocalStorage();
@@ -153,6 +155,7 @@ const FilterState = {
         eligibility: this.eligibility,
         pickFlag: this.pickFlag,
         inPortfolio: this.inPortfolio,
+        watchlist: this.watchlist,
       }));
     } catch (e) {}
   },
@@ -166,6 +169,7 @@ const FilterState = {
       this.eligibility = saved.eligibility || '';
       this.pickFlag = saved.pickFlag || '';
       this.inPortfolio = saved.inPortfolio || '';
+      this.watchlist = saved.watchlist || '';
       // Only apply filters if table exists
       if (document.getElementById('stocks-table')) {
         this.applyFilters();
@@ -185,8 +189,9 @@ const FilterState = {
       const eligMatch = !this.eligibility || r.dataset.eligible === this.eligibility;
       const pickMatch = !this.pickFlag || r.dataset.pick === this.pickFlag;
       const portfolioMatch = !this.inPortfolio || r.dataset.inport === this.inPortfolio;
+      const watchlistMatch = !this.watchlist || this.watchlistSymbols.has((r.dataset.sym || '').toUpperCase());
 
-      r.style.display = (searchMatch && recMatch && gcMatch && eligMatch && pickMatch && portfolioMatch) ? '' : 'none';
+      r.style.display = (searchMatch && recMatch && gcMatch && eligMatch && pickMatch && portfolioMatch && watchlistMatch) ? '' : 'none';
     });
   },
 
@@ -244,8 +249,28 @@ function clearAllFilters(){
   FilterState.eligibility = '';
   FilterState.pickFlag = '';
   FilterState.inPortfolio = '';
+  FilterState.watchlist = '';
+  FilterState.watchlistSymbols.clear();
   FilterState.applyAll();
   FilterState.updateUI();
+  document.getElementById('watchlist-filter').value = '';
+}
+
+async function filterByWatchlist(groupId) {
+  FilterState.watchlist = groupId;
+  if (groupId) {
+    try {
+      const resp = await fetch('/api/watchlist-groups/' + groupId + '/stocks');
+      const json = await resp.json();
+      FilterState.watchlistSymbols = new Set(json.data || []);
+    } catch (e) {
+      console.error('Error loading watchlist stocks:', e);
+      FilterState.watchlistSymbols.clear();
+    }
+  } else {
+    FilterState.watchlistSymbols.clear();
+  }
+  FilterState.applyAll();
 }
 
 // ── Filter presets (save/load filter combinations) ─────────────────────────────
@@ -690,6 +715,237 @@ function openTVChart(sym) {
   );
 }
 function closeTVChart() {}
+
+// ── Watchlist Modal Functions ──────────────────────────────────────────────────
+function openWatchlistModal() {
+  document.getElementById('watchlist-modal').style.display = 'flex';
+  loadWatchlistDropdown();
+  loadGroups();
+  loadAllStocks();
+}
+
+function closeWatchlistModal() {
+  document.getElementById('watchlist-modal').style.display = 'none';
+}
+
+async function loadWatchlistDropdown() {
+  const sel = document.getElementById('watchlist-filter');
+  sel.innerHTML = '<option value="">Watchlist: All Stocks</option>';
+  try {
+    const resp = await fetch('/api/watchlist-groups');
+    const json = await resp.json();
+    if (json.success) {
+      json.data.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name + ' (' + g.stock_count + ')';
+        sel.appendChild(opt);
+      });
+    }
+  } catch (e) {
+    console.error('Error loading watchlist dropdown:', e);
+  }
+}
+
+async function loadGroups() {
+  const list = document.getElementById('watchlist-groups-list');
+  list.innerHTML = '<div style="padding:8px;color:#718096;font-size:12px">All Stocks</div>';
+  try {
+    const resp = await fetch('/api/watchlist-groups');
+    const json = await resp.json();
+    if (json.success) {
+      json.data.forEach(g => {
+        const el = document.createElement('div');
+        el.style.cssText = 'padding:8px;cursor:pointer;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;';
+        el.onmouseover = () => el.style.background = '#f9fafb';
+        el.onmouseout = () => el.style.background = '';
+        el.onclick = () => selectGroup(g.id, g.name);
+        el.innerHTML = '<span onclick="event.stopPropagation()" style="flex:1;font-size:12px">' + g.name + '</span>' +
+          '<button onclick="event.stopPropagation();renameGroup(' + g.id + ')" style="background:none;border:none;color:#4299e1;cursor:pointer;font-size:12px;padding:0 4px">✏</button>' +
+          '<button onclick="event.stopPropagation();deleteGroup(' + g.id + ')" style="background:none;border:none;color:#f56565;cursor:pointer;font-size:12px;padding:0 4px">🗑</button>';
+        list.appendChild(el);
+      });
+    }
+  } catch (e) {
+    console.error('Error loading groups:', e);
+  }
+}
+
+let currentSelectedGroupId = null;
+let currentSelectedGroupName = null;
+
+async function selectGroup(id, name) {
+  currentSelectedGroupId = id;
+  currentSelectedGroupName = name;
+  document.getElementById('add-stocks-btn').textContent = 'Add Selected to ' + name;
+  await loadGroupStocks(id);
+  // Highlight selected group
+  document.querySelectorAll('#watchlist-groups-list > div').forEach(el => el.style.background = '');
+  event.target.closest('div').style.background = '#edf2f7';
+}
+
+async function loadGroupStocks(id) {
+  try {
+    const resp = await fetch('/api/watchlist-groups/' + id + '/stocks');
+    const json = await resp.json();
+    const groupSymbols = new Set(json.data || []);
+    // Update checkboxes
+    document.querySelectorAll('#stocks-list input[type="checkbox"]').forEach(cb => {
+      cb.checked = groupSymbols.has(cb.value.toUpperCase());
+    });
+    document.getElementById('select-all-checkbox').checked = false;
+  } catch (e) {
+    console.error('Error loading group stocks:', e);
+  }
+}
+
+async function loadAllStocks() {
+  const list = document.getElementById('stocks-list');
+  list.innerHTML = '<div style="padding:8px;color:#718096;font-size:12px">Loading stocks...</div>';
+  try {
+    const resp = await fetch('/api/stocks');
+    const json = await resp.json();
+    if (json.data) {
+      list.innerHTML = '';
+      json.data.forEach(stock => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:4px;margin:2px 0;display:flex;align-items:center;gap:6px';
+        div.innerHTML = '<input type="checkbox" value="' + stock.symbol + '" />' +
+          '<span style="font-size:12px;flex:1">' + stock.symbol + '</span>' +
+          '<span style="font-size:11px;color:#718096">' + (stock.name || '') + '</span>';
+        list.appendChild(div);
+      });
+    }
+  } catch (e) {
+    console.error('Error loading stocks:', e);
+  }
+}
+
+function searchStocks(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('#stocks-list > div').forEach(el => {
+    const text = el.textContent.toLowerCase();
+    el.style.display = text.includes(q) ? '' : 'none';
+  });
+}
+
+function toggleSelectAll() {
+  const all = document.getElementById('select-all-checkbox').checked;
+  document.querySelectorAll('#stocks-list input[type="checkbox"]').forEach(cb => {
+    if (cb.closest('div').style.display !== 'none') {
+      cb.checked = all;
+    }
+  });
+}
+
+async function addSelectedToGroup() {
+  if (!currentSelectedGroupId) {
+    alert('Please select a watchlist first');
+    return;
+  }
+  const selected = Array.from(document.querySelectorAll('#stocks-list input[type="checkbox"]:checked'))
+    .map(cb => cb.value);
+  if (selected.length === 0) {
+    alert('Please select at least one stock');
+    return;
+  }
+  try {
+    const resp = await fetch('/api/watchlist-groups/' + currentSelectedGroupId + '/stocks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbols: selected })
+    });
+    const json = await resp.json();
+    if (json.success) {
+      alert('Added ' + selected.length + ' stock(s) to ' + currentSelectedGroupName);
+      loadWatchlistDropdown();
+      loadGroups();
+      loadGroupStocks(currentSelectedGroupId);
+    } else {
+      alert('Error: ' + json.error);
+    }
+  } catch (e) {
+    console.error('Error adding stocks:', e);
+    alert('Error adding stocks');
+  }
+}
+
+async function createGroup() {
+  const name = document.getElementById('new-group-name').value.trim();
+  if (!name) {
+    alert('Enter a watchlist name');
+    return;
+  }
+  try {
+    const resp = await fetch('/api/watchlist-groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    const json = await resp.json();
+    if (json.success) {
+      document.getElementById('new-group-name').value = '';
+      loadGroups();
+      loadWatchlistDropdown();
+      alert('Watchlist created');
+    } else {
+      alert('Error: ' + json.error);
+    }
+  } catch (e) {
+    console.error('Error creating group:', e);
+    alert('Error creating watchlist');
+  }
+}
+
+async function renameGroup(id) {
+  const current = Array.from(document.querySelectorAll('#watchlist-groups-list > div'))
+    .find(el => el.innerHTML.includes('renameGroup(' + id + ')'));
+  if (!current) return;
+  const newName = prompt('New name:', current.textContent.split('✏')[0].trim());
+  if (!newName) return;
+  try {
+    const resp = await fetch('/api/watchlist-groups/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName })
+    });
+    const json = await resp.json();
+    if (json.success) {
+      loadGroups();
+      loadWatchlistDropdown();
+      if (currentSelectedGroupId === id) {
+        currentSelectedGroupName = newName;
+        document.getElementById('add-stocks-btn').textContent = 'Add Selected to ' + newName;
+      }
+    } else {
+      alert('Error: ' + json.error);
+    }
+  } catch (e) {
+    console.error('Error renaming group:', e);
+    alert('Error renaming watchlist');
+  }
+}
+
+async function deleteGroup(id) {
+  if (!confirm('Delete this watchlist and all its stocks?')) return;
+  try {
+    const resp = await fetch('/api/watchlist-groups/' + id, { method: 'DELETE' });
+    const json = await resp.json();
+    if (json.success) {
+      loadGroups();
+      loadWatchlistDropdown();
+      if (currentSelectedGroupId === id) {
+        currentSelectedGroupId = null;
+        currentSelectedGroupName = null;
+      }
+    } else {
+      alert('Error: ' + json.error);
+    }
+  } catch (e) {
+    console.error('Error deleting group:', e);
+    alert('Error deleting watchlist');
+  }
+}
 
 // ── Real-time price refresh (every 5 min during market hours) ────────────────
 </script>`;
@@ -1412,6 +1668,10 @@ ${pfSection}
     <option value="in">Portfolio: In</option>
     <option value="out">Portfolio: Not In</option>
   </select>
+  <select id="watchlist-filter" onchange="filterByWatchlist(this.value)" style="width:auto">
+    <option value="">Watchlist: All Stocks</option>
+  </select>
+  <button onclick="openWatchlistModal()" class="btn" style="background:#2d3748;color:#e2e8f0;font-size:11px;padding:4px 10px">☰ Manage Watchlists</button>
   <span style="color:#718096;font-size:11px;margin-left:8px">Golden Cross:</span>
   <button onclick="filterGoldenCross('all')" id="gcf-all" class="filter-btn filter-btn-active" style="font-size:11px;padding:3px 8px;margin:0 1px">All</button>
   <button onclick="filterGoldenCross('recent')" id="gcf-recent" class="filter-btn" style="font-size:11px;padding:3px 8px;margin:0 1px">⭐</button>
@@ -1684,6 +1944,43 @@ ${pfSection}
       <button class="modal-close" onclick="closeTVChart()">✕</button>
     </div>
     <iframe id="tv-iframe" src="" frameborder="0" style="flex:1;min-height:0;border-radius:0 0 10px 10px;width:100%"></iframe>
+  </div>
+</div>
+
+<!-- Manage Watchlists modal -->
+<div id="watchlist-modal" class="modal-bg" onclick="if(event.target===this)closeWatchlistModal()" style="display:none">
+  <div style="background:#fff;border-radius:10px;width:90%;max-width:900px;height:80vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+    <div class="modal-header" style="border-bottom:1px solid #e2e8f0">
+      <div class="modal-title">Manage Watchlists</div>
+      <button class="modal-close" onclick="closeWatchlistModal()">✕</button>
+    </div>
+    <div style="display:flex;flex:1;min-height:0;gap:12px;padding:16px;overflow:hidden">
+      <!-- Left panel: Watchlist groups -->
+      <div style="width:30%;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden">
+        <div style="font-size:12px;font-weight:600;color:#4a5568;margin-bottom:8px">Watchlists</div>
+        <div style="flex:1;overflow-y:auto;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:8px">
+          <div id="watchlist-groups-list" style="padding:8px"></div>
+        </div>
+        <div style="display:flex;gap:4px">
+          <input id="new-group-name" type="text" placeholder="New watchlist name" style="flex:1;padding:6px;border:1px solid #cbd5e0;border-radius:4px;font-size:12px" />
+          <button onclick="createGroup()" class="btn" style="background:#48bb78;color:#fff;font-size:11px;padding:6px 10px">Add</button>
+        </div>
+      </div>
+      <!-- Right panel: Stock search and selection -->
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div style="margin-bottom:8px">
+          <input id="stock-search" type="text" placeholder="Search by ticker or name" onkeyup="searchStocks(this.value)" style="width:100%;padding:6px;border:1px solid #cbd5e0;border-radius:4px;font-size:12px" />
+        </div>
+        <div style="margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <input id="select-all-checkbox" type="checkbox" onchange="toggleSelectAll()" />
+          <label for="select-all-checkbox" style="font-size:12px;color:#4a5568;cursor:pointer;user-select:none">Select All Visible</label>
+        </div>
+        <div id="stocks-list" style="flex:1;overflow-y:auto;border:1px solid #e2e8f0;border-radius:6px;padding:8px;background:#f9fafb"></div>
+        <div style="margin-top:8px">
+          <button id="add-stocks-btn" onclick="addSelectedToGroup()" class="btn" style="width:100%;background:#3182ce;color:#fff;font-size:12px;padding:8px">Add Selected to [Group]</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2978,6 +3275,127 @@ app.post('/api/settings/reset', async (req, res) => {
     }
     // Reset signal weights
     await db.query('UPDATE signal_weights SET weight = 1.0');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Watchlist Groups API ──────────────────────────────────────────────────────
+
+// GET /api/watchlist-groups — List all groups with stock counts
+app.get('/api/watchlist-groups', async (req, res) => {
+  try {
+    const groups = await db.query(`
+      SELECT
+        g.id,
+        g.name,
+        COUNT(gs.symbol) AS stock_count
+      FROM watchlist_groups g
+      LEFT JOIN watchlist_group_stocks gs ON g.id = gs.group_id
+      GROUP BY g.id, g.name
+      ORDER BY g.name
+    `);
+    res.json({ success: true, data: groups });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/watchlist-groups — Create new watchlist group
+app.post('/api/watchlist-groups', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ error: 'Group name required' });
+    }
+    const result = await db.query(
+      'INSERT INTO watchlist_groups (name) VALUES (?)',
+      [name.trim()]
+    );
+    res.json({ success: true, data: { id: result.insertId, name, stock_count: 0 } });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      res.status(400).json({ error: 'Group name already exists' });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
+// PUT /api/watchlist-groups/:id — Rename watchlist group
+app.put('/api/watchlist-groups/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ error: 'Group name required' });
+    }
+    await db.query('UPDATE watchlist_groups SET name = ? WHERE id = ?', [name.trim(), id]);
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      res.status(400).json({ error: 'Group name already exists' });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
+// DELETE /api/watchlist-groups/:id — Delete watchlist group and members
+app.delete('/api/watchlist-groups/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query('DELETE FROM watchlist_groups WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/watchlist-groups/:id/stocks — Get symbols in a watchlist group
+app.get('/api/watchlist-groups/:id/stocks', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const stocks = await db.query(
+      'SELECT symbol FROM watchlist_group_stocks WHERE group_id = ? ORDER BY symbol',
+      [id]
+    );
+    res.json({ success: true, data: stocks.map(s => s.symbol) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/watchlist-groups/:id/stocks — Add stocks to watchlist group
+app.post('/api/watchlist-groups/:id/stocks', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { symbols } = req.body;
+    if (!Array.isArray(symbols) || symbols.length === 0) {
+      return res.status(400).json({ error: 'symbols array required' });
+    }
+
+    for (const symbol of symbols) {
+      await db.query(
+        'INSERT IGNORE INTO watchlist_group_stocks (group_id, symbol) VALUES (?, ?)',
+        [id, symbol.toUpperCase()]
+      );
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/watchlist-groups/:id/stocks/:symbol — Remove one stock from group
+app.delete('/api/watchlist-groups/:id/stocks/:symbol', async (req, res) => {
+  try {
+    const { id, symbol } = req.params;
+    await db.query(
+      'DELETE FROM watchlist_group_stocks WHERE group_id = ? AND symbol = ?',
+      [id, symbol.toUpperCase()]
+    );
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
