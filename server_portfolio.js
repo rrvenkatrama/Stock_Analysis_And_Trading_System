@@ -2266,7 +2266,12 @@ app.get('/order/:id/cancel', async (req, res) => {
 
 // ─── APIs ─────────────────────────────────────────────────────────────────────
 app.get('/api/stocks', async (req, res) => {
-  res.json(await db.query(`SELECT * FROM stock_signals ORDER BY score DESC`));
+  try {
+    const data = await db.query(`SELECT symbol, name FROM stock_signals ORDER BY symbol`);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 app.get('/api/positions', async (req, res) => {
   const [positions, orders] = await Promise.all([
