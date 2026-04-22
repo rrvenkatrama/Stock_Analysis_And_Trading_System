@@ -1421,9 +1421,9 @@ function stockRow(s, upgrade, phxSig, pickFlag, positionSet) {
   // ── Pick/No Pick toggle button ───────────────────────────────────────────
   let pickToggleBtn;
   if (pickFlag === 1) {
-    pickToggleBtn = `<button onclick="location.href='/watchlist/toggle-pick/${s.symbol}'" class="btn btn-xs" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749;cursor:pointer" title="Stock marked for autotrader. Click to unmark.">✓ Pick</button>`;
+    pickToggleBtn = `<a href="/watchlist/toggle-pick/${s.symbol}" class="btn btn-xs" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749;display:inline-block;text-decoration:none" title="Stock marked for autotrader. Click to unmark.">✓ Pick</a>`;
   } else {
-    pickToggleBtn = `<button onclick="location.href='/watchlist/toggle-pick/${s.symbol}'" class="btn btn-xs" style="background:#742a2a;color:#feb2b2;border:1px solid #c53030;cursor:pointer" title="Stock NOT marked for autotrader. Click to mark.">🚫 No Pick</button>`;
+    pickToggleBtn = `<a href="/watchlist/toggle-pick/${s.symbol}" class="btn btn-xs" style="background:#742a2a;color:#feb2b2;border:1px solid #c53030;display:inline-block;text-decoration:none" title="Stock NOT marked for autotrader. Click to mark.">🚫 No Pick</a>`;
   }
 
   const sectorTxt = s.sector ? `<span style="font-size:11px;color:#718096">${s.sector}</span>` : '—';
