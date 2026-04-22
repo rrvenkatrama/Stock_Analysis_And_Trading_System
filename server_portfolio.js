@@ -1724,6 +1724,8 @@ window._isPaper     = ${cfg.alpaca.isPaper};
 window._buyingPower = ${buyingPower.toFixed(2)};
 </script>
 
+${JS}
+
 <div class="header">
   <div style="flex:1">
     <h1>📊 My Stocks Dashboard</h1>
@@ -2144,7 +2146,6 @@ ${pfSection}
   </div>
 </div>
 
-${JS}
 </body></html>`);
   } catch (err) {
     res.status(500).send(`<pre>Error: ${err.message}\n${err.stack}</pre>`);
