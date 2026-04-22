@@ -697,6 +697,18 @@ document.addEventListener('DOMContentLoaded', function restoreTab(){
   }catch(_){switchTab('portfolio');}
 });
 
+// ── Pick toggle button handler ──────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function attachPickToggle(){
+  document.querySelectorAll('.pick-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      const url = this.getAttribute('data-pick-url');
+      if(url) window.location = url;
+    });
+  });
+});
+
 // ── Restore filters from localStorage ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function restoreFilters(){
   try{
@@ -1420,10 +1432,11 @@ function stockRow(s, upgrade, phxSig, pickFlag, positionSet) {
     : `<button onclick="openBuy('${s.symbol}','${s.price||0}','${nameSafe}')" class="btn btn-success btn-xs">Buy</button>`;
   // ── Pick/No Pick toggle button ───────────────────────────────────────────
   let pickToggleBtn;
+  const pickUrl = `/watchlist/toggle-pick/${s.symbol}`;
   if (pickFlag === 1) {
-    pickToggleBtn = `<span class="btn btn-xs" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749;display:inline-block;cursor:pointer" title="Stock marked for autotrader. Click to unmark." onclick="window.location='/watchlist/toggle-pick/${s.symbol}'">✓ Pick</span>`;
+    pickToggleBtn = `<span class="pick-toggle-btn btn btn-xs" data-pick-url="${pickUrl}" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749;display:inline-block;cursor:pointer" title="Stock marked for autotrader. Click to unmark.">✓ Pick</span>`;
   } else {
-    pickToggleBtn = `<span class="btn btn-xs" style="background:#742a2a;color:#feb2b2;border:1px solid #c53030;display:inline-block;cursor:pointer" title="Stock NOT marked for autotrader. Click to mark." onclick="window.location='/watchlist/toggle-pick/${s.symbol}'">🚫 No Pick</span>`;
+    pickToggleBtn = `<span class="pick-toggle-btn btn btn-xs" data-pick-url="${pickUrl}" style="background:#742a2a;color:#feb2b2;border:1px solid #c53030;display:inline-block;cursor:pointer" title="Stock NOT marked for autotrader. Click to mark.">🚫 No Pick</span>`;
   }
 
   const sectorTxt = s.sector ? `<span style="font-size:11px;color:#718096">${s.sector}</span>` : '—';
