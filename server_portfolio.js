@@ -1195,7 +1195,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
        :                                 `<span class="badge badge-hold">● HOLD</span>${sigPrice}`)
       : '<span style="color:#718096;font-size:10px">—</span>';
 
-    const whySafe = sig?.why ? sig.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
+    const whySafe = sig?.why ? sig.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n') : '';
     const posUpdatedAt = sig?.generated_at ? new Date(sig.generated_at).toLocaleString('en-US',{timeZone:'America/New_York',hour12:true,month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
     const posWhyBtn = whySafe ? `<button onclick="showWhy('${p.symbol}','${whySafe}','${posUpdatedAt}')" class="btn btn-xs" style="background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8">Why?</button>` : '—';
     const posSector = sig?.sector ? `<span style="font-size:11px;color:#718096">${sig.sector}</span>` : '—';
@@ -1398,7 +1398,7 @@ function stockRow(s, upgrade, phxSig, pickFlag, positionSet) {
   const price    = s.price ? `<span style="font-weight:600;color:${priceColor}">$${parseFloat(s.price).toFixed(2)}</span>` : '—';
   const chgTxt   = chg !== null ? `<span style="font-weight:600;color:${priceColor}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>` : '—';
   const nameSafe = (s.name || '').replace(/'/g, "\\'");
-  const whySafe  = s.why ? s.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
+  const whySafe  = s.why ? s.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n') : '';
   const updatedAtSafe = s.generated_at ? new Date(s.generated_at).toLocaleString('en-US',{timeZone:'America/New_York',hour12:true,month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
   const whyBtn   = s.why ? `<button onclick="showWhy('${s.symbol}','${whySafe}','${updatedAtSafe}')" class="btn btn-xs" style="background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8">Why?</button>` : '';
   const isEtf = s.asset_type === 'etf' || s.asset_type === 'fund';
@@ -1679,7 +1679,7 @@ app.get('/', async (req, res) => {
 
     const discoverRows = picks.map(s => {
       const scoreColor  = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
-      const whySafe     = s.why ? s.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
+      const whySafe     = s.why ? s.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n') : '';
       const whyBtn      = s.why ? `<button onclick="showWhy('${s.symbol}','${whySafe}')" class="btn btn-xs" style="background:#1a1540;color:#b794f4;border:1px solid #6b46c1">Why?</button>` : '';
       const topSignals  = (s.why||'').replace(/Score:\d+\/100 \| /,'').split(' | ').slice(0,2).join(' · ');
       const dChg        = s.price_change_pct != null ? parseFloat(s.price_change_pct) : null;
