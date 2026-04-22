@@ -4,7 +4,7 @@
 
 const { CronJob } = require('cron');
 const { refreshAll }                              = require('./yahoo_history');
-const { analyzeAll }                              = require('./analyzer');
+const { analyzeAll, rescoreAllFromCache }          = require('./analyzer');
 const { scanUniverse }                            = require('./universe');
 const { evaluate: alphaEvaluate, run: alphaRun }    = require('./autotrader');
 const { sendDailyDigest, sendErrorAlert, sendAutotraderEmail } = require('../notifier/email');
@@ -80,6 +80,9 @@ async function updatePricesInDatabase() {
     }
 
     if (updated > 0) console.log(`[Price Update] Updated ${updated} prices from Alpaca at ${etTime}`);
+
+    // Rescore all stocks using latest settings weights + cached signal data
+    await rescoreAllFromCache();
   } catch (err) {
     console.error('[Price Update] Error:', err.message);
   }

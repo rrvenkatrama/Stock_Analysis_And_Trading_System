@@ -49,10 +49,14 @@ function get(category, key, defaultValue = null) {
   return cache[category][key] !== undefined ? cache[category][key] : defaultValue;
 }
 
-// Get signal weight (default 1.0)
+// Get signal weight (default 0 for unmapped signals)
 function getSignalWeight(signalName) {
-  if (!cache.signal_weights) return 1.0;
-  return cache.signal_weights[signalName] !== undefined ? cache.signal_weights[signalName] : 1.0;
+  if (!cache.signal_weights) return 0;
+  if (cache.signal_weights[signalName] === undefined) {
+    console.warn(`[Settings Cache] Signal weight not found: ${signalName}`);
+    return 0;
+  }
+  return cache.signal_weights[signalName];
 }
 
 // Get all gates settings as object

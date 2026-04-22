@@ -1,10 +1,12 @@
 // One-time script to recalculate price changes (1D%, 1M%, YTD%, 1Y%)
 const db = require('../db/db');
 const analyzer = require('../portfolio_app/analyzer');
+const settingsCache = require('../portfolio_app/settingsCache');
 
 async function updateAllPriceChanges() {
   try {
     console.log('[Price Update] Starting price change calculation for all stocks...');
+    await settingsCache.reloadSettings();
     const start = Date.now();
 
     // Get all active watchlist symbols

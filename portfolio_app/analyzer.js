@@ -255,13 +255,14 @@ function computeScore(signals) {
     analystBuy, analystSell, analystHold,
     marketBullish,
     priceLatest, isStock,
+    recentWindow,
   } = signals;
 
   // ── MA cross signals ──────────────────────────────────────────────────────
-  if (goldenAgo !== null && goldenAgo <= 5)   add(W.goldenCrossRecent, `Golden cross ${goldenAgo}d ago`);
-  if (isGoldenActive)                         add(W.goldenCrossActive,  '50MA above 200MA (golden zone)');
-  if (deathAgo !== null && deathAgo <= 5)     add(W.deathCrossRecent,  `Death cross ${deathAgo}d ago`);
-  if (isDeathActive)                          add(W.deathCrossActive,   '50MA below 200MA (death zone)');
+  if (goldenAgo !== null && goldenAgo <= recentWindow)   add(W.goldenCrossRecent, `Golden cross ${goldenAgo}d ago`);
+  if (isGoldenActive)                                     add(W.goldenCrossActive,  '50MA above 200MA (golden zone)');
+  if (deathAgo !== null && deathAgo <= recentWindow)     add(W.deathCrossRecent,  `Death cross ${deathAgo}d ago`);
+  if (isDeathActive)                                      add(W.deathCrossActive,   '50MA below 200MA (death zone)');
 
   // ── Price vs MA ──────────────────────────────────────────────────────────
   if (priceCross200Ago !== null) add(W.priceCrossed200MAago, `Price crossed above 200MA ${priceCross200Ago}d ago`);
@@ -487,9 +488,10 @@ async function analyzeSymbol(symbol, quoteData = null) {
   const now = new Date();
   const currentYear = now.getFullYear();
   let chgYtd = null;
-  // bars array is ordered newest to oldest, find oldest bar in current year
-  for (let i = bars.length - 1; i >= 0; i--) {
-    const barDate = new Date(bars[i].trade_date);
+  // bars array is ordered oldest to newest (after getBarsFromDB reverses DESC order)
+  // iterate forward to find first (oldest) bar in current year
+  for (let i = 0; i < bars.length; i++) {
+    const barDate = new Date(bars[i].date);
     if (barDate.getFullYear() === currentYear && bars[i].close > 0) {
       chgYtd = ((price - bars[i].close) / bars[i].close) * 100;
       break;
@@ -514,9 +516,10 @@ async function analyzeSymbol(symbol, quoteData = null) {
   // Cross signals
   const priceCross50Ago  = priceCrossedAboveMAago(closes, 50);
   const priceCross200Ago = priceCrossedAboveMAago(closes, 200);
-  // Use golden cross stable period from settings (default 20 sessions)
+  // Use golden cross settings from database
   const gcSettings = settingsCache.getGoldenCross();
   const stablePeriod = gcSettings.stable_period_sessions !== undefined ? gcSettings.stable_period_sessions : 20;
+  const recentWindow = gcSettings.pulsing_glow_days !== undefined ? gcSettings.pulsing_glow_days : 5;
   const { goldenAgo, deathAgo, goldenStable } = crossSessionsAgo(closes, 60, stablePeriod);
   const isGoldenActive = ma50 && ma200 ? ma50 > ma200 : false;
   const isDeathActive  = ma50 && ma200 ? ma50 < ma200 : false;
@@ -591,6 +594,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
     marketBullish: analyzeSymbol._marketBullish ?? null,
     priceLatest: price,
     isStock,
+    recentWindow,  // Golden/death cross recent window (from settings)
   };
 
   const { finalScore, topReasons, positiveCount, negativeCount, denominator } = computeScore(signals);
@@ -613,14 +617,11 @@ async function analyzeSymbol(symbol, quoteData = null) {
   const spyMarketBullish = analyzeSymbol._marketBullish ?? null;
   if (spyMarketBullish === false) { layer4BearishCount++; layer4Conditions.push('SPY below 50DMA'); }
 
-  // Integrated Layer 4 logic: Layer 4 ≥3 always triggers SELL, otherwise use signal score
+  // Recommendation: signal score first, then Layer 4 override if ≥3 bearish conditions
   let recommendation;
-
   if (layer4BearishCount >= 3) {
-    // Layer 4 ≥3 → SELL (overrides signal score)
-    recommendation = 'SELL';
+    recommendation = 'SELL';  // Layer 4 ≥3 forces SELL (overrides signal score)
   } else {
-    // Layer 4 ≤2 → Use signal-based scoring
     recommendation =
       finalScore > buyThreshold ? 'BUY' :
       finalScore > sellThreshold ? 'HOLD' : 'SELL';
@@ -647,7 +648,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
       symbol, name, sector, asset_type, generated_at,
       price, price_change_pct, chg_1m, chg_ytd, chg_1y,
       high_52w, low_52w, pct_from_52high, pct_from_52low,
-      ma50, ma200, ema50, ema200, above_50ma, above_200ma,
+      ma50, ma200, ema50, ema200, ema9, ema21, above_50ma, above_200ma,
       price_crossed_50ma_ago, price_crossed_200ma_ago,
       cross_type, golden_cross_ago, death_cross_ago,
       macd_value, macd_signal_value, macd_histogram, macd_trend, macd_cross_ago,
@@ -657,7 +658,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
       ema9_bull_cross_ago, ema9_bear_cross_ago,
       analyst_buy, analyst_sell, analyst_hold,
       score, signal_count, recommendation, why
-    ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON DUPLICATE KEY UPDATE
       name=COALESCE(VALUES(name),name), sector=COALESCE(VALUES(sector),sector),
       asset_type=COALESCE(VALUES(asset_type),asset_type),
@@ -666,6 +667,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
       high_52w=VALUES(high_52w), low_52w=VALUES(low_52w),
       pct_from_52high=VALUES(pct_from_52high), pct_from_52low=VALUES(pct_from_52low),
       ma50=VALUES(ma50), ma200=VALUES(ma200), ema50=VALUES(ema50), ema200=VALUES(ema200),
+      ema9=VALUES(ema9), ema21=VALUES(ema21),
       above_50ma=VALUES(above_50ma), above_200ma=VALUES(above_200ma),
       price_crossed_50ma_ago=VALUES(price_crossed_50ma_ago),
       price_crossed_200ma_ago=VALUES(price_crossed_200ma_ago),
@@ -705,6 +707,8 @@ async function analyzeSymbol(symbol, quoteData = null) {
       ma200  ? Math.round(ma200  * 100) / 100 : null,
       ema50  ? Math.round(ema50  * 100) / 100 : null,
       ema200 ? Math.round(ema200 * 100) / 100 : null,
+      ema9   ? Math.round(ema9   * 100) / 100 : null,
+      ema21  ? Math.round(ema21  * 100) / 100 : null,
       aboveMa50  ? 1 : 0,
       aboveMa200 ? 1 : 0,
       priceCross50Ago  ?? null,
@@ -779,4 +783,116 @@ async function analyzeAll(quotes = {}) {
   console.log(`\n[Analyzer] Done`);
 }
 
-module.exports = { analyzeAll, analyzeSymbol };
+// ─── Rescore all stocks from cached signal data (runs every 5 min) ───────────
+// Uses signal values already stored in stock_signals (from morning run).
+// No API calls — pure DB read → recompute score with latest settings → write back.
+// Picks up weight changes and setting changes immediately.
+async function rescoreAllFromCache() {
+  await settingsCache.reloadSettings();
+
+  const gcSettings  = settingsCache.getGoldenCross();
+  const recentWindow = gcSettings.pulsing_glow_days !== undefined ? gcSettings.pulsing_glow_days : 5;
+  const scoringSettings = settingsCache.getScoring();
+  const buyThreshold  = scoringSettings.score_threshold_buy  ?? 50;
+  const sellThreshold = scoringSettings.score_threshold_sell ?? 20;
+
+  const marketBullish = analyzeSymbol._marketBullish ?? null;
+
+  const rows = await db.query(`
+    SELECT ss.*,
+           w.eps_growth, w.revenue_growth, w.debt_equity, w.roe,
+           w.short_float, w.rec_mean, w.rec_count, w.ps_ratio
+    FROM stock_signals ss
+    JOIN watchlist w ON ss.symbol = w.symbol
+    WHERE w.is_active = 1
+  `);
+
+  let updated = 0;
+  for (const row of rows) {
+    try {
+      const isStock  = (row.asset_type || 'stock') === 'stock';
+      const ma50     = row.ma50  ? parseFloat(row.ma50)  : null;
+      const ma200    = row.ma200 ? parseFloat(row.ma200) : null;
+      const price    = row.price ? parseFloat(row.price) : null;
+      const ema9v    = row.ema9  ? parseFloat(row.ema9)  : null;
+      const ema21v   = row.ema21 ? parseFloat(row.ema21) : null;
+      const ema50v   = row.ema50 ? parseFloat(row.ema50) : null;
+
+      const signals = {
+        rsi:              row.rsi  ? parseFloat(row.rsi)  : null,
+        aboveMa50:        row.above_50ma  ? Boolean(parseInt(row.above_50ma))  : null,
+        aboveMa200:       row.above_200ma ? Boolean(parseInt(row.above_200ma)) : null,
+        goldenAgo:        row.golden_cross_ago        !== null ? parseInt(row.golden_cross_ago)        : null,
+        deathAgo:         row.death_cross_ago         !== null ? parseInt(row.death_cross_ago)         : null,
+        isGoldenActive:   ma50 && ma200 ? ma50 > ma200 : false,
+        isDeathActive:    ma50 && ma200 ? ma50 < ma200 : false,
+        priceCross50Ago:  row.price_crossed_50ma_ago  !== null ? parseInt(row.price_crossed_50ma_ago)  : null,
+        priceCross200Ago: row.price_crossed_200ma_ago !== null ? parseInt(row.price_crossed_200ma_ago) : null,
+        ma50, ma200, price,
+        ema9:             ema9v,
+        ema21:            ema21v,
+        ema50ema:         ema50v,
+        ema9BullCrossAgo: row.ema9_bull_cross_ago !== null ? parseInt(row.ema9_bull_cross_ago) : null,
+        ema9BearCrossAgo: row.ema9_bear_cross_ago !== null ? parseInt(row.ema9_bear_cross_ago) : null,
+        volRatio:         null,  // Not available between morning runs
+        priceChangePct:   row.price_change_pct ? parseFloat(row.price_change_pct) : 0,
+        macdTrend:        row.macd_trend || 'neutral',
+        macdCrossAgo:     row.macd_cross_ago !== null ? parseInt(row.macd_cross_ago) : null,
+        peTrailing:       row.pe_trailing    ? parseFloat(row.pe_trailing)    : null,
+        peForward:        row.pe_forward     ? parseFloat(row.pe_forward)     : null,
+        divYield:         row.dividend_yield ? parseFloat(row.dividend_yield) : null,
+        psRatio:          row.ps_ratio       ? parseFloat(row.ps_ratio)       : null,
+        sectorPE:         isStock ? getSectorPE(row.sector) : null,
+        sectorPS:         isStock ? getSectorPS(row.sector) : null,
+        epsGrowth:        row.eps_growth     ? parseFloat(row.eps_growth)     : null,
+        revenueGrowth:    row.revenue_growth ? parseFloat(row.revenue_growth) : null,
+        debtEquity:       row.debt_equity    ? parseFloat(row.debt_equity)    : null,
+        roe:              row.roe            ? parseFloat(row.roe)            : null,
+        shortFloat:       row.short_float    ? parseFloat(row.short_float)    : null,
+        recMean:          row.rec_mean       ? parseFloat(row.rec_mean)       : null,
+        recCount:         row.rec_count      ? parseInt(row.rec_count)        : null,
+        targetMean:       row.target_mean    ? parseFloat(row.target_mean)    : null,
+        analystBuy:       row.analyst_buy    ? parseInt(row.analyst_buy)      : null,
+        analystSell:      row.analyst_sell   ? parseInt(row.analyst_sell)     : null,
+        analystHold:      row.analyst_hold   ? parseInt(row.analyst_hold)     : null,
+        marketBullish,
+        priceLatest:      price,
+        isStock,
+        recentWindow,
+      };
+
+      const { finalScore, topReasons, positiveCount, negativeCount, denominator } = computeScore(signals);
+
+      // Layer 4 override
+      let layer4Count = 0;
+      const layer4Conds = [];
+      if (!signals.aboveMa50) { layer4Count++; layer4Conds.push('Price below 50DMA'); }
+      if (ma50 && ma200 && ma50 < ma200) { layer4Count++; layer4Conds.push('50DMA below 200DMA'); }
+      if (['bearish','below_signal'].includes(signals.macdTrend)) { layer4Count++; layer4Conds.push('MACD bearish'); }
+      if (ema9v !== null && ema21v !== null && ema9v < ema21v) { layer4Count++; layer4Conds.push('EMA9 below EMA21'); }
+      if (marketBullish === false) { layer4Count++; layer4Conds.push('SPY below 50DMA'); }
+
+      let recommendation;
+      if (layer4Count >= 3) {
+        recommendation = 'SELL';
+      } else {
+        recommendation = finalScore > buyThreshold ? 'BUY' : finalScore > sellThreshold ? 'HOLD' : 'SELL';
+      }
+
+      const layer4List = layer4Conds.length ? layer4Conds.map(c => `  • ${c}`).join('\n') : '  (all momentum indicators bullish)';
+      const scoreInfo  = finalScore > buyThreshold ? `>50 (BUY)` : finalScore > sellThreshold ? `20-50 (HOLD)` : `≤20 (SELL)`;
+      const whyText = `Signal Score: ${finalScore.toFixed(0)}/100 (${positiveCount} bullish, ${negativeCount} bearish)\n${topReasons.replace(/Score: \d+\/100.*?\| /, '').split(' | ').map(s => `  ${s}`).join('\n')}\n\nLayer 4 Score: ${layer4Count}/5 bearish conditions:\n${layer4List}\n\nDecision: ${recommendation}\n  Signal Score: ${finalScore.toFixed(0)} (${scoreInfo})\n  Layer 4: ${layer4Count}/5 (${layer4Count >= 3 ? '≥3 = FORCE SELL' : '≤2 = safe'})`;
+
+      await db.query(
+        `UPDATE stock_signals SET score=?, signal_count=?, recommendation=?, why=? WHERE symbol=?`,
+        [Math.round(finalScore * 100) / 100, denominator, recommendation, whyText, row.symbol]
+      );
+      updated++;
+    } catch (err) {
+      console.error(`[Rescore] Failed ${row.symbol}: ${err.message}`);
+    }
+  }
+  console.log(`[Rescore] Rescored ${updated} stocks from cache`);
+}
+
+module.exports = { analyzeAll, analyzeSymbol, rescoreAllFromCache };

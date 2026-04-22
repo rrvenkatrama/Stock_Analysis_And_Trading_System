@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Scoring Methodology</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    color: #f0f6fc;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    color: #8b949e;
+    font-size: 13px;
+    margin-bottom: 36px;
+  }
+
+  h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #f0f6fc;
+    margin: 36px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #21262d;
+  }
+
+  h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #58a6ff;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 22px 0 10px;
+  }
+
+  p { margin-bottom: 10px; color: #c9d1d9; }
+
+  /* ── Cards ── */
+  .card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media(max-width:720px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
+
+  /* ── Recommendation badges ── */
+  .rec-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media(max-width:700px){ .rec-grid{ grid-template-columns:1fr 1fr; } }
+
+  .rec-card {
+    border-radius: 8px;
+    padding: 16px 14px;
+    text-align: center;
+  }
+  .rec-card .label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing:.05em; margin-bottom:4px; }
+  .rec-card .score { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .rec-card .rec   { font-size: 17px; font-weight: 700; }
+  .rec-card .desc  { font-size: 11px; margin-top: 4px; }
+
+  .rec-buy   { background:#0d2b1a; border:1px solid #1a5c30; }
+  .rec-buy .score  { color:#4ade80; }
+  .rec-buy .rec    { color:#4ade80; }
+  .rec-buy .desc   { color:#86efac; }
+
+  .rec-hold  { background:#2b2200; border:1px solid #7c5c00; }
+  .rec-hold .score { color:#facc15; }
+  .rec-hold .rec   { color:#facc15; }
+  .rec-hold .desc  { color:#fde68a; }
+
+  .rec-sell  { background:#2b0d0d; border:1px solid #7c1d1d; }
+  .rec-sell .score { color:#f87171; }
+  .rec-sell .rec   { color:#f87171; }
+  .rec-sell .desc  { color:#fca5a5; }
+
+  .rec-force { background:#1f0a2b; border:1px solid #6d28d9; }
+  .rec-force .score{ color:#c084fc; }
+  .rec-force .rec  { color:#c084fc; }
+  .rec-force .desc { color:#d8b4fe; }
+
+  /* ── Formula box ── */
+  .formula {
+    background:#0d1117;
+    border:1px solid #30363d;
+    border-radius:6px;
+    padding:16px 20px;
+    font-family:'SFMono-Regular', Consolas, monospace;
+    font-size:13px;
+    color:#79c0ff;
+    margin:10px 0 16px;
+  }
+  .formula .comment { color:#8b949e; }
+
+  /* ── Step boxes ── */
+  .steps { counter-reset: step; }
+  .step {
+    display:flex;
+    gap:16px;
+    margin-bottom:18px;
+    align-items:flex-start;
+  }
+  .step-num {
+    counter-increment: step;
+    background:#1f6feb;
+    color:#fff;
+    font-size:12px;
+    font-weight:700;
+    width:24px;
+    height:24px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    margin-top:1px;
+  }
+  .step-body { flex:1; }
+  .step-body strong { color:#f0f6fc; }
+
+  /* ── Layer 4 ── */
+  .layer4-conditions {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin:10px 0 14px;
+  }
+  @media(max-width:600px){ .layer4-conditions{ grid-template-columns:1fr; } }
+
+  .l4-item {
+    background:#0d1117;
+    border:1px solid #21262d;
+    border-left:3px solid #f87171;
+    border-radius:5px;
+    padding:8px 12px;
+    font-size:12px;
+    color:#c9d1d9;
+  }
+  .l4-item .num { color:#f87171; font-weight:700; margin-right:6px; }
+
+  .alert-box {
+    background:#1f0a0a;
+    border:1px solid #7c1d1d;
+    border-radius:6px;
+    padding:12px 16px;
+    font-size:13px;
+    color:#fca5a5;
+    margin-top:8px;
+  }
+  .alert-box strong { color:#f87171; }
+
+  /* ── Signal tables ── */
+  table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:12px;
+    margin-top:8px;
+  }
+  th {
+    background:#1c2128;
+    color:#8b949e;
+    font-weight:600;
+    text-align:left;
+    padding:8px 12px;
+    text-transform:uppercase;
+    font-size:11px;
+    letter-spacing:.04em;
+  }
+  td {
+    padding:7px 12px;
+    border-bottom:1px solid #21262d;
+    color:#c9d1d9;
+    vertical-align:top;
+  }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:#1c2128; }
+
+  .bull { color:#4ade80; font-weight:600; }
+  .bear { color:#f87171; font-weight:600; }
+  .neutral { color:#8b949e; }
+
+  .tag {
+    display:inline-block;
+    padding:2px 7px;
+    border-radius:10px;
+    font-size:11px;
+    font-weight:600;
+  }
+  .tag-bull { background:#0d2b1a; color:#4ade80; border:1px solid #1a5c30; }
+  .tag-bear { background:#2b0d0d; color:#f87171; border:1px solid #7c1d1d; }
+
+  /* ── Category headers ── */
+  .cat-header {
+    background:#1c2128;
+    border:1px solid #21262d;
+    border-radius:8px;
+    padding:14px 18px;
+    margin-bottom:12px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .cat-icon { font-size:18px; }
+  .cat-title { font-size:15px; font-weight:700; color:#f0f6fc; }
+  .cat-desc  { font-size:12px; color:#8b949e; margin-top:2px; }
+
+  /* ── Example box ── */
+  .example-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-top:10px;
+  }
+  @media(max-width:650px){ .example-grid{ grid-template-columns:1fr; } }
+
+  .signal-list { list-style:none; padding:0; margin:0; }
+  .signal-list li {
+    padding:5px 10px;
+    border-radius:4px;
+    font-size:12px;
+    margin-bottom:4px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .sl-bull { background:#0a2016; border-left:3px solid #4ade80; }
+  .sl-bear { background:#200a0a; border-left:3px solid #f87171; }
+
+  .score-meter {
+    background:#0d1117;
+    border:1px solid #30363d;
+    border-radius:6px;
+    padding:14px 16px;
+    text-align:center;
+  }
+  .score-val { font-size:36px; font-weight:800; color:#facc15; }
+  .score-label { font-size:12px; color:#8b949e; margin-top:4px; }
+
+  /* ── Weight pill ── */
+  .wpill {
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:10px;
+    font-size:11px;
+    font-weight:700;
+    font-family:monospace;
+  }
+  .w-pos { background:#0d2b1a; color:#4ade80; border:1px solid #1a5c30; }
+  .w-neg { background:#2b0d0d; color:#f87171; border:1px solid #7c1d1d; }
+  .w-zero{ background:#1c2128; color:#8b949e; border:1px solid #30363d; }
+
+  /* ── Scrollable tables ── */
+  .table-wrap { overflow-x:auto; }
+
+  /* ── Nav ── */
+  .toc {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:32px;
+  }
+  .toc a {
+    background:#161b22;
+    border:1px solid #21262d;
+    border-radius:20px;
+    padding:5px 14px;
+    color:#58a6ff;
+    text-decoration:none;
+    font-size:12px;
+  }
+  .toc a:hover { background:#1c2128; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Stock Scoring Methodology</h1>
+  <p class="subtitle">Version 2.0 &nbsp;·&nbsp; Last Updated: 2026-04-22 &nbsp;·&nbsp; Fully Configurable Weights</p>
+
+  <nav class="toc">
+    <a href="#recommendations">Recommendations</a>
+    <a href="#formula">Score Formula</a>
+    <a href="#decision-tree">Decision Tree</a>
+    <a href="#layer4">Layer 4 Override</a>
+    <a href="#signals">All Signals</a>
+    <a href="#weights">Weight System</a>
+    <a href="#example">Real Example</a>
+  </nav>
+
+  <!-- ── Recommendation Rules ── -->
+  <section id="recommendations">
+    <h2>Recommendation Rules</h2>
+    <div class="rec-grid">
+      <div class="rec-card rec-buy">
+        <div class="label">Score</div>
+        <div class="score">&gt; 50</div>
+        <div class="rec">BUY</div>
+        <div class="desc">Strong entry signal</div>
+      </div>
+      <div class="rec-card rec-hold">
+        <div class="label">Score</div>
+        <div class="score">20 – 50</div>
+        <div class="rec">HOLD</div>
+        <div class="desc">Mixed signals; wait</div>
+      </div>
+      <div class="rec-card rec-sell">
+        <div class="label">Score</div>
+        <div class="score">&lt; 20</div>
+        <div class="rec">SELL</div>
+        <div class="desc">Weak / negative signals</div>
+      </div>
+      <div class="rec-card rec-force">
+        <div class="label">Layer 4</div>
+        <div class="score">≥ 3 / 5</div>
+        <div class="rec">FORCE SELL</div>
+        <div class="desc">Overrides signal score</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Score Formula ── -->
+  <section id="formula">
+    <h2>Score Formula</h2>
+    <div class="card">
+      <div class="formula">
+        positiveCount = Σ (weights &gt; 0)<br>
+        negativeCount = Σ |weights &lt; 0|<br>
+        totalSignals  = positiveCount + negativeCount<br><br>
+        Score = (positiveCount − negativeCount) / max(5, totalSignals) × 100<br><br>
+        <span class="comment">Range: −100 to +100 &nbsp;·&nbsp; Negative scores are valid (strongly bearish)</span>
+      </div>
+      <div class="grid-2">
+        <div>
+          <h3>Key Rules</h3>
+          <ul style="list-style:none;padding:0;font-size:13px;color:#c9d1d9">
+            <li style="padding:4px 0">→ Denominator floors at <strong style="color:#f0f6fc">5</strong> — prevents tiny signal sets from inflating scores</li>
+            <li style="padding:4px 0">→ Score can go <strong style="color:#f87171">negative</strong> — strong bearish signals dominate</li>
+            <li style="padding:4px 0">→ Weights are <strong style="color:#f0f6fc">any numeric value</strong> — not just ±1</li>
+            <li style="padding:4px 0">→ Zero weight = signal <strong style="color:#8b949e">ignored</strong> entirely</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Quick Example</h3>
+          <div class="formula" style="font-size:12px">
+            Bullish: +1, +1, +2 = positiveCount <strong style="color:#4ade80">4</strong><br>
+            Bearish: −1, −1 = negativeCount <strong style="color:#f87171">2</strong><br>
+            Total = 6 signals<br><br>
+            Score = (4 − 2) / max(5,6) × 100<br>
+            Score = 2/6 × 100 = <strong style="color:#facc15">33</strong> → HOLD
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Decision Tree ── -->
+  <section id="decision-tree">
+    <h2>Decision Tree</h2>
+    <div class="card">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <strong>Calculate Signal Score</strong>
+            <p style="margin-top:4px;font-size:13px">Sum all active bullish signal weights (positive) and all active bearish signal weights (absolute value). Apply formula above.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <strong>Apply Score-Based Recommendation</strong>
+            <div class="formula" style="margin-top:8px;font-size:12px">
+              score &gt; 50  →  BUY<br>
+              score ≥ 20  →  HOLD<br>
+              score &lt; 20  →  SELL
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <strong>Apply Layer 4 Override</strong>
+            <p style="margin-top:4px;font-size:13px">Count bearish momentum conditions (see Layer 4 section). If <strong style="color:#f87171">≥ 3 of 5</strong> are true, force SELL regardless of signal score. This protects against buying into a deteriorating trend.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Layer 4 ── -->
+  <section id="layer4">
+    <h2>Layer 4 Momentum Override</h2>
+    <div class="card">
+      <p style="margin-bottom:14px;font-size:13px">Layer 4 is a hard safety valve. Even with strong fundamentals, if the stock is technically breaking down, it forces a SELL recommendation to prevent false entries.</p>
+      <h3>The 5 Conditions</h3>
+      <div class="layer4-conditions">
+        <div class="l4-item"><span class="num">1</span>Price &lt; 50-day Moving Average</div>
+        <div class="l4-item"><span class="num">2</span>50-day MA &lt; 200-day MA (death zone)</div>
+        <div class="l4-item"><span class="num">3</span>MACD bearish trend</div>
+        <div class="l4-item"><span class="num">4</span>EMA 9 &lt; EMA 21 (short-term momentum negative)</div>
+        <div class="l4-item"><span class="num">5</span>SPY &lt; SPY 50-day MA (market regime bearish)</div>
+      </div>
+      <div class="alert-box">
+        <strong>Rule:</strong> If 3 or more conditions are true → SELL is forced, regardless of signal score, fundamentals, or analyst consensus.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── All Signals ── -->
+  <section id="signals">
+    <h2>All Signal Categories</h2>
+
+    <!-- Moving Averages -->
+    <div class="cat-header">
+      <div class="cat-icon">📈</div>
+      <div>
+        <div class="cat-title">Moving Averages (SMA 50 / 200)</div>
+        <div class="cat-desc">Institutional standard — fewer false signals than EMA for primary trend</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Signal</th><th>Type</th><th>Notes</th></tr>
+        <tr><td>Golden cross (50MA &gt; 200MA) — active</td><td><span class="tag tag-bull">Bullish</span></td><td>Primary uptrend confirmed</td></tr>
+        <tr><td>Golden cross — recent (within N days, configurable)</td><td><span class="tag tag-bull">Bullish</span></td><td>Swing entry window</td></tr>
+        <tr><td>Death cross (50MA &lt; 200MA) — active</td><td><span class="tag tag-bear">Bearish</span></td><td>Primary downtrend</td></tr>
+        <tr><td>Death cross — recent (within N days)</td><td><span class="tag tag-bear">Bearish</span></td><td>Momentum deteriorating</td></tr>
+        <tr><td>Price &gt; 200MA</td><td><span class="tag tag-bull">Bullish</span></td><td>Above major support</td></tr>
+        <tr><td>Price &gt; 50MA</td><td><span class="tag tag-bull">Bullish</span></td><td>Above minor support</td></tr>
+        <tr><td>Price &lt; 50MA</td><td><span class="tag tag-bear">Bearish</span></td><td>Below key support</td></tr>
+        <tr><td>Price &lt; 200MA</td><td><span class="tag tag-bear">Bearish</span></td><td>Below major support</td></tr>
+      </table>
+    </div>
+
+    <!-- Overextension -->
+    <div class="cat-header">
+      <div class="cat-icon">⚠️</div>
+      <div>
+        <div class="cat-title">Overextension Above 50MA</div>
+        <div class="cat-desc">Poor entry risk — retracement likely at elevated levels</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Range Above 50MA</th><th>Type</th><th>Meaning</th></tr>
+        <tr><td>10 – 15%</td><td><span class="tag tag-bear">Bearish</span></td><td>Stretched; retracement risk</td></tr>
+        <tr><td>15 – 25%</td><td><span class="tag tag-bear">Bearish</span></td><td>Dangerous; likely pullback</td></tr>
+        <tr><td>&gt; 25%</td><td><span class="tag tag-bear">Bearish</span></td><td>Extreme; mean-reversion setup</td></tr>
+      </table>
+    </div>
+
+    <!-- EMA 9/21 -->
+    <div class="cat-header">
+      <div class="cat-icon">⚡</div>
+      <div>
+        <div class="cat-title">EMA 9 / 21 — Short-Term Momentum</div>
+        <div class="cat-desc">Early warning signal; faster than SMA crosses</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Signal</th><th>Type</th><th>Notes</th></tr>
+        <tr><td>EMA9 crossed above EMA21 (≤ 1d ago)</td><td><span class="tag tag-bull">Bullish</span></td><td>Swing entry; momentum turning</td></tr>
+        <tr><td>EMA9 above EMA21 (sustained)</td><td><span class="tag tag-bull">Bullish</span></td><td>Bullish short-term momentum</td></tr>
+        <tr><td>EMA9 below EMA21</td><td><span class="tag tag-bear">Bearish</span></td><td>Bearish momentum</td></tr>
+        <tr><td>EMA9 crossed below EMA21 (≤ 3d ago)</td><td><span class="tag tag-bear">Bearish</span></td><td>Momentum deteriorating — exit warning</td></tr>
+      </table>
+    </div>
+
+    <!-- Volume -->
+    <div class="cat-header">
+      <div class="cat-icon">📊</div>
+      <div>
+        <div class="cat-title">Volume Confirmation</div>
+        <div class="cat-desc">Validates price moves — high volume = institutional participation</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Signal</th><th>Type</th><th>Notes</th></tr>
+        <tr><td>Price up + volume ≥ 1.5× 20-day average</td><td><span class="tag tag-bull">Bullish</span></td><td>Institutional buying</td></tr>
+        <tr><td>Price up + volume 1.2 – 1.5× average</td><td><span class="tag tag-bull">Bullish</span></td><td>Moderate bullish volume</td></tr>
+        <tr><td>Price down + volume ≥ 1.5× average</td><td><span class="tag tag-bear">Bearish</span></td><td>Heavy selling pressure</td></tr>
+      </table>
+    </div>
+
+    <!-- RSI -->
+    <div class="cat-header">
+      <div class="cat-icon">🎯</div>
+      <div>
+        <div class="cat-title">RSI (14-period)</div>
+        <div class="cat-desc">Momentum oscillator — identifies oversold recovery opportunities and overbought risk</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Range</th><th>Type</th><th>Notes</th></tr>
+        <tr><td>&lt; 30 (oversold)</td><td><span class="tag tag-bull">Bullish</span></td><td>Recovery setup</td></tr>
+        <tr><td>30 – 45 (recovering)</td><td><span class="tag tag-bull">Bullish</span></td><td>Momentum building</td></tr>
+        <tr><td>&gt; 65 (overbought)</td><td><span class="tag tag-bear">Bearish</span></td><td>Pullback likely</td></tr>
+      </table>
+    </div>
+
+    <!-- MACD -->
+    <div class="cat-header">
+      <div class="cat-icon">🔀</div>
+      <div>
+        <div class="cat-title">MACD (12 / 26 / 9)</div>
+        <div class="cat-desc">Trend-following momentum — crossovers signal direction changes</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Signal</th><th>Type</th><th>Notes</th></tr>
+        <tr><td>MACD crosses above signal line (≤ 1d ago)</td><td><span class="tag tag-bull">Bullish</span></td><td>Momentum turning positive</td></tr>
+        <tr><td>MACD &gt; signal line (above zero)</td><td><span class="tag tag-bull">Bullish</span></td><td>Bullish trend</td></tr>
+        <tr><td>MACD &lt; signal line (below zero)</td><td><span class="tag tag-bear">Bearish</span></td><td>Bearish trend</td></tr>
+        <tr><td>MACD crosses below signal line</td><td><span class="tag tag-bear">Bearish</span></td><td>Momentum turning negative</td></tr>
+      </table>
+    </div>
+
+    <!-- Valuation -->
+    <div class="cat-header">
+      <div class="cat-icon">💰</div>
+      <div>
+        <div class="cat-title">Valuation — Sector-Relative</div>
+        <div class="cat-desc">PE and PEG compared to sector averages — not absolute thresholds</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Signal</th><th>Type</th><th>Notes</th></tr>
+        <tr><td>PE 40%+ below sector average</td><td><span class="tag tag-bull">Bullish</span></td><td>Deep value</td></tr>
+        <tr><td>PE 20 – 40% below sector average</td><td><span class="tag tag-bull">Bullish</span></td><td>Good value</td></tr>
+        <tr><td>PE 30%+ above sector average</td><td><span class="tag tag-bear">Bearish</span></td><td>Expensive relative to peers</td></tr>
+        <tr><td>PEG &lt; 1 (cheap vs growth)</td><td><span class="tag tag-bull">Bullish</span></td><td>Undervalued</td></tr>
+        <tr><td>PEG 1 – 2 (fair value)</td><td><span class="tag tag-bull">Bullish</span></td><td>Fairly priced</td></tr>
+        <tr><td>PEG &gt; 3 (expensive)</td><td><span class="tag tag-bear">Bearish</span></td><td>Overpriced growth</td></tr>
+        <tr><td>Forward PE &lt; Trailing PE</td><td><span class="tag tag-bull">Bullish</span></td><td>Earnings growth accelerating</td></tr>
+      </table>
+    </div>
+
+    <!-- Fundamentals -->
+    <div class="cat-header">
+      <div class="cat-icon">🏢</div>
+      <div>
+        <div class="cat-title">Fundamental Quality (3-Year Averages)</div>
+        <div class="cat-desc">Business quality indicators — EPS/revenue growth, profitability, leverage</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Signal</th><th>Type</th><th>Notes</th></tr>
+        <tr><td>EPS growth &gt; 20%</td><td><span class="tag tag-bull">Bullish</span></td><td>Strong earnings growth</td></tr>
+        <tr><td>EPS growth 10 – 20%</td><td><span class="tag tag-bull">Bullish</span></td><td>Moderate growth</td></tr>
+        <tr><td>EPS growth negative</td><td><span class="tag tag-bear">Bearish</span></td><td>Deteriorating earnings</td></tr>
+        <tr><td>Revenue growth &gt; 15%</td><td><span class="tag tag-bull">Bullish</span></td><td>Expanding business</td></tr>
+        <tr><td>Revenue growth 5 – 15%</td><td><span class="tag tag-bull">Bullish</span></td><td>Steady growth</td></tr>
+        <tr><td>ROE &gt; 20%</td><td><span class="tag tag-bull">Bullish</span></td><td>High-quality business</td></tr>
+        <tr><td>ROE 10 – 20%</td><td><span class="tag tag-bull">Bullish</span></td><td>Good quality</td></tr>
+        <tr><td>ROE negative</td><td><span class="tag tag-bear">Bearish</span></td><td>Value destruction</td></tr>
+        <tr><td>Debt/Equity &lt; 0.3</td><td><span class="tag tag-bull">Bullish</span></td><td>Low leverage; safe</td></tr>
+        <tr><td>Debt/Equity &gt; 2.0</td><td><span class="tag tag-bear">Bearish</span></td><td>High leverage; risky</td></tr>
+      </table>
+    </div>
+
+    <!-- Dividend -->
+    <div class="cat-header">
+      <div class="cat-icon">💵</div>
+      <div>
+        <div class="cat-title">Dividend Income</div>
+        <div class="cat-desc">Passive income signals — higher yield = stronger signal</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Yield</th><th>Type</th><th>Notes</th></tr>
+        <tr><td>≥ 5%</td><td><span class="tag tag-bull">Bullish</span></td><td>High income</td></tr>
+        <tr><td>≥ 3%</td><td><span class="tag tag-bull">Bullish</span></td><td>Good income</td></tr>
+        <tr><td>≥ 1.5%</td><td><span class="tag tag-bull">Bullish</span></td><td>Modest income</td></tr>
+        <tr><td>≥ 0.5%</td><td><span class="tag tag-bull">Bullish</span></td><td>Token dividend</td></tr>
+      </table>
+    </div>
+
+    <!-- Analyst Consensus -->
+    <div class="cat-header">
+      <div class="cat-icon">👥</div>
+      <div>
+        <div class="cat-title">Analyst Consensus</div>
+        <div class="cat-desc">Requires ≥ 3 analysts — small samples are unreliable</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Signal</th><th>Type</th><th>Notes</th></tr>
+        <tr><td>≥ 70% buy ratings</td><td><span class="tag tag-bull">Bullish</span></td><td>Strong consensus</td></tr>
+        <tr><td>≥ 50% buy ratings</td><td><span class="tag tag-bull">Bullish</span></td><td>Consensus buy</td></tr>
+        <tr><td>≥ 40% sell ratings</td><td><span class="tag tag-bear">Bearish</span></td><td>Consensus sell</td></tr>
+      </table>
+    </div>
+
+    <!-- Short Interest -->
+    <div class="cat-header">
+      <div class="cat-icon">🩳</div>
+      <div>
+        <div class="cat-title">Short Interest</div>
+        <div class="cat-desc">High short interest can fuel squeeze rallies or confirm downtrends</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Signal</th><th>Type</th><th>Notes</th></tr>
+        <tr><td>&gt; 20% short + price rising</td><td><span class="tag tag-bull">Bullish</span></td><td>Short squeeze potential</td></tr>
+        <tr><td>&gt; 30% short + price falling</td><td><span class="tag tag-bear">Bearish</span></td><td>Bears winning — avoid</td></tr>
+      </table>
+    </div>
+
+    <!-- Market Context -->
+    <div class="cat-header">
+      <div class="cat-icon">🌍</div>
+      <div>
+        <div class="cat-title">Market Context (SPY Analysis)</div>
+        <div class="cat-desc">Macro regime — don't fight the tape</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0">
+      <table>
+        <tr><th>Signal</th><th>Type</th><th>Notes</th></tr>
+        <tr><td>SPY &gt; 200MA + MACD bullish</td><td><span class="tag tag-bull">Bullish</span></td><td>Global bullish regime</td></tr>
+        <tr><td>SPY &lt; 200MA</td><td><span class="tag tag-bear">Bearish</span></td><td>Global bearish regime — reduce exposure</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Weight System ── -->
+  <section id="weights">
+    <h2>Signal Weight System</h2>
+    <div class="card">
+      <p style="font-size:13px;margin-bottom:16px">All weights are stored in the <code style="background:#1c2128;padding:2px 6px;border-radius:3px;color:#79c0ff">signal_weights</code> database table. Change any weight at runtime — no code deploy needed.</p>
+      <div class="grid-3" style="margin-bottom:16px">
+        <div style="text-align:center;padding:14px;background:#0d1117;border:1px solid #21262d;border-radius:6px">
+          <div style="font-size:22px;font-weight:800;color:#4ade80">+N</div>
+          <div style="font-size:12px;color:#8b949e;margin-top:4px">Positive = Bullish<br>Higher = stronger signal</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:#0d1117;border:1px solid #21262d;border-radius:6px">
+          <div style="font-size:22px;font-weight:800;color:#f87171">−N</div>
+          <div style="font-size:12px;color:#8b949e;margin-top:4px">Negative = Bearish<br>Lower = stronger signal</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:#0d1117;border:1px solid #21262d;border-radius:6px">
+          <div style="font-size:22px;font-weight:800;color:#8b949e">0</div>
+          <div style="font-size:12px;color:#8b949e;margin-top:4px">Zero = Ignored<br>Signal has no effect</div>
+        </div>
+      </div>
+      <h3>Example Strategies</h3>
+      <div class="grid-2">
+        <div>
+          <div style="font-size:12px;color:#8b949e;margin-bottom:8px;font-weight:600">Conservative (default ±1)</div>
+          <table style="font-size:12px">
+            <tr><td>golden_cross_active</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>death_cross_active</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>above_50ma</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>below_50ma</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>macd_trend_up</td><td><span class="wpill w-pos">+1</span></td></tr>
+          </table>
+        </div>
+        <div>
+          <div style="font-size:12px;color:#8b949e;margin-bottom:8px;font-weight:600">Aggressive (emphasize crosses)</div>
+          <table style="font-size:12px">
+            <tr><td>golden_cross_active</td><td><span class="wpill w-pos">+3</span></td></tr>
+            <tr><td>death_cross_active</td><td><span class="wpill w-neg">−3</span></td></tr>
+            <tr><td>above_50ma</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>below_50ma</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>macd_trend_up</td><td><span class="wpill w-pos">+2</span></td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="formula" style="margin-top:16px;font-size:12px">
+        <span class="comment">-- Change anytime, takes effect within 5 minutes</span><br>
+        UPDATE signal_weights SET weight = 3 WHERE signal_name = 'golden_cross_active';<br>
+        UPDATE signal_weights SET weight = -3 WHERE signal_name = 'death_cross_active';<br><br>
+        <span class="comment">-- Check current setup</span><br>
+        SELECT signal_name, weight, signal_type FROM signal_weights ORDER BY weight DESC;
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Real Example ── -->
+  <section id="example">
+    <h2>Real Example: Adobe (ADBE) — 2026-04-22</h2>
+    <div class="card">
+      <div class="example-grid">
+        <div>
+          <h3>Bullish Signals (+1 each)</h3>
+          <ul class="signal-list">
+            <li class="sl-bull">✓ MACD trending up</li>
+            <li class="sl-bull">✓ PE 13.9 — 40%+ below sector avg (28×)</li>
+            <li class="sl-bull">✓ PEG 0.76 — undervalued vs 18% growth</li>
+            <li class="sl-bull">✓ EPS growth 18% (moderate range)</li>
+            <li class="sl-bull">✓ Revenue growth 11% (steady)</li>
+            <li class="sl-bull">✓ ROE 61.3% — high quality business</li>
+          </ul>
+          <h3 style="margin-top:14px">Bearish Signals (−1 each)</h3>
+          <ul class="signal-list">
+            <li class="sl-bear">✗ 50MA below 200MA — death zone active</li>
+            <li class="sl-bear">✗ Price below 50MA</li>
+            <li class="sl-bear">✗ Price below 200MA</li>
+            <li class="sl-bear">✗ EMA9 below EMA21 — bearish momentum</li>
+          </ul>
+        </div>
+        <div>
+          <div class="score-meter" style="margin-bottom:12px">
+            <div class="score-val" style="color:#facc15">20</div>
+            <div class="score-label">Signal Score / 100</div>
+            <div style="margin-top:8px;font-size:11px;color:#8b949e">
+              (6 − 4) / max(5,10) × 100 = 2/10 × 100
+            </div>
+          </div>
+          <div style="background:#1f0a0a;border:1px solid #7c1d1d;border-radius:6px;padding:12px 14px;font-size:12px">
+            <div style="color:#f87171;font-weight:700;margin-bottom:8px">SELL — Layer 4 Override</div>
+            <div style="color:#fca5a5;line-height:1.7">
+              Signal score = 20 → SELL threshold<br>
+              Layer 4: Price &lt; 50MA ✗ · 50MA &lt; 200MA ✗ · EMA9 &lt; EMA21 ✗<br>
+              3/5 conditions → FORCE SELL
+            </div>
+          </div>
+          <div style="margin-top:10px;padding:10px 12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;font-size:12px;color:#8b949e;line-height:1.6">
+            <strong style="color:#c9d1d9">Why:</strong> Fundamentals are strong but price is below all key MAs and momentum is negative. Wait for price to recover above 50MA and EMA cross to turn bullish before entering.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
