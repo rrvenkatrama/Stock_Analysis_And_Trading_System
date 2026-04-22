@@ -575,20 +575,31 @@ async function analyzeSymbol(symbol, quoteData = null) {
   // Layer 4 Pre-Buy Check (Momentum Deterioration)
   // Don't buy if ≥3 of 5 bearish conditions met
   let layer4BearishCount = 0;
-  if (!aboveMa50) layer4BearishCount++;  // 1. Price < 50DMA
-  if (ma50 && ma200 && ma50 < ma200) layer4BearishCount++;  // 2. 50DMA < 200DMA
-  if (['bearish','below_signal'].includes(macdTrend)) layer4BearishCount++;  // 3. MACD bearish
-  if (ema9 !== null && ema21 !== null && ema9 < ema21) layer4BearishCount++;  // 4. EMA9 < EMA21
+  const layer4Conditions = [];
+  if (!aboveMa50) { layer4BearishCount++; layer4Conditions.push('Price below 50DMA'); }
+  if (ma50 && ma200 && ma50 < ma200) { layer4BearishCount++; layer4Conditions.push('50DMA below 200DMA'); }
+  if (['bearish','below_signal'].includes(macdTrend)) { layer4BearishCount++; layer4Conditions.push('MACD bearish'); }
+  if (ema9 !== null && ema21 !== null && ema9 < ema21) { layer4BearishCount++; layer4Conditions.push('EMA9 below EMA21'); }
   const spyMarketBullish = analyzeSymbol._marketBullish ?? null;
-  if (spyMarketBullish === false) layer4BearishCount++;  // 5. SPY < SPY 50DMA
+  if (spyMarketBullish === false) { layer4BearishCount++; layer4Conditions.push('SPY below 50DMA'); }
 
-  let recommendation =
-    finalScore > buyThreshold ? 'BUY' :
-    finalScore > sellThreshold ? 'HOLD' : 'SELL';
+  // Integrated Layer 4 logic: Layer 4 ≥3 always triggers SELL, otherwise use signal score
+  let recommendation;
+  let layer4Summary = '';
 
-  // Block BUY if Layer 4 deterioration detected (≥3 bearish conditions)
-  if (recommendation === 'BUY' && layer4BearishCount >= 3) {
-    recommendation = 'HOLD';  // Downgrade to HOLD instead of immediate SELL
+  if (layer4Conditions.length > 0) {
+    layer4Summary = ` | Layer 4 (Momentum Check): ${layer4BearishCount}/5 bearish conditions (${layer4Conditions.join(', ')})`;
+  }
+
+  if (layer4BearishCount >= 3) {
+    // Layer 4 ≥3 → SELL (overrides signal score)
+    recommendation = 'SELL';
+    layer4Summary += ' — TRIGGER SELL due to momentum deterioration';
+  } else {
+    // Layer 4 ≤2 → Use signal-based scoring
+    recommendation =
+      finalScore > buyThreshold ? 'BUY' :
+      finalScore > sellThreshold ? 'HOLD' : 'SELL';
   }
 
   const crossType =
@@ -685,7 +696,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
       Math.round(finalScore * 100) / 100,
       denominator,
       recommendation,
-      topReasons,
+      topReasons + layer4Summary,
     ]
   );
 

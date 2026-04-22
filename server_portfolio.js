@@ -2180,7 +2180,12 @@ app.get('/watchlist/remove/:symbol', async (req, res) => {
 // ─── Toggle Pick/No Pick flag ────────────────────────────────────────────────
 app.get('/watchlist/toggle-pick/:symbol', async (req, res) => {
   const sym = req.params.symbol.toUpperCase();
-  await db.query(`UPDATE watchlist SET pick_flag = 1 - pick_flag WHERE symbol = ?`, [sym]);
+  // If stock not in watchlist, INSERT with pick_flag=1; if exists, toggle flag
+  await db.query(
+    `INSERT INTO watchlist (symbol, pick_flag, is_active) VALUES (?, 1, 1)
+     ON DUPLICATE KEY UPDATE pick_flag = 1 - pick_flag`,
+    [sym]
+  );
   res.redirect('/');
 });
 
