@@ -706,6 +706,46 @@ document.addEventListener('DOMContentLoaded', function attachPickToggle(){
   });
 });
 
+// ── Bulk pick toggle ────────────────────────────────────────────────────────────
+async function bulkTogglePick() {
+  const checked = document.querySelectorAll('.pick-select-cb:checked');
+  const symbols = Array.from(checked).map(cb => cb.dataset.sym);
+  if (!symbols.length) return;
+  const r = await fetch('/watchlist/toggle-pick-bulk', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ symbols })
+  });
+  if (r.ok) window.location.reload();
+  else alert('Bulk toggle failed');
+}
+
+function updatePickSelCount() {
+  const n = document.querySelectorAll('.pick-select-cb:checked').length;
+  const btn = document.getElementById('bulk-pick-btn');
+  const cnt = document.getElementById('pick-sel-count');
+  if (btn) btn.style.display = n > 0 ? '' : 'none';
+  if (cnt) cnt.textContent = n;
+}
+
+document.addEventListener('DOMContentLoaded', function setupBulkPick(){
+  document.addEventListener('change', function(e){
+    if (e.target.classList.contains('pick-select-cb')) updatePickSelCount();
+  });
+  const selectAll = document.getElementById('pick-select-all');
+  if (selectAll) {
+    selectAll.addEventListener('change', function(){
+      const visible = Array.from(document.querySelectorAll('#stocks-table tbody tr'))
+        .filter(r => r.style.display !== 'none');
+      visible.forEach(row => {
+        const cb = row.querySelector('.pick-select-cb');
+        if (cb) cb.checked = selectAll.checked;
+      });
+      updatePickSelCount();
+    });
+  }
+});
+
 // ── Restore filters from localStorage ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function restoreFilters(){
   try{
@@ -1448,6 +1488,7 @@ function stockRow(s, upgrade, pickFlag, positionSet) {
   const pickState = pickFlag === 1 ? 'pick' : 'noselect';
   const portfolioState = positionSet.has(s.symbol) ? 'in' : 'out';
   return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" data-cross="${gcState}" data-pick="${pickState}" data-inport="${portfolioState}">
+    <td style="text-align:center"><input type="checkbox" class="pick-select-cb" data-sym="${s.symbol}" style="cursor:pointer;accent-color:#48bb78"></td>
     ${starCell(s.cross_type, s.golden_cross_ago)}
     <td><b style="cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${s.symbol}','${nameSafe}')">${s.symbol}</b>${assetTag}<br><span style="color:#718096;font-size:11px">${s.name||''}</span>
       <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:nowrap;align-items:center;white-space:nowrap;overflow-x:auto">
@@ -1744,6 +1785,7 @@ ${pfSection}
     <option value="">Watchlist: All Stocks</option>
   </select>
   <button onclick="openWatchlistModal()" class="btn" style="background:#2d3748;color:#e2e8f0;font-size:11px;padding:4px 10px">☰ Manage Watchlists</button>
+  <button id="bulk-pick-btn" onclick="bulkTogglePick()" class="btn" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749;font-size:11px;padding:4px 10px;display:none">Toggle Pick (<span id="pick-sel-count">0</span>)</button>
   <button onclick="clearAllFilters()" class="btn" style="background:#f7fafc;color:#4a5568;border:1px solid #e2e8f0;font-size:11px;padding:4px 10px;margin-left:auto">Clear All</button>
   <button onclick="saveCurrentFilter()" class="btn" style="background:#f0fff4;color:#276749;border:1px solid #9ae6b4;font-size:11px;padding:4px 10px">Save Filter</button>
 </div>
@@ -1759,6 +1801,9 @@ ${pfSection}
 <div class="tbl-wrap" style="max-height:calc(100vh - 220px);margin:0 24px 16px">
 <table id="stocks-table">
 <thead><tr>
+  <th style="width:24px;text-align:center;cursor:default">
+    <input type="checkbox" id="pick-select-all" title="Select all visible" style="cursor:pointer;accent-color:#48bb78">
+  </th>
   <th style="width:30px;text-align:center;cursor:default">★</th>
   <th data-col="sym"    onclick="sortTable('sym')">Symbol / Name</th>
   <th data-col="price"  onclick="sortTable('price')">Price</th>
@@ -2126,6 +2171,21 @@ app.get('/watchlist/toggle-pick/:symbol', async (req, res) => {
     [sym]
   );
   res.redirect('/');
+});
+
+// ─── Bulk toggle pick flag ───────────────────────────────────────────────────
+app.post('/watchlist/toggle-pick-bulk', express.json(), async (req, res) => {
+  const symbols = req.body.symbols;
+  if (!Array.isArray(symbols) || symbols.length === 0)
+    return res.status(400).json({ error: 'No symbols' });
+  for (const sym of symbols) {
+    await db.query(
+      `INSERT INTO watchlist (symbol, pick_flag, is_active) VALUES (?, 1, 1)
+       ON DUPLICATE KEY UPDATE pick_flag = 1 - pick_flag`,
+      [sym.toUpperCase()]
+    );
+  }
+  res.json({ ok: true, toggled: symbols.length });
 });
 
 // ─── Add from Discover section (GET, one-click) ───────────────────────────────
