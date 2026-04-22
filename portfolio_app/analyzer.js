@@ -585,22 +585,32 @@ async function analyzeSymbol(symbol, quoteData = null) {
 
   // Integrated Layer 4 logic: Layer 4 ≥3 always triggers SELL, otherwise use signal score
   let recommendation;
-  let layer4Summary = '';
-
-  if (layer4Conditions.length > 0) {
-    layer4Summary = ` | Layer 4 (Momentum Check): ${layer4BearishCount}/5 bearish conditions (${layer4Conditions.join(', ')})`;
-  }
 
   if (layer4BearishCount >= 3) {
     // Layer 4 ≥3 → SELL (overrides signal score)
     recommendation = 'SELL';
-    layer4Summary += ' — TRIGGER SELL due to momentum deterioration';
   } else {
     // Layer 4 ≤2 → Use signal-based scoring
     recommendation =
       finalScore > buyThreshold ? 'BUY' :
       finalScore > sellThreshold ? 'HOLD' : 'SELL';
   }
+
+  // Format why field with clear sections: Signals, Layer 4, Decision
+  const signalSection = `Signal Score: ${finalScore.toFixed(0)}/100 (${positiveCount}/${denominator} bullish, ${negativeCount}/${denominator} bearish):\n${topReasons.split(' | ').slice(1).join('\n')}`;
+
+  const layer4ConditionsList = layer4Conditions.length > 0
+    ? layer4Conditions.join('\n')
+    : 'None — all momentum indicators bullish';
+  const layer4Section = `Layer 4 Score (${layer4BearishCount}/5 bearish conditions):\n${layer4ConditionsList}`;
+
+  const scoreThresholdInfo = finalScore > buyThreshold ? `${buyThreshold}+ = BUY range`
+                            : finalScore > sellThreshold ? `${sellThreshold}-${buyThreshold} = HOLD range`
+                            : `≤${sellThreshold} = SELL range`;
+  const layer4Info = layer4BearishCount >= 3 ? `${layer4BearishCount}/5 (≥3 = force SELL)` : `${layer4BearishCount}/5 (≤2 = safe)`;
+  const decisionSection = `Decision:\nSignal Score: ${finalScore.toFixed(0)} (${scoreThresholdInfo})\nLayer 4 Score: ${layer4Info}\nRecommendation: ${recommendation}`;
+
+  const whyText = `${signalSection}\n\n${layer4Section}\n\n${decisionSection}`;
 
   const crossType =
     isGoldenActive ? 'golden_cross' :
@@ -696,7 +706,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
       Math.round(finalScore * 100) / 100,
       denominator,
       recommendation,
-      topReasons + layer4Summary,
+      whyText,
     ]
   );
 
