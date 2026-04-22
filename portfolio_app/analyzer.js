@@ -597,20 +597,15 @@ async function analyzeSymbol(symbol, quoteData = null) {
   }
 
   // Format why field with clear sections: Signals, Layer 4, Decision
-  const signalSection = `Signal Score: ${finalScore.toFixed(0)}/100 (${positiveCount}/${denominator} bullish, ${negativeCount}/${denominator} bearish):\n${topReasons.split(' | ').slice(1).join('\n')}`;
-
   const layer4ConditionsList = layer4Conditions.length > 0
-    ? layer4Conditions.join('\n')
-    : 'None — all momentum indicators bullish';
-  const layer4Section = `Layer 4 Score (${layer4BearishCount}/5 bearish conditions):\n${layer4ConditionsList}`;
+    ? layer4Conditions.map(c => `  • ${c}`).join('\n')
+    : '  (all momentum indicators bullish)';
 
-  const scoreThresholdInfo = finalScore > buyThreshold ? `${buyThreshold}+ = BUY range`
-                            : finalScore > sellThreshold ? `${sellThreshold}-${buyThreshold} = HOLD range`
-                            : `≤${sellThreshold} = SELL range`;
-  const layer4Info = layer4BearishCount >= 3 ? `${layer4BearishCount}/5 (≥3 = force SELL)` : `${layer4BearishCount}/5 (≤2 = safe)`;
-  const decisionSection = `Decision:\nSignal Score: ${finalScore.toFixed(0)} (${scoreThresholdInfo})\nLayer 4 Score: ${layer4Info}\nRecommendation: ${recommendation}`;
+  const scoreThresholdInfo = finalScore > buyThreshold ? `>50 (BUY)`
+                            : finalScore > sellThreshold ? `20-50 (HOLD)`
+                            : `≤20 (SELL)`;
 
-  const whyText = `${signalSection}\n\n${layer4Section}\n\n${decisionSection}`;
+  const whyText = `Signal Score: ${finalScore.toFixed(0)}/100 (${positiveCount} bullish, ${negativeCount} bearish)\n${topReasons.replace(/Score: \d+\/100.*?\| /, '').split(' | ').map(s => `  ${s}`).join('\n')}\n\nLayer 4 Score: ${layer4BearishCount}/5 bearish conditions:\n${layer4ConditionsList}\n\nDecision: ${recommendation}\n  Signal Score: ${finalScore.toFixed(0)} (${scoreThresholdInfo})\n  Layer 4: ${layer4BearishCount}/5 (${layer4BearishCount >= 3 ? '≥3 = FORCE SELL' : '≤2 = safe'})`;
 
   const crossType =
     isGoldenActive ? 'golden_cross' :
