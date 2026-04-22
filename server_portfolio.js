@@ -3341,7 +3341,7 @@ app.get('/settings', async (req, res) => {
 function showStatus(msg, type) {
   const el = document.getElementById('statusMessage');
   el.textContent = msg;
-  el.className = `status-message show ${type}`;
+  el.className = 'status-message show ' + type;
   setTimeout(() => el.classList.remove('show'), 4000);
 }
 
