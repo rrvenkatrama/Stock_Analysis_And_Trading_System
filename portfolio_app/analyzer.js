@@ -572,9 +572,24 @@ async function analyzeSymbol(symbol, quoteData = null) {
   const holdMax = scoringSettings.score_threshold_hold_max !== undefined ? scoringSettings.score_threshold_hold_max : 50;
   const sellThreshold = scoringSettings.score_threshold_sell !== undefined ? scoringSettings.score_threshold_sell : 20;
 
-  const recommendation =
+  // Layer 4 Pre-Buy Check (Momentum Deterioration)
+  // Don't buy if ≥3 of 5 bearish conditions met
+  let layer4BearishCount = 0;
+  if (!aboveMa50) layer4BearishCount++;  // 1. Price < 50DMA
+  if (ma50 && ma200 && ma50 < ma200) layer4BearishCount++;  // 2. 50DMA < 200DMA
+  if (['bearish','below_signal'].includes(macdTrend)) layer4BearishCount++;  // 3. MACD bearish
+  if (ema9 !== null && ema21 !== null && ema9 < ema21) layer4BearishCount++;  // 4. EMA9 < EMA21
+  const spyMarketBullish = analyzeSymbol._marketBullish ?? null;
+  if (spyMarketBullish === false) layer4BearishCount++;  // 5. SPY < SPY 50DMA
+
+  let recommendation =
     finalScore > buyThreshold ? 'BUY' :
     finalScore > sellThreshold ? 'HOLD' : 'SELL';
+
+  // Block BUY if Layer 4 deterioration detected (≥3 bearish conditions)
+  if (recommendation === 'BUY' && layer4BearishCount >= 3) {
+    recommendation = 'HOLD';  // Downgrade to HOLD instead of immediate SELL
+  }
 
   const crossType =
     isGoldenActive ? 'golden_cross' :

@@ -1338,7 +1338,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
 }
 
 // ─── Stock table row ──────────────────────────────────────────────────────────
-function stockRow(s, upgrade, phxSig, pickFlag, volRatio, spyRegime, positionSet, allSettings) {
+function stockRow(s, upgrade, phxSig, pickFlag, positionSet) {
   const recBadge = s.recommendation === 'BUY'  ? '<span class="badge badge-buy">▲ BUY</span>'
                  : s.recommendation === 'SELL' ? '<span class="badge badge-sell">▼ SELL</span>'
                  :                               '<span class="badge badge-hold">● HOLD</span>';
@@ -1405,59 +1405,6 @@ function stockRow(s, upgrade, phxSig, pickFlag, volRatio, spyRegime, positionSet
   const buyBtn = isEtf
     ? `<button class="btn btn-xs" style="background:#f7fafc;color:#a0aec0;border:1px solid #e2e8f0;cursor:not-allowed" disabled>Buy</button>`
     : `<button onclick="openBuy('${s.symbol}','${s.price||0}','${nameSafe}')" class="btn btn-success btn-xs">Buy</button>`;
-  // ── Eligibility status (read-only) ───────────────────────────────────────
-  const gates = [];
-
-  // Gate 1: Market Regime
-  const marketOk = spyRegime === 'bull';
-  let marketMsg = '';
-  if (spyRegime === 'bear') marketMsg = 'SPY below 200DMA (BEAR mode)';
-  else if (spyRegime === 'caution') marketMsg = 'SPY below 50DMA (CAUTION mode)';
-  else if (spyRegime === 'unknown') marketMsg = 'SPY not in signals';
-  gates.push({ name: 'Market Regime', pass: marketOk, detail: spyRegime ? spyRegime.toUpperCase() : 'UNKNOWN', msg: marketMsg });
-
-  // Gate 2: Score > 50%
-  const scoreVal = parseFloat(s.score || 0);
-  const scoreOk = scoreVal > 50;
-  gates.push({ name: 'Score > 50%', pass: scoreOk, detail: `${Math.round(scoreVal)}/100`, msg: scoreOk ? '' : `${Math.round(scoreVal)}/100 is ≤50%` });
-
-  // Gate 3: RSI in 30–65 window
-  const rsiVal = s.rsi != null ? parseFloat(s.rsi) : null;
-  const rsiOk = rsiVal !== null && rsiVal >= 30 && rsiVal <= 65;
-  gates.push({ name: 'RSI (30–65)', pass: rsiOk, detail: rsiVal !== null ? rsiVal.toFixed(1) : '?', msg: rsiOk ? '' : `RSI ${rsiVal !== null ? rsiVal.toFixed(1) : '?'} is outside 30–65` });
-
-  // Gate 4: overextension limit above 50DMA
-  const ma50v = s.ma50 ? parseFloat(s.ma50) : null;
-  const priceV = s.price ? parseFloat(s.price) : null;
-  let pctAbove = null;
-  if (ma50v && priceV && ma50v > 0) pctAbove = (priceV / ma50v - 1) * 100;
-  const overextensionLimit = allSettings?.gates?.overextension_pct !== undefined ? allSettings.gates.overextension_pct : 8;
-  const overextendOk = !ma50v || !priceV || pctAbove === null || pctAbove <= overextensionLimit;
-  gates.push({ name: `Not Overextended (≤${overextensionLimit}% above 50DMA)`, pass: overextendOk, detail: pctAbove !== null ? pctAbove.toFixed(1) + '%' : '?', msg: overextendOk ? '' : `${pctAbove.toFixed(1)}% above 50DMA exceeds ${overextensionLimit}% limit` });
-
-  // Gate 5: Tier 1 Confirmations ≥2/4
-  let conf = 0, confDetails = [];
-  if (rsiVal !== null && rsiVal >= 30 && rsiVal <= 65) { conf++; confDetails.push('RSI 30–65'); } else confDetails.push('RSI outside 30–65');
-  if (['bullish','above_signal'].includes(s.macd_trend)) { conf++; confDetails.push('MACD bullish'); } else confDetails.push(`MACD ${s.macd_trend || '?'}`);
-  if (s.above_50ma) { conf++; confDetails.push('Above 50MA'); } else confDetails.push('Below 50MA');
-  const vr = volRatio != null ? parseFloat(volRatio) : null;
-  if (vr !== null && vr >= 1.3) { conf++; confDetails.push(`Vol ${vr.toFixed(2)}x`); } else confDetails.push(`Vol ${vr !== null ? vr.toFixed(2)+'x' : '?'}`);
-  const tier1Ok = conf >= 2;
-  gates.push({ name: 'Tier 1 Confirmations (≥2/4)', pass: tier1Ok, detail: `${conf}/4`, msg: tier1Ok ? confDetails.join('; ') : `Only ${conf}/4: ${confDetails.join('; ')}` });
-
-  // Check if any gate fails
-  const hasBlockedGate = gates.some(g => !g.pass);
-  let eligibilityBadge;
-  if (!hasBlockedGate) {
-    eligibilityBadge = `<span class="badge" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749;font-weight:600">✓ Eligible</span>`;
-  } else {
-    const gateJson = JSON.stringify(gates).replace(/"/g, '&quot;');
-    eligibilityBadge = `<span style="display:inline-flex;align-items:center;gap:3px">
-      <span class="badge" style="background:#3d2a00;color:#f6ad55;border:1px solid #c05621;font-weight:600">⚠ Blocked</span>
-      <button onclick="showBlock('${s.symbol}','${gateJson}')" class="btn btn-xs" style="background:#3d2a00;color:#f6ad55;border:1px solid #c05621;padding:3px 5px;font-weight:700">?</button>
-    </span>`;
-  }
-
   // ── Pick/No Pick toggle button ───────────────────────────────────────────
   let pickToggleBtn;
   if (pickFlag === 1) {
@@ -1487,15 +1434,13 @@ function stockRow(s, upgrade, phxSig, pickFlag, volRatio, spyRegime, positionSet
   const gcState = s.cross_type === 'golden_cross' && s.golden_cross_ago !== null && parseInt(s.golden_cross_ago) <= 5 ? 'recent'
                 : s.cross_type === 'golden_cross' ? 'active'
                 : s.cross_type === 'approaching_golden_cross' ? 'approaching' : 'none';
-  const eligibleState = !hasBlockedGate ? 'eligible' : 'blocked';
   const pickState = pickFlag === 1 ? 'pick' : 'noselect';
   const portfolioState = positionSet.has(s.symbol) ? 'in' : 'out';
-  return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" data-cross="${gcState}" data-eligible="${eligibleState}" data-pick="${pickState}" data-inport="${portfolioState}" ${rowStyle}>
+  return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" data-cross="${gcState}" data-pick="${pickState}" data-inport="${portfolioState}" ${rowStyle}>
     ${starCell(s.cross_type, s.golden_cross_ago)}
     <td><b style="cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${s.symbol}','${nameSafe}')">${s.symbol}</b>${isConfluence ? ' <span title="Both Alpha and Phoenix signal BUY" style="color:#d69e2e;font-size:12px">⭐</span>' : ''}${assetTag}<br><span style="color:#718096;font-size:11px">${s.name||''}</span>
       <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:nowrap;align-items:center;white-space:nowrap;overflow-x:auto">
         ${buyBtn}
-        ${eligibilityBadge}
         ${pickToggleBtn}
         <button onclick="openNews('${s.symbol}','${nameSafe}')" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d">News</button>
         <a href="/watchlist/remove/${s.symbol}" class="btn btn-danger btn-xs"
@@ -1554,28 +1499,8 @@ app.get('/', async (req, res) => {
     const flagMap      = new Map(flagRows.map(r => [r.symbol, !!r.autotrader_on]));
     const peakPriceMap = new Map(flagRows.map(r => [r.symbol, r.peak_price ? parseFloat(r.peak_price) : null]));
 
-    // Volume ratio map: today's vol / 21-day avg — used in autotrader eligibility badge
-    const volRows = await db.query(
-      `SELECT symbol,
-         MAX(CASE WHEN rn=1 THEN volume END) AS today_vol,
-         AVG(volume) AS avg_vol
-       FROM (
-         SELECT symbol, volume,
-           ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trade_date DESC) AS rn
-         FROM price_history
-         WHERE trade_date >= DATE_SUB(CURDATE(), INTERVAL 22 DAY)
-       ) t
-       GROUP BY symbol`
-    ).catch(() => []);
-    const volRatioMap = new Map(volRows.map(r => [
-      r.symbol,
-      r.today_vol && r.avg_vol > 0 ? r.today_vol / r.avg_vol : null
-    ]));
-
-    // SPY market regime for autotrader eligibility check
-    const spy = signalMap.get('SPY');
-    const spyRegime = !spy ? 'unknown' : !spy.above_200ma ? 'bear' : !spy.above_50ma ? 'caution' : 'bull';
-    const spySig = spy || null;  // For sell flag evaluation (Layer 4)
+    // SPY for sell flag evaluation (Layer 4)
+    const spySig = signalMap.get('SPY') || null;
 
     // ── Per-position price history (for the position table perf cells) ──
     const perfMap = new Map();
@@ -1706,7 +1631,7 @@ app.get('/', async (req, res) => {
     const phoenixSigMap  = new Map(phoenixSigs.map(p => [p.symbol, p]));
 
     const positionSet = new Set(positions.map(p => p.symbol));
-    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol), pickFlagMap.get(s.symbol) ?? 0, volRatioMap.get(s.symbol) ?? null, spyRegime, positionSet, allSettings)).join('');
+    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol), pickFlagMap.get(s.symbol) ?? 0, positionSet)).join('');
     const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap, portfolioReturns, flagMap, allSettings, peakPriceMap, spySig);
     // Phoenix panel rows
     const phoenixPanelRows = phoenixSigs.filter(p => p.recommendation === 'BUY' || p.recommendation === 'WATCH').map(p => {

@@ -381,23 +381,14 @@ async function evaluate(execute = false) {
             continue;
           }
 
-          // Tier 2: Quality filter
-          if (!passesTier2(sig)) {
-            results.skipped.push({ symbol: sig.symbol, score: sig.score,
-              reason: `Tier 2 fail (score=${sig.score} price=$${sig.price} rsi=${sig.rsi})` });
-            continue;
-          }
+          // Unified scoring already applied in analyzer.js:
+          // - score >= threshold (Tier 2 equivalent)
+          // - Layer 4 pre-buy check blocks momentum deterioration
+          // - All 60+ signals evaluated for BUY recommendation
+          // No separate Tier gates needed.
 
-          // Volume ratio
+          // Volume ratio (for logging/transparency)
           const volRatio = await getVolumeRatio(sig.symbol);
-
-          // Tier 1: ≥2 technical confirmations
-          const confirmations = countConfirmations(sig, volRatio);
-          if (confirmations < 2) {
-            results.skipped.push({ symbol: sig.symbol, score: sig.score,
-              reason: `Only ${confirmations}/2 technical confirmations` });
-            continue;
-          }
 
           // Earnings guard: skip if earnings within 5 days
           try {
