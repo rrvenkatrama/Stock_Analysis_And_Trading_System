@@ -17,10 +17,9 @@ It contains the current state, known issues, and exactly what to do next.
 6. **Probability cap 85%** — never show false confidence
 7. **Always use provider.js** — never call data modules directly from scanner
 8. **Plan-level approval** — user approves the whole daily plan, not individual stocks
-9. **Phoenix buying DISABLED** — Phoenix screener runs but auto-buys are off; user manually adds via + Watch then buys from Stocks tab
-10. **Buy buttons only on Stocks tab** — Discover, Phoenix, Long Haul have + Watch / News only
-11. **position_flags controls per-position autotrader** — do not remove this system
-12. **SMA 50/200 primary, EMA 50/200 secondary** — golden cross uses SMA (institutional standard, fewer false signals); EMA tracked as early-warning confirmation
+9. **Buy buttons only on Stocks tab** — Discover and Long Haul have + Watch / News only
+10. **position_flags controls per-position autotrader** — do not remove this system
+11. **SMA 50/200 primary, EMA 50/200 secondary** — golden cross uses SMA (institutional standard, fewer false signals); EMA tracked as early-warning confirmation
 
 ## UI / Interactivity Rules (learned from production bugs)
 - **NO JavaScript for navigation-critical actions** — Approve, Reject, and Scan Now are all plain `<a href>` links, not JS onclick buttons. JS has proven unreliable in this dashboard.
@@ -221,7 +220,6 @@ New DB table `position_flags (symbol PK, autotrader_on TINYINT, updated_at DATET
 - Manual buy (new position) → sets flag=0 in /order POST route
 - Manual buy (existing position) → flag unchanged
 - Autotrader exit/manage → only runs for flag=1 positions
-- Phoenix buying disabled (return before Phase 2 in phoenix_autotrader.js)
 - Portfolio UI: ⚡ AT: ON / AT: OFF toggle → GET /position/:symbol/toggle-autotrader
 - Alpha buy: skips symbols already in portfolio (regardless of flag)
 
@@ -241,7 +239,6 @@ No Buy button (stocks are already in Stocks list). News + Chart popup only.
 ### My Stocks — Tab Buy Rules
 - **Stocks tab**: ONLY tab with Buy button. This is the single entry point for manual buys.
 - **Discover tab**: + Watch + News only. No Buy.
-- **Phoenix tab**: + Watch + News only. No Buy.
 - **Long Haul tab**: News + Chart only. No Buy, no Watch (already in watchlist).
 To buy from any non-Stocks tab: use + Watch first, then buy from Stocks tab.
 

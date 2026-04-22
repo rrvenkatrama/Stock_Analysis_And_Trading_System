@@ -1,5 +1,5 @@
 // Daily scheduler for My Stocks dashboard
-// 8:30 AM ET: data refresh → Alpha analysis → Phoenix screener (display-only) → universe scan → recommendations → email
+// 8:30 AM ET: data refresh → Alpha analysis → universe scan → recommendations → email
 // 9:35 AM ET: Alpha autotrader execution (buys from Stocks list where Pick=1 AND Eligible)
 
 const { CronJob } = require('cron');
@@ -7,7 +7,6 @@ const { refreshAll }                              = require('./yahoo_history');
 const { analyzeAll }                              = require('./analyzer');
 const { scanUniverse }                            = require('./universe');
 const { evaluate: alphaEvaluate, run: alphaRun }    = require('./autotrader');
-const { scoreAll: runPhoenixScreener }               = require('./phoenix_screener');
 const { sendDailyDigest, sendErrorAlert, sendAutotraderEmail } = require('../notifier/email');
 const { getAlpacaPositions }                      = require('../trader/executor');
 const db                                          = require('../db/db');
@@ -125,17 +124,7 @@ async function runDailyRefresh(fullYear = false) {
       errors.push({ phase: 'Universe Scan', message: e.message });
     }
 
-    // Phase 4.5a: Phoenix screener — score all watchlist symbols for deep value
-    let phoenixResults = null;
-    try {
-      await runPhoenixScreener();
-      console.log(`[Scheduler] Phoenix screener complete`);
-    } catch (e) {
-      console.error('[Scheduler] Phoenix screener failed:', e.message);
-      errors.push({ phase: 'Phoenix Screener', message: e.message });
-    }
-
-    // Phase 4.5b: Alpha autotrader — generate recommendations (execute=false)
+    // Phase 5a: Alpha autotrader — generate recommendations (execute=false)
     let autoResults = null;
     try {
       autoResults = await alphaEvaluate(false);
@@ -151,7 +140,7 @@ async function runDailyRefresh(fullYear = false) {
     try {
       const signals   = await db.query(`SELECT * FROM stock_signals ORDER BY score DESC`);
       const positions = await getAlpacaPositions().catch(() => []);
-      await sendDailyDigest(signals, positions, picks, autoResults, phoenixResults);
+      await sendDailyDigest(signals, positions, picks, autoResults);
     } catch (e) {
       console.error('[Scheduler] Email failed:', e.message);
       errors.push({ phase: 'Daily Digest Email', message: e.message });
@@ -194,9 +183,9 @@ function startScheduler() {
     runDailyRefresh(false);
   }, null, true, 'America/New_York');
 
-  // 9:35 AM ET Monday–Friday — execute Alpha + Phoenix trades (each when enabled)
+  // 9:35 AM ET Monday–Friday — execute Alpha trades
   const tradeJob = new CronJob('0 35 9 * * 1-5', async () => {
-    console.log('[Portfolio Scheduler] Cron fired — 9:35 AM ET (Alpha + Phoenix execution window)');
+    console.log('[Portfolio Scheduler] Cron fired — 9:35 AM ET (Alpha execution window)');
 
     // Alpha runs first
     let alphaResults = null;

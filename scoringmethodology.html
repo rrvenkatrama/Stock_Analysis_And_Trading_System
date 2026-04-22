@@ -31,7 +31,6 @@
   .section { background: #fff; border-radius: 10px; padding: 30px 34px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
   h2 { font-size: 20px; font-weight: 700; color: #1a252f; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #f0f2f5; }
   h2.alpha-heading { border-bottom-color: #27ae60; }
-  h2.phoenix-heading { border-bottom-color: #8e44ad; }
   h3 { font-size: 15px; font-weight: 700; color: #2c3e50; margin: 22px 0 8px; }
   p  { margin-bottom: 12px; color: #34495e; font-size: 14px; }
   ul, ol { padding-left: 20px; margin-bottom: 12px; }
@@ -42,10 +41,8 @@
   .strategy-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
   .strategy-card { border-radius: 10px; padding: 20px 24px; }
   .strategy-alpha   { background: #eafaf1; border: 2px solid #27ae60; }
-  .strategy-phoenix { background: #f5eef8; border: 2px solid #8e44ad; }
   .strategy-card .strat-name { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
   .strategy-alpha   .strat-name { color: #1e8449; }
-  .strategy-phoenix .strat-name { color: #6c3483; }
   .strategy-card .strat-file { font-size: 11px; font-family: 'Menlo','Courier New',monospace; color: #7f8c8d; margin-bottom: 8px; }
   .strategy-card .strat-desc { font-size: 13px; color: #34495e; line-height: 1.6; }
   .strategy-card .strat-rec  { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
@@ -58,8 +55,6 @@
   .step .num  { font-size: 10px; font-weight: 700; color: #f39c12; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
   .step .name { font-size: 13px; font-weight: 700; color: #1a252f; margin-bottom: 3px; }
   .step .desc { font-size: 11px; color: #7f8c8d; line-height: 1.5; }
-  .step.phoenix-step { background: #fdf5ff; border-color: #d2b4de; }
-  .step.phoenix-step .num { color: #8e44ad; }
 
   /* Signal tables */
   table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 13px; }
@@ -139,7 +134,6 @@
   .cf-col { flex: 1; min-width: 200px; background: rgba(255,255,255,.6); border-radius: 8px; padding: 14px 18px; }
   .cf-col .cf-strategy { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
   .cf-col.alpha-col   .cf-strategy { color: #1e8449; }
-  .cf-col.phoenix-col .cf-strategy { color: #6c3483; }
   .cf-col .cf-check   { font-size: 13px; color: #34495e; }
 
   /* Dashboard badges */
@@ -173,9 +167,6 @@
   <a href="#overview">Overview</a>
   <a href="#alpha-scoring">Alpha Scoring</a>
   <a href="#alpha-autotrader">Alpha Autotrader</a>
-  <a href="#phoenix-gates">Phoenix Gates</a>
-  <a href="#phoenix-scoring">Phoenix Scoring</a>
-  <a href="#phoenix-autotrader">Phoenix Autotrader</a>
   <a href="#confluence">Confluence</a>
   <a href="#examples">Examples</a>
   <a href="/">← Dashboard</a>
@@ -186,11 +177,9 @@
   <!-- HERO -->
   <div class="hero">
     <h1>My Stocks — Scoring Methodology v2.4</h1>
-    <div class="sub">Two independent strategies — Alpha (quality-growth-timing) and Phoenix (deep-value contrarian) — each with its own scoring engine and autotrader module.</div>
     <div class="badges">
       <span class="badge blue">113+ stocks scored daily</span>
       <span class="badge green">Alpha: 30+ signals · 0–100</span>
-      <span class="badge purple">Phoenix: 5 hard gates + scoring · 0–100</span>
       <span class="badge orange">Refreshed 8:30 AM ET Mon–Fri</span>
       <span class="badge gold">⭐ Confluence = highest conviction</span>
     </div>
@@ -216,9 +205,6 @@
         </div>
       </div>
 
-      <div class="strategy-card strategy-phoenix">
-        <div class="strat-name">Phoenix Strategy</div>
-        <div class="strat-file">portfolio_app/phoenix_screener.js · phoenix_autotrader.js · phoenix_signals table</div>
         <div class="strat-desc">
           <strong>Deep Value Contrarian.</strong> Targets stocks down 40%+ from their 52-week high where fundamentals remain intact — earnings growing, revenue growing, still cheap vs sector peers. Seeks "fallen but not broken" companies others have abandoned.
         </div>
@@ -259,32 +245,25 @@
       </div>
     </div>
 
-    <h3>Phoenix Pipeline</h3>
     <div class="steps">
-      <div class="step phoenix-step">
         <div class="num">Step 1</div>
         <div class="name">Hard Gates</div>
         <div class="desc">5 binary tests — ALL must pass. Fail = PASS, never scored.</div>
       </div>
-      <div class="step phoenix-step">
         <div class="num">Step 2</div>
         <div class="name">Fetch Data</div>
         <div class="desc">52wk high, YoY price, EPS/revenue growth, fwd P/E, analyst counts (Finnhub + Yahoo)</div>
       </div>
-      <div class="step phoenix-step">
         <div class="num">Step 3</div>
         <div class="name">Score 4 Pillars</div>
         <div class="desc">Earnings quality · Business quality · Valuation · Management confidence</div>
       </div>
-      <div class="step phoenix-step">
         <div class="num">Step 4</div>
         <div class="name">Clamp 0–100</div>
-        <div class="desc">Write to <code>phoenix_signals</code> with recommendation</div>
       </div>
     </div>
 
     <div class="info-box">
-      <strong>The two strategies are fully independent.</strong> Alpha scores every watchlist stock for quality + entry timing. Phoenix only scores stocks that clear all 5 hard gates, looking for deep-value recovery plays. A stock can appear in both tables simultaneously — that is the Confluence signal.
     </div>
   </div>
 
@@ -538,14 +517,10 @@
   <!-- ============================================================ -->
   <!-- SECTION 4: PHOENIX HARD GATES -->
   <!-- ============================================================ -->
-  <div class="section" id="phoenix-gates">
-    <h2 class="phoenix-heading">4 — Phoenix Hard Gates (phoenix_screener.js)</h2>
-    <p>Before Phoenix scores any stock, it runs five binary tests. <strong>All five must pass.</strong> Any single failure = PASS recommendation — stock is never scored. This prevents wasting scoring on broken companies that are cheap for good reason (value traps).</p>
 
     <div class="gates">
       <div class="gate">
         <div class="gate-num">1</div>
-        <div class="gate-text"><strong>Price ≥40% below 52-week high</strong> — the stock must be deeply discounted by market fear. Shallow dips are not Phoenix territory.</div>
       </div>
       <div class="gate">
         <div class="gate-num">2</div>
@@ -573,15 +548,11 @@
   <!-- ============================================================ -->
   <!-- SECTION 5: PHOENIX SCORING -->
   <!-- ============================================================ -->
-  <div class="section" id="phoenix-scoring">
-    <h2 class="phoenix-heading">5 — Phoenix Scoring Engine (phoenix_screener.js)</h2>
-    <p>For stocks that clear all 5 hard gates, Phoenix applies four scoring pillars. Score is additive, clamped 0–100.</p>
 
     <div class="rec-bands">
       <div class="rec-band rec-buy" style="border-color:#8e44ad;background:#f5eef8;">
         <div class="label" style="color:#6c3483;">BUY</div>
         <div class="range">Score ≥ 60</div>
-        <div class="note">All gates passed + strong fundamental quality. Phoenix autotrader will consider entry.</div>
       </div>
       <div class="rec-band rec-watch">
         <div class="label">WATCH</div>
@@ -652,19 +623,13 @@
   <!-- ============================================================ -->
   <!-- SECTION 6: PHOENIX AUTOTRADER -->
   <!-- ============================================================ -->
-  <div class="section" id="phoenix-autotrader">
-    <h2 class="phoenix-heading">6 — Phoenix Autotrader Decisions (phoenix_autotrader.js)</h2>
 
     <h3>Buy Decision — Entry Criteria</h3>
     <div class="tier tier-phx" style="margin:14px 0;">
       <div class="tier-label">All conditions must be true to place an order</div>
       <div class="tier-body">
         <ul>
-          <li><code>phoenix_enabled = '1'</code> in <code>system_config</code> table</li>
           <li>Market hours: 9:35 AM – 3:45 PM ET</li>
-          <li>Open slot available (max 4 Phoenix positions, configurable)</li>
-          <li><code>phoenix_signals.recommendation = 'BUY'</code> AND score ≥ 60</li>
-          <li>Stock not already held by Alpha or Phoenix (no cross-strategy overlap)</li>
           <li>No earnings within 5 calendar days (Finnhub earnings calendar)</li>
         </ul>
       </div>
@@ -672,9 +637,7 @@
 
     <h3>Virtual Cash Pool — 50/50 Strategy Allocation</h3>
     <div class="info-box">
-      Phoenix manages <strong>50% of total portfolio equity</strong> independently from Alpha. Each strategy cannot exceed its 50% allocation. This ensures one strategy's drawdown cannot wipe out the other's gains.
       <br><br>
-      <code>Buying power = min(phoenixEquity − deployed_value, totalBuyingPower × 0.5)</code>
     </div>
 
     <h3>VIX Position Sizing</h3>
@@ -690,10 +653,7 @@
 
     <h3>Position Size Formula</h3>
     <div class="example" style="font-family:-apple-system,sans-serif;font-size:13px;line-height:1.8;">
-      <div class="title">Phoenix Position Sizing</div>
       <code style="color:#bdc3c7;font-size:12px;">
-        deployable = (phoenixBuyingPower − 20% cash buffer) × 50%<br>
-        maxPerPos  = phoenixEquity × 10% × vixMultiplier<br>
         perSlot    = min(deployable / openSlots, maxPerPos)<br>
         shares     = floor(perSlot / price)
       </code>
@@ -706,7 +666,6 @@
         <div class="tier-label">Hard Stop — Immediate 100% Sell</div>
         <div class="tier-name">Price ≤ entry price − 15%</div>
         <div class="tier-body">
-          Phoenix uses a wider stop than Alpha (15% vs 8%) because deep-value recoveries require patience through volatility. However, a 15% move against the position means the thesis may be wrong.
         </div>
       </div>
 
@@ -715,7 +674,6 @@
         <div class="tier-name">Any one of these triggers a 50% position reduction:</div>
         <div class="tier-body">
           <ul>
-            <li>Phoenix score drops below 30 (fundamentals have deteriorated since entry)</li>
             <li>Analyst consensus turns negative (&lt;20% buy with ≥3 analysts covering)</li>
             <li>EPS growth turns negative (value trap confirmed — original thesis broken)</li>
             <li>Price recovered to within 15% of 52-week high (position achieved its goal — take partial profit)</li>
@@ -726,7 +684,6 @@
     </div>
 
     <div class="note-box">
-      Phoenix uses a <strong>60-day time stop</strong> (vs Alpha's 30-day) because deep-value recovery plays take longer to play out. The market's mispricing of a fundamentally sound company may persist for weeks before catalyst events drive repricing.
     </div>
   </div>
 
@@ -739,7 +696,6 @@
     <div class="confluence-box">
       <div class="cf-title">⭐ When Both Strategies Agree: BUY</div>
       <div class="cf-body">
-        The Confluence signal fires when a stock simultaneously earns a <strong>BUY from Alpha</strong> (score ≥50, passing 3-tier filters) AND a <strong>BUY from Phoenix</strong> (all 5 hard gates + score ≥60). This indicates the stock is both a quality-growth company at a technically optimal entry point AND a deeply discounted value play with intact fundamentals.
         <br><br>
         In the Stocks table, the row gets a <strong>gold background glow</strong> to signal highest conviction.
       </div>
@@ -754,8 +710,6 @@
             ✓ Not overbought, not overextended vs 50 SMA
           </div>
         </div>
-        <div class="cf-col phoenix-col">
-          <div class="cf-strategy">Phoenix says BUY because:</div>
           <div class="cf-check">
             ✓ Down 40%+ from 52-week high<br>
             ✓ YoY price decline confirmed<br>
@@ -773,7 +727,6 @@
       <br><br>
       Alpha sees: quality fundamentals + fresh EMA bull cross + MACD turning bullish + RSI in the 30–45 buy zone → score 72 → BUY.
       <br>
-      Phoenix sees: 48% drawdown (gate 1 ✓), YoY decline (gate 2 ✓), EPS +18% (gate 3 ✓), revenue +12% (gate 4 ✓), fwd P/E 35% below sector (gate 5 ✓), EPS score +12, D/E&lt;0.5 +8, valuation +8 → score 68 → BUY.
       <br><br>
       → <strong>Gold row</strong>. Both autotraders independently queue an order.
     </p>
@@ -792,18 +745,15 @@
           <td>Alpha strategy recommendation based on 30+ signals</td>
         </tr>
         <tr>
-          <td>Phoenix</td>
           <td>
             <span class="dash-badge dash-buy-phx">🔥 BUY</span>&nbsp;
             <span class="dash-badge dash-watch-phx">WATCH</span>&nbsp;
             <span style="color:#7f8c8d;font-size:12px;">—</span>
           </td>
-          <td>🔥 BUY = phoenix_signals BUY · WATCH = score 35–59 · — = PASS or not scored (failed gates)</td>
         </tr>
         <tr>
           <td>Row color</td>
           <td><span class="dash-badge dash-gold">⭐ Gold glow</span></td>
-          <td>Confluence signal: Alpha BUY + Phoenix BUY simultaneously</td>
         </tr>
       </tbody>
     </table>
@@ -856,12 +806,10 @@
       <span class="ex-total">→ No order. TWLO revisited when price pulls back toward 50 SMA.</span>
     </div>
 
-    <h3>Phoenix Example — META (Deep Value BUY)</h3>
     <p style="font-size:13px;color:#34495e;margin-bottom:10px;">
       Hypothetical scenario: META is 45% below its 52-week high following macro-driven selling. Price is lower than 1 year ago. EPS growth: +22%. Revenue growth: +16%. Forward P/E 38% below sector avg. ROE 28%. D/E 0.3. Buyback rate 3% YoY. Analyst buy% 55%.
     </p>
     <div class="example">
-      <div class="title">Phoenix Gates Check — META</div>
       <span class="ex-gate">Gate 1:</span> <span class="ex-pos">PASS</span> — 45% below 52wk high ≥40% ✓<br>
       <span class="ex-gate">Gate 2:</span> <span class="ex-pos">PASS</span> — price today &lt; price 1 year ago ✓<br>
       <span class="ex-gate">Gate 3:</span> <span class="ex-pos">PASS</span> — EPS growth +22% &gt;0% ✓<br>
@@ -870,7 +818,6 @@
       <span class="ex-total">→ All gates cleared. Proceeding to scoring.</span>
     </div>
     <div class="example" style="margin-top:8px;">
-      <div class="title">Phoenix Score — META</div>
       <span class="ex-pos">+20</span> &nbsp; EPS growth &gt;20% (Pillar 1 — Earnings Quality)<br>
       <span class="ex-pos">+12</span> &nbsp; Revenue growth &gt;15% (Pillar 1)<br>
       <span class="ex-pos">+10</span> &nbsp; ROE &gt;20% (Pillar 2 — Business Quality)<br>
@@ -887,23 +834,19 @@
       If META also scores ≥65 in Alpha (quality + timing confirmations), both strategies recommend BUY → <strong>Gold ⭐ Confluence row</strong>. Both autotraders independently queue orders within their respective 50% equity pools.
     </div>
 
-    <h3>Phoenix Example — Gates Failure (Value Trap)</h3>
     <p style="font-size:13px;color:#34495e;margin-bottom:10px;">
       Scenario: A retail company is 55% below its 52-week high. But EPS growth is −12% and revenue growth is −8%.
     </p>
     <div class="example">
-      <div class="title">Phoenix Gates Check — Retail Value Trap</div>
       <span class="ex-gate">Gate 1:</span> <span class="ex-pos">PASS</span> — 55% below 52wk high ≥40% ✓<br>
       <span class="ex-gate">Gate 2:</span> <span class="ex-pos">PASS</span> — price lower than 1 year ago ✓<br>
       <span class="ex-gate">Gate 3:</span> <span class="ex-neg">FAIL</span> — EPS growth −12% (not &gt;0%)<br>
       <span class="ex-neg">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ STOP. Company not scored. PASS.</span><br>
-      <span class="ex-total">→ Not a Phoenix candidate. The cheap price reflects real fundamental deterioration.</span>
     </div>
   </div>
 
   <!-- Footer -->
   <div style="text-align:center;padding:30px 0;font-size:11px;color:#95a5a6;">
-    My Stocks Scoring Methodology v2.4 &mdash; Two independent strategies: Alpha (quality-growth-timing) &amp; Phoenix (deep-value contrarian) &mdash; Updated April 2026
   </div>
 
 </div><!-- /page -->

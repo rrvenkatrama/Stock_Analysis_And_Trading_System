@@ -13,8 +13,6 @@ const {
 const { getDailyBars } = require('./data/alpacaData');
 const { getTopPicks } = require('./portfolio_app/universe');
 const { run: autoRun } = require('./portfolio_app/autotrader');
-const { run: phoenixRun, evaluate: phoenixEvaluate } = require('./portfolio_app/phoenix_autotrader');
-const { getPhoenixSignals } = require('./portfolio_app/phoenix_screener');
 
 const PORT = parseInt(process.env.PORTFOLIO_PORT) || 8081;
 const app  = express();
@@ -105,7 +103,6 @@ input[type=text]:focus,input[type=number]:focus,select:focus{border-color:#3182c
 .tab-btn{padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#718096;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s,border-color .15s}
 .tab-btn:hover{color:#e2e8f0}
 .tab-btn.active{color:#63b3ed;border-bottom-color:#3182ce}
-.tab-btn.tab-phoenix.active{color:#b794f4;border-bottom-color:#805ad5}
 .tab-content{display:none}
 .tab-content.active{display:block}
 </style>`;
@@ -1363,21 +1360,10 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
 }
 
 // ─── Stock table row ──────────────────────────────────────────────────────────
-function stockRow(s, upgrade, phxSig, pickFlag, positionSet) {
+function stockRow(s, upgrade, pickFlag, positionSet) {
   const recBadge = s.recommendation === 'BUY'  ? '<span class="badge badge-buy">▲ BUY</span>'
                  : s.recommendation === 'SELL' ? '<span class="badge badge-sell">▼ SELL</span>'
                  :                               '<span class="badge badge-hold">● HOLD</span>';
-
-  // Phoenix cross-reference badge
-  let phxBadge = '<span style="color:#4a5568;font-size:11px">—</span>';
-  const isConfluence = phxSig && s.recommendation === 'BUY' && phxSig.recommendation === 'BUY';
-  if (phxSig) {
-    if (phxSig.recommendation === 'BUY') {
-      phxBadge = `<span title="Phoenix score: ${phxSig.score}" style="display:inline-block;background:#2d1b4e;color:#e9d8fd;border:1px solid #805ad5;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700;cursor:help">🔥 BUY ${phxSig.score}</span>`;
-    } else if (phxSig.recommendation === 'WATCH') {
-      phxBadge = `<span title="Phoenix score: ${phxSig.score}" style="display:inline-block;background:#1a1540;color:#b794f4;border:1px solid #6b46c1;border-radius:4px;padding:2px 6px;font-size:11px;cursor:help">👁 WATCH ${phxSig.score}</span>`;
-    }
-  }
   const scoreColor = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
   const scoreBar = `<div class="score-bar"><div class="score-fill" style="width:${s.score||0}%;background:${scoreColor}"></div></div>`;
   const rsiColor = s.rsi < 30 ? '#fc8181' : s.rsi > 70 ? '#3182ce' : '#48bb78';
@@ -1456,15 +1442,14 @@ function stockRow(s, upgrade, phxSig, pickFlag, positionSet) {
       targetCell += `<br><span style="font-size:10px;color:#718096">$${tgtLow.toFixed(0)}–$${tgtHigh.toFixed(0)}</span>`;
   }
 
-  const rowStyle = isConfluence ? 'style="background:linear-gradient(90deg,rgba(234,179,8,.08),transparent)"' : '';
   const gcState = s.cross_type === 'golden_cross' && s.golden_cross_ago !== null && parseInt(s.golden_cross_ago) <= 5 ? 'recent'
                 : s.cross_type === 'golden_cross' ? 'active'
                 : s.cross_type === 'approaching_golden_cross' ? 'approaching' : 'none';
   const pickState = pickFlag === 1 ? 'pick' : 'noselect';
   const portfolioState = positionSet.has(s.symbol) ? 'in' : 'out';
-  return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" data-cross="${gcState}" data-pick="${pickState}" data-inport="${portfolioState}" ${rowStyle}>
+  return `<tr data-rec="${s.recommendation}" data-sym="${s.symbol}" data-name="${s.name||''}" data-cross="${gcState}" data-pick="${pickState}" data-inport="${portfolioState}">
     ${starCell(s.cross_type, s.golden_cross_ago)}
-    <td><b style="cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${s.symbol}','${nameSafe}')">${s.symbol}</b>${isConfluence ? ' <span title="Both Alpha and Phoenix signal BUY" style="color:#d69e2e;font-size:12px">⭐</span>' : ''}${assetTag}<br><span style="color:#718096;font-size:11px">${s.name||''}</span>
+    <td><b style="cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${s.symbol}','${nameSafe}')">${s.symbol}</b>${assetTag}<br><span style="color:#718096;font-size:11px">${s.name||''}</span>
       <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:nowrap;align-items:center;white-space:nowrap;overflow-x:auto">
         ${buyBtn}
         ${pickToggleBtn}
@@ -1477,7 +1462,6 @@ function stockRow(s, upgrade, phxSig, pickFlag, positionSet) {
     <td data-val="${chg??-999}">${chgTxt}</td>
     <td style="text-align:center;font-size:11px;font-weight:600;color:${positionSet.has(s.symbol) ? '#276749' : '#718096'}">${positionSet.has(s.symbol) ? '✓ In Portfolio' : 'Not in Portfolio'}</td>
     <td>${recBadge}<br>${scoreBar}<span style="font-size:11px;color:${scoreColor}">${parseFloat(s.score||0).toFixed(0)}/100</span></td>
-    <td>${phxBadge}</td>
     <td>${whyBtn}</td>
     <td>${sectorTxt}</td>
     <td>${targetCell}</td>
@@ -1652,56 +1636,9 @@ app.get('/', async (req, res) => {
       </tr>`;
     }).join('') || '<tr><td colspan="10" style="padding:16px;text-align:center;color:#718096">No Long Haul picks yet — data refreshes at 8:30 AM ET</td></tr>';
 
-    // Phoenix signals (BUY + WATCH) for cross-referencing in Stocks table
-    const phoenixSigs    = await getPhoenixSignals('WATCH').catch(() => []);
-    const phoenixSigMap  = new Map(phoenixSigs.map(p => [p.symbol, p]));
-
     const positionSet = new Set(positions.map(p => p.symbol));
-    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol), pickFlagMap.get(s.symbol) ?? 0, positionSet)).join('');
+    const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), pickFlagMap.get(s.symbol) ?? 0, positionSet)).join('');
     const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap, portfolioReturns, flagMap, allSettings, peakPriceMap, spySig);
-    // Phoenix panel rows
-    const phoenixPanelRows = phoenixSigs.filter(p => p.recommendation === 'BUY' || p.recommendation === 'WATCH').map(p => {
-      const alpSig      = signalMap.get(p.symbol);
-      const alpRec      = alpSig?.recommendation || null;
-      const alpBadge    = alpRec === 'BUY'  ? `<span class="badge badge-buy" style="font-size:10px">⚡ BUY</span>`
-                        : alpRec === 'HOLD' ? `<span class="badge badge-hold" style="font-size:10px">⚡ HOLD</span>`
-                        : alpRec === 'SELL' ? `<span class="badge badge-sell" style="font-size:10px">⚡ SELL</span>` : '—';
-      const isConfl     = alpRec === 'BUY' && p.recommendation === 'BUY';
-      const phxBadge    = p.recommendation === 'BUY'
-        ? `<span style="background:#2d1b4e;color:#e9d8fd;border:1px solid #805ad5;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700">🔥 BUY</span>`
-        : `<span style="background:#1a1540;color:#b794f4;border:1px solid #6b46c1;border-radius:4px;padding:2px 6px;font-size:11px">👁 WATCH</span>`;
-      const rowStyle    = isConfl ? 'style="background:linear-gradient(90deg,rgba(234,179,8,.08),transparent)"' : '';
-      const pChg        = p.price_change_pct != null ? parseFloat(p.price_change_pct) : null;
-      const pChgColor   = pChg !== null ? (pChg >= 0 ? '#48bb78' : '#fc8181') : '#718096';
-      const priceTxt    = `<span style="color:${pChgColor};font-weight:600">$${parseFloat(p.price||0).toFixed(2)}</span>`;
-      const chgTxt      = pChg !== null ? `<span style="color:${pChgColor};font-weight:600">${pChg>=0?'+':''}${pChg.toFixed(2)}%</span>` : '—';
-      const pct52       = p.pct_from_52high != null ? parseFloat(p.pct_from_52high) : null;
-      const pct52Txt    = pct52 !== null ? `<span style="color:#fc8181;font-weight:600">${pct52.toFixed(1)}%</span>` : '—';
-      const pct1y       = p.price_change_1y != null ? parseFloat(p.price_change_1y) : null;
-      const pct1yTxt    = pct1y !== null ? `<span style="color:#fc8181">${pct1y.toFixed(1)}%</span>` : '—';
-      const epsVal      = p.eps_growth != null ? parseFloat(p.eps_growth) : null;
-      const epsTxt      = epsVal != null ? `<span style="color:${epsVal>=0?'#48bb78':'#fc8181'}">${epsVal>=0?'+':''}${epsVal.toFixed(0)}%</span>` : '—';
-      const buybackTxt  = p.shares_buyback_pct != null && parseFloat(p.shares_buyback_pct) < 0
-        ? `<span style="color:#48bb78">✓ ${Math.abs(parseFloat(p.shares_buyback_pct)).toFixed(1)}%</span>`
-        : `<span style="color:#718096">—</span>`;
-      const pScore      = `<span style="font-weight:700;color:${p.score>=60?'#e9d8fd':'#b794f4'}">${Math.round(p.score)}</span>`;
-      const nameSafe    = (p.name||'').replace(/'/g,"\\'");
-      return `<tr ${rowStyle}>
-        <td><b style="color:${isConfl?'#d69e2e':'#b794f4'};cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${p.symbol}')">${p.symbol}</b>${isConfl?' ⭐':''}${alpSig?'':' <span style="font-size:10px;color:#718096">(not in watchlist)</span>'}<br><span style="color:#718096;font-size:11px">${p.name||''}</span></td>
-        <td>${priceTxt}</td><td>${chgTxt}</td>
-        <td>${phxBadge}<br><span style="font-size:11px;color:#b794f4">${pScore}/100</span></td>
-        <td>${alpBadge}</td>
-        <td>${pct52Txt}</td>
-        <td>${pct1yTxt}</td>
-        <td>${epsTxt}</td>
-        <td>${buybackTxt}</td>
-        <td style="font-size:11px;color:#718096;max-width:200px">${(p.why||'').split(' · ').slice(0,3).join(' · ')}</td>
-        <td style="white-space:nowrap">
-          <a href="/watchlist/add-quick/${p.symbol}" class="btn btn-xs" style="background:#2d1b4e;color:#e9d8fd;border:1px solid #805ad5">+ Watch</a>
-          <button onclick="openNews('${p.symbol}','${nameSafe}')" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d;margin-top:4px;display:block">News</button>
-        </td>
-      </tr>`;
-    }).join('') || `<tr><td colspan="11" style="padding:16px;text-align:center;color:#718096">No Phoenix candidates yet — screener runs at 8:30 AM ET or <a href="/refresh-now" style="color:#b794f4">refresh now</a></td></tr>`;
 
     const discoverRows = picks.map(s => {
       const scoreColor  = s.score >= 60 ? '#48bb78' : s.score >= 40 ? '#3182ce' : '#fc8181';
@@ -1761,7 +1698,6 @@ ${JS}
   <button class="tab-btn active" data-tab="portfolio" onclick="switchTab('portfolio')">💼 Portfolio · ${positions.length}</button>
   <button class="tab-btn" data-tab="stocks" onclick="switchTab('stocks')">📊 Stocks · ${signals.length} · <span style="color:#48bb78">${buyCount} Buy</span></button>
   <button class="tab-btn" data-tab="discover" onclick="switchTab('discover')">🔭 Discover · ${picks.length}</button>
-  <button class="tab-btn tab-phoenix" data-tab="phoenix" onclick="switchTab('phoenix')">🔥 Phoenix · <span style="color:#e9d8fd">${phoenixSigs.filter(p=>p.recommendation==='BUY').length} BUY</span> · ${phoenixSigs.filter(p=>p.recommendation==='WATCH').length} WATCH</button>
   <button class="tab-btn" data-tab="longhaul" onclick="switchTab('longhaul')" style="color:#68d391">🌱 Long Haul · ${longHaulStocks.length}</button>
   <button class="tab-btn" data-tab="transactions" onclick="switchTab('transactions')">📜 Transactions</button>
 </div>
@@ -1871,30 +1807,6 @@ ${pfSection}
   <th></th>
 </tr></thead>
 <tbody>${discoverRows}</tbody>
-</table>
-</div>
-</div>
-
-<!-- Phoenix tab -->
-<div id="tab-phoenix" class="tab-content">
-<div style="display:flex;align-items:center;gap:12px;padding:8px 24px;background:linear-gradient(135deg,#1a1540,#2d1b4e);border-bottom:1px solid #553c9a;font-size:11px;color:#b794f4">
-  <span>${phoenixSigs.filter(p=>p.recommendation==='BUY').length} BUY · ${phoenixSigs.filter(p=>p.recommendation==='WATCH').length} WATCH · fundamentally strong, deeply discounted</span>
-</div>
-<div class="tbl-wrap" style="max-height:calc(100vh - 200px);margin:0 24px 16px">
-<table>
-<thead><tr style="background:#1a1540">
-  <th>Symbol / Name</th>
-  <th>Price</th><th>Chg%</th>
-  <th>🔥 Phoenix</th>
-  <th>⚡ Alpha</th>
-  <th>vs 52wk High</th>
-  <th>1Y Price Chg</th>
-  <th>EPS Growth</th>
-  <th>Buybacks</th>
-  <th>Why</th>
-  <th></th>
-</tr></thead>
-<tbody>${phoenixPanelRows}</tbody>
 </table>
 </div>
 </div>
