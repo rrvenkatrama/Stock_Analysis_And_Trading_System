@@ -455,7 +455,7 @@ function computeScore(signals) {
 
 // ─── Analyze a single symbol ──────────────────────────────────────────────────
 async function analyzeSymbol(symbol, quoteData = null) {
-  const bars = await getBarsFromDB(symbol, 280);
+  const bars = await getBarsFromDB(symbol, 365);
   if (!bars || bars.length < 60) {
     await db.log('warn', 'analyzer', `Not enough bars for ${symbol}: ${bars?.length || 0}`);
     return null;
@@ -467,16 +467,33 @@ async function analyzeSymbol(symbol, quoteData = null) {
   const changePct = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
 
   // Multi-period returns
-  const chg1m = closes.length > 30 ? (closes[closes.length - 30] > 0 ? ((price - closes[closes.length - 30]) / closes[closes.length - 30]) * 100 : 0) : null;
-  const chg1y = closes.length > 252 ? (closes[closes.length - 252] > 0 ? ((price - closes[closes.length - 252]) / closes[closes.length - 252]) * 100 : 0) : null;
+  let chg1m = null;
+  if (closes.length > 30) {
+    const p30 = closes[closes.length - 30];
+    if (p30 > 0) {
+      chg1m = ((price - p30) / p30) * 100;
+    }
+  }
 
-  // YTD: find Jan 1 close price
+  let chg1y = null;
+  if (closes.length > 252) {
+    const p252 = closes[closes.length - 252];
+    if (p252 > 0) {
+      chg1y = ((price - p252) / p252) * 100;
+    }
+  }
+
+  // YTD: find oldest bar in current year
   const now = new Date();
-  const ytdStart = new Date(now.getFullYear(), 0, 1);
-  const ytdIndex = bars.findIndex(b => new Date(b.trade_date) >= ytdStart);
+  const currentYear = now.getFullYear();
   let chgYtd = null;
-  if (ytdIndex >= 0 && bars[ytdIndex].close > 0) {
-    chgYtd = ((price - bars[ytdIndex].close) / bars[ytdIndex].close) * 100;
+  // bars array is ordered newest to oldest, find oldest bar in current year
+  for (let i = bars.length - 1; i >= 0; i--) {
+    const barDate = new Date(bars[i].trade_date);
+    if (barDate.getFullYear() === currentYear && bars[i].close > 0) {
+      chgYtd = ((price - bars[i].close) / bars[i].close) * 100;
+      break;
+    }
   }
 
   // 52-week range
@@ -640,7 +657,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
       ema9_bull_cross_ago, ema9_bear_cross_ago,
       analyst_buy, analyst_sell, analyst_hold,
       score, signal_count, recommendation, why
-    ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON DUPLICATE KEY UPDATE
       name=COALESCE(VALUES(name),name), sector=COALESCE(VALUES(sector),sector),
       asset_type=COALESCE(VALUES(asset_type),asset_type),
