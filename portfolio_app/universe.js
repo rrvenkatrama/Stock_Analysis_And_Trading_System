@@ -90,7 +90,7 @@ async function getTopPicks(limit = 100) {
     `SELECT s.* FROM stock_signals s
      LEFT JOIN watchlist w ON s.symbol = w.symbol AND w.is_active = 1
      WHERE w.symbol IS NULL
-       AND s.recommendation = 'BUY'
+       AND s.score >= 40
        AND s.generated_at >= DATE_SUB(NOW(), INTERVAL 25 HOUR)
      ORDER BY s.score DESC
      LIMIT ?`,
