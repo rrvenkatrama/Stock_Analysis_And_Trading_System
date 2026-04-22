@@ -3355,8 +3355,9 @@ app.get('/settings', async (req, res) => {
 function switchTab(tabName) {
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.getElementById('tab-' + tabName).classList.add('active');
-  event.target.classList.add('active');
+  const tabEl = document.getElementById(tabName) || document.getElementById('tab-' + tabName);
+  if(tabEl) tabEl.classList.add('active');
+  if(event && event.target) event.target.classList.add('active');
 }
 
 function showStatus(msg, type) {
