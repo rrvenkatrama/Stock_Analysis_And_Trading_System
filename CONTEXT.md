@@ -113,15 +113,61 @@ Score ranges **−100 to +100** (can be negative). **BUY >50% | HOLD 20–50% | 
 
 **Tier 1 (Entry Gate):** ≥2 technical confirmations (RSI 30–65 window, MACD bullish, above 50MA, volume ≥1.3x), no earnings within 5d, open portfolio slot available.
 
-**Exit Rules:**
-- Hard stop 100% sell: price ≤ entry − 8%
-- Soft exit 50% sell: score <25 | RSI >75 | EMA 9 crossed below EMA 21 ≤3d ago | MACD bearish | held ≥30d with no gain
+**Exit Rules — 4 Sequential Layers (evaluated every 9:35 AM ET):**
+
+**Layer 1: Hard Stop (Capital Protection)**
+- Trigger: P&L ≤ −8% (configurable `hard_stop_pct`)
+- Purpose: Absolute loss limit
+- Example: Entry $100 → Current $91.50 (−8.5%) → SELL 100%
+
+**Layer 2: Trailing Stop (Profit Protection)**
+- Activation: P&L ≥ +5% (configurable `trailing_stop_activation_pct`)
+- Trigger: Current Price ≤ Peak × (1 − 5%) (configurable `trailing_stop_pct`)
+- Purpose: Lock in gains, retracement stop
+- Peak price tracked every 5 min during market hours (9:30–16:00 ET), stored in `position_flags.peak_price`
+- Example: Entry $100, Peak $120, Current $113.50 (≤ $114) → SELL 100%
+
+**Layer 3: RSI Overbought + Extended Price (Momentum Exhaustion)**
+- Trigger: RSI ≥ 75 AND price ≥ 10% above 50DMA (configurable `extended_price_pct`)
+- Purpose: Sell when stretched too far + momentum exhaustion
+- Example: RSI 76, price 10.5% above 50DMA → SELL 100%
+
+**Layer 4: Pre-Sell Score (Momentum Deterioration)**
+- Trigger: ≥3 of 5 bearish conditions:
+  1. Price < 50DMA
+  2. 50DMA < 200DMA
+  3. MACD bearish
+  4. EMA9 < EMA21
+  5. SPY < SPY 50DMA
+- Purpose: Detect trend reversal before price breaks down
+- Example: 3+ conditions met → SELL 100%
+
+**Post-Sale Behavior:**
+- Position marked as "No Pick" in watchlist (user must manually re-select before next buy)
 
 **Position Sizing:**
 - cashBuffer = equity × 0.20
 - deployable = max(0, (buyingPower − cashBuffer) × 0.50)
 - maxPerPos = equity × 0.10
 - shares = floor(min(deployable/openSlots, maxPerPos) / price)
+
+**Sell Flag Badge (Portfolio Tab — Session 10):**
+- New "Sell Flag" column shows whether autotrader would SELL or HOLD each position right now
+- Status indicators:
+  - **⚠ SELL [?]** (red) — one of 4 exit layers would trigger
+  - **✓ HOLD [?]** (green) — all layers pass (safe to hold)
+  - **— N/A** (grey) — Autotrader is OFF for this position
+- Click **[?]** to open modal showing all 4 layers with pass/fail status and actual values
+
+**Transactions Page (Session 10):**
+- Shows all buy/sell trades from both manual orders and autotrader
+- Columns: Date | Symbol | Action | Shares | Price | Total | Source | Reason | P&L
+- **Source:** "autotrader" or "manual" badge
+- **Reason:** 
+  - **Buy reasons:** Score + confirmations met (RSI, MACD, 50MA, Volume), e.g. `Score 83.3 | RSI 45.2 | MACD bullish | above 50MA | vol 1.5x`
+  - **Sell reasons:** Which layer triggered, e.g. `Hard stop: -8.1% from entry` or `Trailing stop: price $105 <= peak $120 × 95%`
+- **Total Amount:** price × shares for quick position value reference
+- Price and total only populate for trades AFTER migration (pre-migration trades show NULL)
 
 **Schedule:**
 - 8:30 AM ET: evaluate(false) → recommendations in daily digest email, no orders
@@ -228,8 +274,15 @@ scan_sessions, candidates, trades, positions, daily_stats, news_cache, system_lo
 ### My Stocks Tables (3)
 watchlist, price_history, stock_signals
 
-### Autotrader Table
-autotrader_trades — every executed buy/sell, drives getDaysHeld() for 30-day time stop
+### Autotrader Tables
+**autotrader_trades** — every executed buy/sell, drives getDaysHeld() for 30-day time stop
+- Columns: symbol, action (buy/sell), qty, **price** (execution price per share, Session 10), **entry_reason** (for buys, Session 10), **exit_reason** (for sells), sell_pct, alpaca_order_id, executed_at, strategy
+- **entry_reason example:** `Score 83.3 | RSI 45.2 | MACD bullish | above 50MA | vol 1.5x`
+- **exit_reason example:** `Hard stop: -8.1% from entry` or `Trailing stop: price $105 <= peak $120 × 95%`
+
+**position_flags** — per-position settings and tracking
+- Columns: symbol (PK), autotrader_on (TINYINT, per-position autotrader toggle), peak_price (DECIMAL, highest price since entry, updated every 5 min), peak_price_updated_at (DATETIME)
+- Used by: trailing stop layer (Layer 2), 4-layer exit evaluation
 
 ### system_config Schema (critical — NOT key/value)
 ```sql
@@ -306,11 +359,14 @@ stock_trader_v1.html   → Full swing trader documentation
 
 portfolio_app/yahoo_history.js → Watchlist mgmt, Alpaca bar fetch, Finnhub+Yahoo fundamentals
 portfolio_app/analyzer.js      → 30+ signal scoring engine (0-100, BUY/HOLD/SELL + why)
-portfolio_app/autotrader.js    → 3-tier auto-trading engine (entry/exit/sizing)
+portfolio_app/autotrader.js    → 3-tier auto-trading engine (entry/exit/sizing), 4-layer exit algorithm, buy/sell reason tracking (Session 10)
 portfolio_app/universe.js      → 204-stock discovery universe, scanUniverse(), getTopPicks()
 portfolio_app/scheduler.js     → 8:30 AM + 9:35 AM ET crons
 portfolio_app/seed_symbols.js  → One-time watchlist seed from spreadsheet
 stocktrader_portfolio.service  → systemd unit file (port 8081)
+
+db/migration_20260421_entry_reason.sql  → Adds entry_reason column to autotrader_trades (Session 10)
+db/migration_20260421_sell_rules.sql    → Adds peak_price tracking + trailing stop settings (Session 10)
 ```
 
 ---
@@ -334,6 +390,8 @@ stocktrader_portfolio.service  → systemd unit file (port 8081)
    — price targets still Yahoo-only; COALESCE protects once populated
 4. VIXY and SPY must be in watchlist for VIX sizing and 50MA regime gate to work
    — SPY absent from stock_signals → regime = 'unknown' → autotrader blocks all entries
+5. **Transactions page (Session 10):** Historical trades before migration will show price=NULL, total_amount=NULL. Only NEW trades after deployment capture actual prices. No backfill needed.
+6. **EMA9/EMA21 in Layer 4:** stock_signals doesn't store raw EMA values, only cross timestamps (ema9_bear_cross_ago, ema9_bull_cross_ago). Layer 4 infers EMA9 < EMA21 from recent bear cross (or no recent bull cross), which is a best-effort approximation.
 
 ---
 

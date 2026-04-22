@@ -63,6 +63,15 @@ async function updatePricesInDatabase() {
             'UPDATE stock_signals SET price = ?, price_change_pct = ?, generated_at = NOW() WHERE symbol = ?',
             [q.price, q.changePct || 0, q.symbol]
           );
+
+          // Update peak_price for positions (trailing stop tracking)
+          await db.query(
+            `UPDATE position_flags
+             SET peak_price = GREATEST(COALESCE(peak_price, 0), ?)
+             WHERE symbol = ?`,
+            [q.price, q.symbol]
+          );
+
           updated++;
         }
       }

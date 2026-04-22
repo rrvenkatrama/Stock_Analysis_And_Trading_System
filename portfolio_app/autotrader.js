@@ -163,47 +163,66 @@ async function evaluateExit(position, sig) {
   const avgEntry     = parseFloat(position.avg_entry_price);
   const qty          = parseInt(position.qty);
   const pnlPct       = ((currentPrice - avgEntry) / avgEntry) * 100;
-  const daysHeld     = await getDaysHeld(position.symbol);
+  const peakPrice    = position.peak_price ? parseFloat(position.peak_price) : avgEntry;
 
   const sellSettings = settingsCache.getSell();
   const hardStopPct = sellSettings.hard_stop_pct !== undefined ? sellSettings.hard_stop_pct : -8;
-  const softExitScore = sellSettings.soft_exit_score !== undefined ? sellSettings.soft_exit_score : 25;
-  const softExitRsi = sellSettings.soft_exit_rsi !== undefined ? sellSettings.soft_exit_rsi : 75;
-  const emaCrossDays = sellSettings.ema_cross_days !== undefined ? sellSettings.ema_cross_days : 3;
-  const timeStopDays = sellSettings.time_stop_days !== undefined ? sellSettings.time_stop_days : 30;
+  const trailingActivationPct = sellSettings.trailing_stop_activation_pct !== undefined ? sellSettings.trailing_stop_activation_pct : 5;
+  const trailingStopPct = sellSettings.trailing_stop_pct !== undefined ? sellSettings.trailing_stop_pct : 5;
+  const extendedPricePct = sellSettings.extended_price_pct !== undefined ? sellSettings.extended_price_pct : 10;
 
-  // Hard stop
+  // 1. Hard Stop: price <= entry * (1 - hard_stop_pct)
   if (pnlPct <= hardStopPct) {
     return { qty, sellPct: 100, reason: `Hard stop: ${pnlPct.toFixed(1)}% from entry` };
   }
 
-  // Soft exits: 50% sell (edge case: if holding 1 share, sell the whole position)
-  const halfQty = Math.max(1, Math.floor(qty * 0.5));
-  const softSell = (reason) => ({ qty: qty === 1 ? 1 : halfQty, sellPct: qty === 1 ? 100 : 50, reason });
-
-  if (sig) {
-    if (sig.score < softExitScore)
-      return softSell(`Score deteriorated to ${sig.score}`);
-
-    if (sig.rsi !== null && sig.rsi > softExitRsi)
-      return softSell(`RSI overbought (${sig.rsi?.toFixed ? sig.rsi.toFixed(1) : sig.rsi})`);
-
-    if (sig.ema9_bear_cross_ago !== null && sig.ema9_bear_cross_ago !== undefined && sig.ema9_bear_cross_ago <= emaCrossDays)
-      return softSell(`EMA 9 crossed below EMA 21 (${sig.ema9_bear_cross_ago}d ago)`);
-
-    if (sig.macd_trend === 'bearish')
-      return softSell('MACD turned bearish');
+  // 2. Trailing Stop: price <= peak * (1 - trailing_stop_pct)
+  // Only activate if position has gained >= trailing_activation_pct%
+  if (pnlPct >= trailingActivationPct && currentPrice <= peakPrice * (1 - trailingStopPct / 100)) {
+    return { qty, sellPct: 100, reason: `Trailing stop: price ${currentPrice} <= peak ${peakPrice.toFixed(2)} × (1 - ${trailingStopPct}%)` };
   }
 
-  // Time stop
-  if (daysHeld !== null && daysHeld >= timeStopDays && pnlPct <= 0)
-    return softSell(`Time stop: ${daysHeld}d held, no gain`);
+  // 3. RSI Overbought + Extended Price: RSI >= 75 AND price >= extended_pct% above 50DMA
+  if (sig && sig.rsi !== null && sig.rsi >= 75 && sig.ma50) {
+    const pctAbove50 = ((currentPrice / sig.ma50) - 1) * 100;
+    if (pctAbove50 >= extendedPricePct) {
+      return { qty, sellPct: 100, reason: `RSI overbought (${sig.rsi.toFixed(1)}) + extended ${pctAbove50.toFixed(1)}% above 50DMA` };
+    }
+  }
+
+  // 4. pre_sell_score: Check multiple bearish conditions
+  if (sig) {
+    let preSellScore = 0;
+    if (sig.price < sig.ma50) preSellScore += 1;
+    if (sig.ma50 < sig.ma200) preSellScore += 1;
+    if (sig.macd_trend === 'bearish') preSellScore += 1;
+    if (sig.ema9 < sig.ema21) preSellScore += 1;
+
+    // Check SPY 50DMA for market regime
+    const spy = await db.queryOne(`SELECT ma50 FROM stock_signals WHERE symbol='SPY'`);
+    const spyCurrent = await db.queryOne(`SELECT price FROM stock_signals WHERE symbol='SPY'`);
+    if (spy && spyCurrent && spyCurrent.price < spy.ma50) preSellScore += 1;
+
+    if (preSellScore >= 3) {
+      return {
+        qty,
+        sellPct: 100,
+        reason: `pre_sell_score ${preSellScore}≥3: ${[
+          sig.price < sig.ma50 ? 'price<50DMA' : null,
+          sig.ma50 < sig.ma200 ? '50DMA<200DMA' : null,
+          sig.macd_trend === 'bearish' ? 'MACD bearish' : null,
+          sig.ema9 < sig.ema21 ? 'EMA9<EMA21' : null,
+          spy && spyCurrent && spyCurrent.price < spy.ma50 ? 'SPY<50DMA' : null
+        ].filter(Boolean).join(', ')}`
+      };
+    }
+  }
 
   return null; // hold
 }
 
 // ─── Place a market order and record it ──────────────────────────────────────
-async function placeOrder(symbol, side, qty, reason = '', sellPct = null) {
+async function placeOrder(symbol, side, qty, reason = '', sellPct = null, price = null) {
   const order = await alpacaPost('/orders', {
     symbol,
     qty,
@@ -211,10 +230,12 @@ async function placeOrder(symbol, side, qty, reason = '', sellPct = null) {
     type:          'market',
     time_in_force: 'day',
   });
+  const entryReason = side === 'buy'  ? reason : null;
+  const exitReason  = side === 'sell' ? reason : null;
   await db.query(
-    `INSERT INTO autotrader_trades (symbol, action, qty, exit_reason, sell_pct, alpaca_order_id)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [symbol, side, qty, reason || null, sellPct, order.id]
+    `INSERT INTO autotrader_trades (symbol, action, qty, price, entry_reason, exit_reason, sell_pct, alpaca_order_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [symbol, side, qty, price, entryReason, exitReason, sellPct, order.id]
   );
   await db.log('info', 'autotrader',
     `${side.toUpperCase()} ${qty} ${symbol} — ${reason} (order ${order.id})`);
@@ -286,10 +307,15 @@ async function evaluate(execute = false) {
 
           if (execute) {
             try {
-              await placeOrder(pos.symbol, 'sell', exit.qty, exit.reason, exit.sellPct);
+              await placeOrder(pos.symbol, 'sell', exit.qty, exit.reason, exit.sellPct, parseFloat(pos.current_price));
               action.executed = true;
               if (exit.sellPct === 100 || exit.qty >= parseInt(pos.qty)) {
                 heldSymbols.delete(pos.symbol);
+                // Mark as "No Pick" when fully exited
+                await db.query(
+                  `UPDATE watchlist SET pick_flag = 0 WHERE symbol = ?`,
+                  [pos.symbol]
+                );
               }
             } catch (e) {
               action.executed = false;
@@ -405,8 +431,16 @@ async function evaluate(execute = false) {
 
           if (execute) {
             try {
-              await placeOrder(sig.symbol, 'buy', shares,
-                `Score ${sig.score}, ${confirmations} confirmations`);
+              // Build detailed buy reason listing which confirmations passed
+              const confirmDetail = [];
+              const gs = settingsCache.getGates();
+              const rsiMin = gs.rsi_min ?? 30, rsiMax = gs.rsi_max ?? 65;
+              if (sig.rsi !== null && sig.rsi >= rsiMin && sig.rsi <= rsiMax) confirmDetail.push(`RSI ${sig.rsi.toFixed(1)}`);
+              if (['bullish', 'above_signal'].includes(sig.macd_trend)) confirmDetail.push(`MACD ${sig.macd_trend}`);
+              if (sig.above_50ma) confirmDetail.push('above 50MA');
+              if (volRatio !== null && volRatio >= 1.3) confirmDetail.push(`vol ${volRatio.toFixed(1)}x`);
+              const buyReason = `Score ${sig.score.toFixed(1)} | ${confirmDetail.join(' | ')}`;
+              await placeOrder(sig.symbol, 'buy', shares, buyReason, null, sig.price);
               action.executed = true;
               heldSymbols.add(sig.symbol);
               slotsUsed++;

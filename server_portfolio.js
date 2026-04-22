@@ -384,6 +384,29 @@ function showBlock(sym,gateJson){
   document.getElementById('why-modal').style.display='flex';
 }
 
+function showSellBlock(sym, gateJson) {
+  document.getElementById('why-modal-sym').textContent = sym + ' — Autotrader Sell Evaluation';
+  try {
+    const gates = JSON.parse(gateJson);
+    let html = '';
+    for (const g of gates) {
+      const icon = g.pass ? '✓' : '✗';
+      const color = g.pass ? '#742a2a' : '#22543d';
+      const bgColor = g.pass ? '#fed7d7' : '#c6f6d5';
+      const border = g.pass ? '#fc8181' : '#9ae6b4';
+      html += '<div style="padding:9px;border:1px solid ' + border + ';background:' + bgColor + ';border-radius:4px;margin-bottom:6px;color:' + color + '">'
+        + '<span style="font-weight:700;font-size:14px">' + icon + '</span> <span style="font-weight:600">' + g.name + '</span> '
+        + '<span style="font-weight:700;color:#2d3748">' + (g.detail || '') + '</span>'
+        + '</div>';
+    }
+    document.getElementById('why-modal-body').innerHTML = html
+      + '<div style="margin-top:12px;font-size:11px;color:#a0aec0">Evaluated using latest 8:30 AM snapshot. Sell only executes if AT: ON.</div>';
+  } catch (e) {
+    document.getElementById('why-modal-body').innerHTML = '<div style="color:#c53030">Error parsing sell data</div>';
+  }
+  document.getElementById('why-modal').style.display = 'flex';
+}
+
 // ── Buy modal ─────────────────────────────────────────────────────────────────
 let _buySym='',_buyMktPrice=0;
 
@@ -989,7 +1012,7 @@ async function loadTransactions() {
 function renderTransactions(txns) {
   const tbody = document.getElementById('txn-body');
   if (!txns.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:16px;color:#718096">No transactions found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:16px;color:#718096">No transactions found</td></tr>';
     return;
   }
 
@@ -1000,15 +1023,17 @@ function renderTransactions(txns) {
     const sourceLabel = t.source === 'autotrader' ? '⚡ Autotrader' : '👤 Manual';
     const sourceBg = t.source === 'autotrader' ? 'rgba(49, 130, 206, 0.1)' : 'rgba(160, 174, 192, 0.1)';
     const pnl = t.pnl || t.pnl_pct ? \`<span style="color:\${t.pnl >= 0 ? '#48bb78' : '#fc8181'}">\${t.pnl ? '$' + t.pnl.toFixed(2) : ''} \${t.pnl_pct ? t.pnl_pct.toFixed(1) + '%' : ''}</span>\` : '—';
+    const totalAmt = t.total_amount ? '$' + parseFloat(t.total_amount).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
 
     return \`<tr>
       <td>\${date}</td>
       <td><strong>\${t.symbol}</strong></td>
       <td><span style="color:\${actionColor};font-weight:600">\${actionLabel}</span></td>
       <td>\${t.shares}</td>
-      <td>$\${parseFloat(t.price || 0).toFixed(2)}</td>
+      <td>\${t.price ? '$' + parseFloat(t.price).toFixed(2) : '—'}</td>
+      <td>\${totalAmt}</td>
       <td><span style="background:\${sourceBg};padding:2px 6px;border-radius:3px;font-size:11px">\${sourceLabel}</span></td>
-      <td style="max-width:200px;font-size:11px;color:#718096">\${t.reason || '—'}</td>
+      <td style="max-width:220px;font-size:11px;color:#718096">\${t.reason || '—'}</td>
       <td>\${pnl}</td>
     </tr>\`;
   }).join('');
@@ -1070,7 +1095,7 @@ function starCell(crossType, crossAgo) {
   return `<td style="text-align:center"><span class="star-none" title="No golden cross">☆</span></td>`;
 }
 
-function portfolioSection(positions, openOrders, account, signalMap, upgradeMap = new Map(), perfMap = new Map(), portfolioReturns = {}, flagMap = new Map()) {
+function portfolioSection(positions, openOrders, account, signalMap, upgradeMap = new Map(), perfMap = new Map(), portfolioReturns = {}, flagMap = new Map(), allSettings = {}, peakPriceMap = new Map(), spySig = null) {
   const totalValue    = positions.reduce((s, p) => s + parseFloat(p.market_value  || 0), 0);
   const totalPnl      = positions.reduce((s, p) => s + parseFloat(p.unrealized_pl || 0), 0);
   const totalCost     = positions.reduce((s, p) => s + parseFloat(p.cost_basis    || 0), 0);
@@ -1086,6 +1111,68 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
   const prFmt = v => v != null
     ? `<span style="color:${v>=0?'#48bb78':'#fc8181'};font-weight:700">${v>=0?'+':''}${v.toFixed(2)}%</span>`
     : '<span style="color:#4a5568">—</span>';
+
+  // ─── Sell flag evaluator — mirrors autotrader.js evaluateExit() logic ───────────
+  function buildSellStatus(p, sig, peakPrice, sellSettings, spySig) {
+    const currentPrice = parseFloat(p.current_price);
+    const avgEntry     = parseFloat(p.avg_entry_price);
+    const pnlPct       = ((currentPrice - avgEntry) / avgEntry) * 100;
+    const peak         = peakPrice != null ? peakPrice : avgEntry;
+
+    const hardStopPct           = sellSettings.hard_stop_pct               ?? -8;
+    const trailingActivationPct = sellSettings.trailing_stop_activation_pct ?? 5;
+    const trailingStopPct       = sellSettings.trailing_stop_pct            ?? 5;
+    const extendedPricePct      = sellSettings.extended_price_pct           ?? 10;
+
+    const conditions = [];
+    let decision = 'HOLD', triggerLayer = null;
+
+    // Layer 1: Hard Stop
+    const l1 = pnlPct <= hardStopPct;
+    conditions.push({ name: `L1 Hard Stop (P&L ≤ ${hardStopPct}%)`, pass: l1, detail: `${pnlPct.toFixed(1)}%` });
+    if (l1 && !triggerLayer) { decision = 'SELL'; triggerLayer = 1; }
+
+    // Layer 2: Trailing Stop
+    const l2act = pnlPct >= trailingActivationPct;
+    const l2trig = l2act && currentPrice <= peak * (1 - trailingStopPct / 100);
+    conditions.push({ name: `L2 Trailing Activated (gain ≥ ${trailingActivationPct}%)`, pass: l2act, detail: `${pnlPct.toFixed(1)}%` });
+    conditions.push({ name: `L2 Trailing Trigger (price ≤ peak × ${100 - trailingStopPct}%)`, pass: l2trig, detail: `$${currentPrice.toFixed(2)} vs peak $${peak.toFixed(2)}` });
+    if (l2trig && !triggerLayer) { decision = 'SELL'; triggerLayer = 2; }
+
+    // Layer 3: RSI Overbought + Extended Price
+    const rsi      = sig?.rsi != null ? parseFloat(sig.rsi) : null;
+    const ma50     = sig?.ma50 != null ? parseFloat(sig.ma50) : null;
+    const rsiHigh  = rsi !== null && rsi >= 75;
+    const pct50    = (ma50 && ma50 > 0) ? ((currentPrice / ma50) - 1) * 100 : null;
+    const extended = pct50 !== null && pct50 >= extendedPricePct;
+    conditions.push({ name: `L3 RSI Overbought (≥ 75)`, pass: rsiHigh, detail: rsi !== null ? rsi.toFixed(1) : '?' });
+    conditions.push({ name: `L3 Extended (≥ ${extendedPricePct}% above 50DMA)`, pass: extended, detail: pct50 !== null ? pct50.toFixed(1) + '%' : '?' });
+    if (rsiHigh && extended && !triggerLayer) { decision = 'SELL'; triggerLayer = 3; }
+
+    // Layer 4: pre_sell_score
+    const ma200  = sig?.ma200 != null ? parseFloat(sig.ma200) : null;
+    const price  = sig?.price != null ? parseFloat(sig.price) : currentPrice;
+    const c4a = ma50 !== null && price < ma50;
+    const c4b = ma50 !== null && ma200 !== null && ma50 < ma200;
+    const c4c = sig?.macd_trend === 'bearish';
+    const bearAgo = sig?.ema9_bear_cross_ago != null ? parseInt(sig.ema9_bear_cross_ago) : null;
+    const bullAgo = sig?.ema9_bull_cross_ago != null ? parseInt(sig.ema9_bull_cross_ago) : null;
+    const c4d = bearAgo !== null && (bullAgo === null || bearAgo < bullAgo);
+    const spyPrice = spySig?.price != null ? parseFloat(spySig.price) : null;
+    const spyMa50  = spySig?.ma50  != null ? parseFloat(spySig.ma50)  : null;
+    const c4e = spyPrice !== null && spyMa50 !== null && spyPrice < spyMa50;
+    const score = [c4a, c4b, c4c, c4d, c4e].filter(Boolean).length;
+
+    conditions.push({ name: 'L4 Price < 50DMA', pass: c4a, detail: ma50 ? `$${price.toFixed(2)} vs $${ma50.toFixed(2)}` : '?' });
+    conditions.push({ name: 'L4 50DMA < 200DMA', pass: c4b, detail: (ma50 && ma200) ? `$${ma50.toFixed(2)} vs $${ma200.toFixed(2)}` : '?' });
+    conditions.push({ name: 'L4 MACD Bearish', pass: c4c, detail: sig?.macd_trend || '?' });
+    conditions.push({ name: 'L4 EMA9 < EMA21', pass: c4d, detail: bearAgo !== null ? `bear ${bearAgo}d ago${bullAgo !== null ? `, bull ${bullAgo}d ago` : ''}` : 'no bear cross' });
+    conditions.push({ name: 'L4 SPY < SPY 50DMA', pass: c4e, detail: (spyPrice && spyMa50) ? `$${spyPrice.toFixed(2)} vs $${spyMa50.toFixed(2)}` : '?' });
+    conditions.push({ name: `L4 Pre-Sell Score ≥ 3`, pass: score >= 3, detail: `${score}/5` });
+    if (score >= 3 && !triggerLayer) { decision = 'SELL'; triggerLayer = 4; }
+
+    return { decision, triggerLayer, conditions };
+  }
 
   const posRows = positions.length ? positions.map(p => {
     const pnl    = parseFloat(p.unrealized_pl  || 0);
@@ -1139,6 +1226,28 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
       ? `<a href="/position/${p.symbol}/toggle-autotrader" class="btn btn-xs" style="background:#1a365d;color:#bee3f8;border:1px solid #3182ce;white-space:nowrap" title="Autotrader managing this position — click to disable">⚡ AT: ON</a>`
       : `<a href="/position/${p.symbol}/toggle-autotrader" class="btn btn-xs" style="background:#2d3748;color:#718096;border:1px solid #4a5568;white-space:nowrap" title="Autotrader NOT managing — click to enable">⚡ AT: OFF</a>`;
 
+    // Sell flag badge
+    let sellFlagCell;
+    if (!atOn) {
+      sellFlagCell = `<span style="color:#4a5568;font-size:11px">— N/A</span>`;
+    } else {
+      const sellSettings = allSettings?.sell || {};
+      const peak = peakPriceMap.get(p.symbol) ?? null;
+      const status = buildSellStatus(p, sig, peak, sellSettings, spySig);
+      const gateJson = JSON.stringify(status.conditions).replace(/"/g, '&quot;');
+      if (status.decision === 'SELL') {
+        sellFlagCell = `<span style="display:inline-flex;align-items:center;gap:3px">
+          <span style="background:#742a2a;color:#feb2b2;border:1px solid #c53030;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700">⚠ SELL</span>
+          <button onclick="showSellBlock('${p.symbol}','${gateJson}')" class="btn btn-xs" style="background:#742a2a;color:#feb2b2;border:1px solid #c53030;padding:3px 5px;font-weight:700">?</button>
+        </span>`;
+      } else {
+        sellFlagCell = `<span style="display:inline-flex;align-items:center;gap:3px">
+          <span style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700">✓ Hold</span>
+          <button onclick="showSellBlock('${p.symbol}','${gateJson}')" class="btn btn-xs" style="background:#1a3a1a;color:#9ae6b4;border:1px solid #276749;padding:3px 5px;font-weight:700">?</button>
+        </span>`;
+      }
+    }
+
     return `<tr>
       ${starCell(sig?.cross_type, sig?.golden_cross_ago)}
       <td><b style="cursor:pointer;text-decoration:underline dotted" onclick="openTVChart('${p.symbol}','${nameSafe}')">${p.symbol}</b><br><span style="color:#718096;font-size:11px">${nameSafe}</span>
@@ -1146,6 +1255,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
         <button onclick="openNews('${p.symbol}','${nameSafe}')" class="btn btn-xs" style="background:#fffaf0;color:#c05621;border:1px solid #fbd38d;margin-top:4px;width:100%">News</button>
       </td>
       <td>${atBtn}</td>
+      <td>${sellFlagCell}</td>
       <td>${recBadge}</td>
       <td>${posWhyBtn}</td>
       <td>${posSector}</td>
@@ -1159,7 +1269,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
       <td>$${parseFloat(p.market_value).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
       <td style="color:${pc};font-weight:600">${sign}$${Math.abs(pnl).toFixed(0)} (${sign}${pnlPct.toFixed(1)}%)</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="15" style="color:#718096;text-align:center;padding:12px 0">No open positions — use the Buy button on any stock below.</td></tr>`;
+  }).join('') : `<tr><td colspan="16" style="color:#718096;text-align:center;padding:12px 0">No open positions — use the Buy button on any stock below.</td></tr>`;
 
   const ordRows = openOrders.length ? openOrders.map(o => {
     const lp  = o.limit_price ? ` @ $${parseFloat(o.limit_price).toFixed(2)}` : '';
@@ -1208,7 +1318,7 @@ function portfolioSection(positions, openOrders, account, signalMap, upgradeMap 
     <div style="font-size:11px;font-weight:700;color:#718096;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Positions</div>
     <div class="tbl-wrap" style="max-height:480px">
     <table><thead><tr>
-      <th style="width:30px;text-align:center">★</th><th>Symbol · Trade</th><th>Autotrader</th><th>Signal · Price</th><th>Why</th><th>Sector</th>
+      <th style="width:30px;text-align:center">★</th><th>Symbol · Trade</th><th>Autotrader</th><th>Sell Flag</th><th>Signal · Price</th><th>Why</th><th>Sector</th>
       <th>Price Target</th><th>Analyst Action</th>
       <th>Performance · Chart</th>
       <th>Qty</th><th>Avg Entry</th><th>Current</th><th>Chg%</th>
@@ -1440,8 +1550,9 @@ app.get('/', async (req, res) => {
     const upgradeMap   = new Map(recentUpgrades.map(u => [u.symbol, u]));
     const pickFlagRows = await db.query(`SELECT symbol, pick_flag FROM watchlist WHERE is_active = 1`).catch(() => []);
     const pickFlagMap  = new Map(pickFlagRows.map(r => [r.symbol, r.pick_flag ?? 0]));
-    const flagRows     = await db.query(`SELECT symbol, autotrader_on FROM position_flags`).catch(() => []);
+    const flagRows     = await db.query(`SELECT symbol, autotrader_on, peak_price FROM position_flags`).catch(() => []);
     const flagMap      = new Map(flagRows.map(r => [r.symbol, !!r.autotrader_on]));
+    const peakPriceMap = new Map(flagRows.map(r => [r.symbol, r.peak_price ? parseFloat(r.peak_price) : null]));
 
     // Volume ratio map: today's vol / 21-day avg — used in autotrader eligibility badge
     const volRows = await db.query(
@@ -1464,6 +1575,7 @@ app.get('/', async (req, res) => {
     // SPY market regime for autotrader eligibility check
     const spy = signalMap.get('SPY');
     const spyRegime = !spy ? 'unknown' : !spy.above_200ma ? 'bear' : !spy.above_50ma ? 'caution' : 'bull';
+    const spySig = spy || null;  // For sell flag evaluation (Layer 4)
 
     // ── Per-position price history (for the position table perf cells) ──
     const perfMap = new Map();
@@ -1595,7 +1707,7 @@ app.get('/', async (req, res) => {
 
     const positionSet = new Set(positions.map(p => p.symbol));
     const stockRows   = signals.map(s => stockRow(s, upgradeMap.get(s.symbol), phoenixSigMap.get(s.symbol), pickFlagMap.get(s.symbol) ?? 0, volRatioMap.get(s.symbol) ?? null, spyRegime, positionSet, allSettings)).join('');
-    const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap, portfolioReturns, flagMap);
+    const pfSection   = portfolioSection(positions, openOrders, account, signalMap, upgradeMap, perfMap, portfolioReturns, flagMap, allSettings, peakPriceMap, spySig);
     // Phoenix panel rows
     const phoenixPanelRows = phoenixSigs.filter(p => p.recommendation === 'BUY' || p.recommendation === 'WATCH').map(p => {
       const alpSig      = signalMap.get(p.symbol);
@@ -1883,12 +1995,13 @@ ${pfSection}
   <th>Action</th>
   <th>Shares</th>
   <th>Price</th>
+  <th>Total</th>
   <th>Source</th>
   <th>Reason</th>
   <th>P&L</th>
 </tr></thead>
 <tbody id="txn-body" style="font-size:12px">
-  <tr><td colspan="8" style="text-align:center;padding:16px;color:#718096">Loading transactions...</td></tr>
+  <tr><td colspan="9" style="text-align:center;padding:16px;color:#718096">Loading transactions...</td></tr>
 </tbody>
 </table>
 </div>
@@ -2403,7 +2516,8 @@ app.get('/api/transactions', async (req, res) => {
         executed_at as timestamp,
         'autotrader' as source,
         strategy,
-        exit_reason as reason
+        CASE WHEN action = 'buy' THEN entry_reason ELSE exit_reason END AS reason,
+        ROUND(qty * price, 2) AS total_amount
       FROM autotrader_trades
       ORDER BY executed_at DESC
       LIMIT 200
@@ -2421,6 +2535,7 @@ app.get('/api/transactions', async (req, res) => {
         'manual' as source,
         NULL as strategy,
         COALESCE(close_reason, 'pending') as reason,
+        ROUND(shares * COALESCE(fill_price, entry_price), 2) AS total_amount,
         pnl,
         pnl_pct
       FROM trades
@@ -3047,46 +3162,54 @@ app.get('/settings', async (req, res) => {
     <div class="section">
       <h3>🔴 Exit Rules</h3>
       <div class="info-banner">
-        Applies only to positions with autotrader_on=1. Manual positions are never auto-sold.
+        4 exit layers evaluate sequentially. Applies only to autotrader positions. After SELL_100, stock marked as "No Pick".
       </div>
 
       <div class="setting-group">
-        <div class="setting-label">Hard Stop Loss %</div>
-        <div class="setting-help">Price drop triggers 100% sell (default -8%)</div>
+        <div class="setting-label">Layer 1: Hard Stop Loss %</div>
+        <div class="setting-help">Price ≤ entry × (1 - X%) → SELL_100 (capital protection)</div>
         <div class="input-group">
           <input type="number" id="hardStopPct" min="-50" max="0" step="0.5" value="${allSettings.sell.hard_stop_pct}" />%
         </div>
       </div>
 
       <div class="setting-group">
-        <div class="setting-label">Soft Exit: Score Below</div>
-        <div class="setting-help">Score drop triggers 50% sell</div>
+        <div class="setting-label">Layer 2: Trailing Stop Activation</div>
+        <div class="setting-help">Trailing stop only activates after gain ≥ X% (e.g., +5%)</div>
         <div class="input-group">
-          <input type="number" id="softExitScore" min="0" max="100" value="${allSettings.sell.soft_exit_score}" />%
+          <input type="number" id="trailingActivationPct" min="0" max="50" step="0.5" value="${allSettings.sell.trailing_stop_activation_pct}" />%
         </div>
       </div>
 
       <div class="setting-group">
-        <div class="setting-label">Soft Exit: RSI Above</div>
-        <div class="setting-help">Overbought signal triggers 50% sell</div>
+        <div class="setting-label">Layer 2: Trailing Stop %</div>
+        <div class="setting-help">Price ≤ peak × (1 - X%) → SELL_100 (profit protection)</div>
         <div class="input-group">
-          <input type="number" id="softExitRsi" min="50" max="100" value="${allSettings.sell.soft_exit_rsi}" />
+          <input type="number" id="trailingStopPct" min="1" max="30" step="0.5" value="${allSettings.sell.trailing_stop_pct}" />%
         </div>
       </div>
 
       <div class="setting-group">
-        <div class="setting-label">Soft Exit: EMA Cross Days</div>
-        <div class="setting-help">EMA 9 below EMA 21 within N days triggers 50% sell</div>
+        <div class="setting-label">Layer 3: RSI Overbought + Extended Price</div>
+        <div class="setting-help">RSI ≥ 75 AND price ≥ X% above 50DMA → SELL_100</div>
         <div class="input-group">
-          <input type="number" id="emaCrossDays" min="1" max="10" value="${allSettings.sell.ema_cross_days}" /> days
+          <input type="number" id="extendedPricePct" min="0" max="50" step="0.5" value="${allSettings.sell.extended_price_pct}" />%
         </div>
       </div>
 
       <div class="setting-group">
-        <div class="setting-label">Time Stop: Days Held</div>
-        <div class="setting-help">Hold ≥N days with no gain triggers 50% sell</div>
-        <div class="input-group">
-          <input type="number" id="timeStopDays" min="5" max="90" value="${allSettings.sell.time_stop_days}" /> days
+        <div style="background: #1a202c; padding: 12px; border-radius: 4px; border-left: 3px solid #3182ce;">
+          <div class="setting-label">Layer 4: pre_sell_score (Auto-calculated)</div>
+          <div style="font-size: 12px; color: #cbd5e1; margin-top: 8px; line-height: 1.6;">
+            <strong>Checks 5 conditions:</strong><br/>
+            • Price &lt; 50DMA → +1<br/>
+            • 50DMA &lt; 200DMA → +1<br/>
+            • MACD trending bearish → +1<br/>
+            • EMA9 &lt; EMA21 → +1<br/>
+            • SPY &lt; SPY_50DMA → +1<br/><br/>
+            <strong>If pre_sell_score ≥ 3 → SELL_100</strong><br/>
+            <em>(Not configurable — depends on market conditions)</em>
+          </div>
         </div>
       </div>
     </div>
@@ -3303,10 +3426,9 @@ async function saveAllChanges() {
 
     const sellData = {
       hard_stop_pct: parseFloat(document.getElementById('hardStopPct').value),
-      soft_exit_score: parseFloat(document.getElementById('softExitScore').value),
-      soft_exit_rsi: parseFloat(document.getElementById('softExitRsi').value),
-      ema_cross_days: parseInt(document.getElementById('emaCrossDays').value),
-      time_stop_days: parseInt(document.getElementById('timeStopDays').value)
+      trailing_stop_activation_pct: parseFloat(document.getElementById('trailingActivationPct').value),
+      trailing_stop_pct: parseFloat(document.getElementById('trailingStopPct').value),
+      extended_price_pct: parseFloat(document.getElementById('extendedPricePct').value)
     };
 
     const scoringData = {
@@ -3430,7 +3552,7 @@ app.post('/api/settings/reset', async (req, res) => {
     const defaults = {
       gates: {score_threshold:50,rsi_min:30,rsi_max:65,overextension_pct:8,min_confirmations:2},
       buy: {min_price:5,require_pick_flag:1,exclude_earnings_days:5},
-      sell: {hard_stop_pct:-8,soft_exit_score:25,soft_exit_rsi:75,ema_cross_days:3,time_stop_days:30},
+      sell: {hard_stop_pct:-8,trailing_stop_activation_pct:5,trailing_stop_pct:5,extended_price_pct:10},
       scoring: {score_threshold_buy:50,score_threshold_hold_min:20,score_threshold_hold_max:50,score_threshold_sell:20},
       golden_cross: {detection_fast_ma:50,detection_slow_ma:200,pulsing_glow_days:5,stable_period_sessions:20},
       limits: {max_positions:15,max_per_position_pct:10,max_deployment_pct:80,min_cash_buffer_pct:20,vix_20_30_mult:0.75,vix_30_plus_mult:0.50}

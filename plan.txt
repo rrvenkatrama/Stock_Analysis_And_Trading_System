@@ -1,5 +1,5 @@
 # StockTrader — Plan & Current State
-Last updated: 2026-04-20 (session 8)
+Last updated: 2026-04-21 (session 10)
 Status: Phase 1 COMPLETE | Phase 2 COMPLETE | Phase 3 active | My Stocks Dashboard FULLY OPERATIONAL
 
 ─────────────────────────────────────────
@@ -214,6 +214,54 @@ SESSION 8 CHANGES (2026-04-20):
   - Buy discipline (Stocks tab only) maintained
 
 ─────────────────────────────────────────
+SESSION 10 CHANGES (2026-04-21):
+─────────────────────────────────────────
+
+[✅] Autotrader 4-layer sequential exit algorithm:
+  - Layer 1: Hard Stop (P&L ≤ -8%, configurable)
+  - Layer 2: Trailing Stop (peak price tracking, configurable activation & stop %)
+  - Layer 3: RSI Overbought + Extended Price (RSI ≥75 + price ≥10% above 50MA)
+  - Layer 4: Pre-Sell Score (≥3/5 bearish conditions: price<50MA, 50MA<200MA, MACD bearish, EMA9<EMA21, SPY<SPY_50MA)
+  - All evaluated at 9:35 AM using 8:30 AM snapshot data
+  - Peak price tracked every 5 min during market hours, stored in position_flags.peak_price
+
+[✅] Transactions page:
+  - Shows all buy/sell trades (manual + autotrader) with source badge
+  - Columns: Date | Symbol | Action | Shares | Price | Total | Source | Reason | P&L
+  - Entry reasons: Score + confirmations (RSI, MACD, 50MA, Volume)
+  - Exit reasons: Which layer triggered + values
+  - Price and total_amount columns populated for NEW trades after migration
+  - Historical trades (pre-migration) show NULL prices (no backfill needed)
+
+[✅] Autotrader sell flag badge:
+  - New "Sell Flag" column on Portfolio tab between Autotrader toggle and Signal
+  - Status: ⚠ SELL [?] (red) | ✓ HOLD [?] (green) | — N/A (grey if AT=OFF)
+  - Click [?] modal shows all 4 layers with pass/fail status and actual values
+  - Modal uses inverted colors: red=condition met (bad), green=condition not met (safe)
+
+[✅] Buy reason tracking:
+  - placeOrder() now accepts price parameter
+  - Buy reasons recorded: "Score XX.X | RSI XX.X | MACD bullish | above 50MA | vol X.Xx"
+  - entry_reason column added to autotrader_trades (migration)
+  - Lists which technical confirmations triggered (of 4: RSI window, MACD, 50MA, volume)
+
+[✅] Settings configurable via /settings Tab 4:
+  - Hard Stop Loss % (default: -8)
+  - Trailing Stop Activation % (default: +5)
+  - Trailing Stop % (default: 5)
+  - Extended Price % (default: 10)
+  - Layer 4 conditions automatic (not configurable)
+
+[✅] Post-sale behavior:
+  - Positions closed at SELL_100 marked "No Pick" in watchlist
+  - User must manually re-select before next autotrader buy
+
+[✅] Database migrations deployed:
+  - migration_20260421_entry_reason.sql — adds entry_reason column
+  - migration_20260421_sell_rules.sql — adds peak_price tracking + settings
+  - position_flags enhanced with peak_price and peak_price_updated_at columns
+
+─────────────────────────────────────────
 MY STOCKS DASHBOARD (port 8081) ✅ OPERATIONAL
 ─────────────────────────────────────────
 
@@ -237,15 +285,22 @@ KNOWN ISSUES (April 2026)
 5. shares_buyback_pct always null — Finnhub free tier doesn't provide buyback data
 6. Long Haul criteria may need tuning — first run, review results
 7. RSI signal only appears in "Why" popup when outside neutral zone (45–65)
+8. Transactions page (Session 10): Historical trades pre-migration show price=NULL, total_amount=NULL
+   — Only NEW trades after deployment capture actual prices. No backfill needed.
+9. EMA9/EMA21 in Layer 4: stock_signals doesn't store raw values, infers from cross timestamps
+   — best-effort approximation, functionally correct for exit evaluation
 
 ─────────────────────────────────────────
 PENDING / NEXT STEPS
 ─────────────────────────────────────────
 
-[ ] Verify analyst ratings populate correctly after next 8:30 AM refresh
-[ ] Review Long Haul results — tune criteria if too few or wrong picks
+[✅] Session 10 complete: 4-layer sell algorithm + transactions page + sell flag badge
+[ ] Test 4-layer sell algorithm in real market conditions (compare to manual exits)
+[ ] Monitor peak price tracking updates every 5 minutes during market hours
+[ ] Verify sell flag badges update correctly on Portfolio tab
+[ ] Review sell reasons recorded in transactions for accuracy
+[ ] Tune Layer 2 trailing stop % based on real trade results
 [ ] Monitor paper positions — check dashboard daily
-[ ] Consider adding "days held" to Portfolio tab
 [ ] Track performance: win rate, avg gain/loss, hold durations
 [ ] Target: 2–4 weeks consistent results before going live
 

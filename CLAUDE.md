@@ -121,6 +121,48 @@ When user manually buys via the Buy button while autotrader is ON:
 - Manual positions count against maxPositions limit
 - 30-day time stop does NOT apply to manual buys (getDaysHeld() reads autotrader_trades only, returns null → skip)
 
+## Autotrader — Sell Algorithm (4 Sequential Layers)
+Evaluated at 9:35 AM ET for all AT-managed positions (position_flags.autotrader_on=1). First triggered layer wins → position sold. All layers evaluated even if one triggers (for logging/display).
+
+**Layer 1: Hard Stop (Capital Protection)**
+- Trigger: P&L ≤ -8% (configurable `hard_stop_pct`)
+- Purpose: Absolute loss limit
+- Example: Entry $100 → Current $91.50 (-8.5%) → SELL 100%
+
+**Layer 2: Trailing Stop (Profit Protection)**
+- Activation: P&L ≥ +5% (configurable `trailing_stop_activation_pct`)
+- Trigger: Current Price ≤ Peak × (1 - 5%) (configurable `trailing_stop_pct`)
+- Purpose: Lock in gains, retracement stop
+- Peak price tracked every 5 min via scheduler in `position_flags.peak_price`
+- Example: Entry $100, Peak $120, Current $113.50 (≤ $114) → SELL 100%
+
+**Layer 3: RSI Overbought + Extended Price (Momentum Exhaustion)**
+- Trigger: RSI ≥ 75 AND price ≥ 10% above 50DMA (configurable `extended_price_pct`)
+- Purpose: Sell when stretched too far + momentum exhaustion
+- Example: RSI 76, price 10.5% above 50DMA → SELL 100%
+
+**Layer 4: Pre-Sell Score (Momentum Deterioration)**
+- Trigger: ≥3 of 5 bearish conditions:
+  1. Price < 50DMA
+  2. 50DMA < 200DMA
+  3. MACD bearish
+  4. EMA9 < EMA21 (inferred from `ema9_bear_cross_ago` < `ema9_bull_cross_ago`)
+  5. SPY < SPY 50DMA
+- Purpose: Detect trend reversal before price breaks
+- Example: 3 conditions met → SELL 100%
+
+**Post-Exit Behavior**
+- If exit.sellPct = 100: mark position as "No Pick" in watchlist (`pick_flag = 0`)
+- User must manually re-select before autotrader will buy again
+- Reason logged: e.g., "Hard stop: -8.1%", "Trailing stop: $45 <= $52", "RSI 76 + 11% extended", "pre_sell_score 3/5: ..."
+
+**Configurable Settings** (/settings Tab 4 → Sell/Exit)
+- Hard Stop Loss % (default -8)
+- Trailing Stop Activation % (default 5)
+- Trailing Stop % (default 5)
+- Extended Price % (default 10)
+Layer 4 conditions are automatic (not configurable).
+
 ## Autotrader — Why High-Score Stocks May Not Be Selected
 1. Signal data at 9:35 AM = 8:30 AM snapshot. Manual refresh after 8:30 changes scores but autotrader already ran.
 2. Tier 2 blocks: >8% above 50MA (e.g. TWLO currently 12% above → blocked)
