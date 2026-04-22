@@ -345,14 +345,27 @@ function saveCurrentFilter(){
 // ── Why modal ─────────────────────────────────────────────────────────────────
 function showWhy(sym,why,updatedAt){
   document.getElementById('why-modal-sym').textContent=sym+' — Signal Breakdown';
-  const parts=why.split(' | ');
-  let html=parts.map((p,i)=>{
-    if(i===0&&p.startsWith('Score:')){
-      return '<div style="padding:8px 0 10px;border-bottom:2px solid #e2e8f0;color:#2c5282;font-weight:700;font-size:14px">'+p+'</div>';
-    }
-    const col=p.startsWith('+')?'#276749':p.startsWith('-')?'#c53030':'#1a202c';
-    return '<div style="padding:6px 0;border-bottom:1px solid #edf2f7;color:'+col+'">'+p+'</div>';
-  }).join('');
+  // Handle new format with newlines or old format with pipes
+  const isNewFormat = why.includes('\nDecision:');
+  let html = '';
+
+  if(isNewFormat) {
+    // New format: Signal Score / Layer 4 / Decision sections
+    html = '<div style="white-space:pre-wrap;font-family:monospace;font-size:12px;line-height:1.6;color:#2d3748">' +
+           why.replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+           '</div>';
+  } else {
+    // Old format: pipe-separated signals
+    const parts=why.split(' | ');
+    html=parts.map((p,i)=>{
+      if(i===0&&p.startsWith('Score:')){
+        return '<div style="padding:8px 0 10px;border-bottom:2px solid #e2e8f0;color:#2c5282;font-weight:700;font-size:14px">'+p+'</div>';
+      }
+      const col=p.startsWith('+')?'#276749':p.startsWith('-')?'#c53030':'#1a202c';
+      return '<div style="padding:6px 0;border-bottom:1px solid #edf2f7;color:'+col+'">'+p+'</div>';
+    }).join('');
+  }
+
   if(updatedAt) html+='<div style="margin-top:12px;font-size:11px;color:#a0aec0;text-align:right">Last updated: '+updatedAt+' ET</div>';
   document.getElementById('why-modal-body').innerHTML=html;
   document.getElementById('why-modal').style.display='flex';
