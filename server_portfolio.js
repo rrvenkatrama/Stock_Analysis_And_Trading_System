@@ -346,7 +346,7 @@ function saveCurrentFilter(){
 function showWhy(sym,why,updatedAt){
   document.getElementById('why-modal-sym').textContent=sym+' — Signal Breakdown';
   // Handle new format with newlines or old format with pipes
-  const isNewFormat = why.includes('\nDecision:');
+  const isNewFormat = why.includes('\\nDecision:');
   let html = '';
 
   if(isNewFormat) {
