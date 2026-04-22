@@ -233,9 +233,9 @@ async function placeOrder(symbol, side, qty, reason = '', sellPct = null, price 
   const entryReason = side === 'buy'  ? reason : null;
   const exitReason  = side === 'sell' ? reason : null;
   await db.query(
-    `INSERT INTO autotrader_trades (symbol, action, qty, price, entry_reason, exit_reason, sell_pct, alpaca_order_id)
+    `INSERT INTO autotrader_trades (symbol, action, qty, price, exit_reason, entry_reason, sell_pct, alpaca_order_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [symbol, side, qty, price, entryReason, exitReason, sellPct, order.id]
+    [symbol, side, qty, price, exitReason, entryReason, sellPct, order.id]
   );
   await db.log('info', 'autotrader',
     `${side.toUpperCase()} ${qty} ${symbol} — ${reason} (order ${order.id})`);

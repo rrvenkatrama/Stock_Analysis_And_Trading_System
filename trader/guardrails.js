@@ -6,7 +6,7 @@ const cfg = require('../config/env');
 
 // Check all guardrails for a proposed trade
 // Returns { allowed: true } or { allowed: false, reason: '...' }
-async function checkAll(symbol, shares, price) {
+async function checkAll(symbol, shares, price, isSell = false) {
   const checks = await Promise.all([
     checkDailyTradeLimit(),
     checkMaxOpenPositions(),
@@ -14,6 +14,7 @@ async function checkAll(symbol, shares, price) {
     checkNoExistingPosition(symbol),
     checkMarketHours(),
     checkMinimumAccountBuffer(shares, price),
+    isSell ? checkSufficientShares(symbol, shares) : Promise.resolve({ allowed: true }),
   ]);
 
   for (const check of checks) {
@@ -122,6 +123,25 @@ function isDaylightSaving(d) {
   const jan = new Date(d.getFullYear(), 0, 1).getTimezoneOffset();
   const jul = new Date(d.getFullYear(), 6, 1).getTimezoneOffset();
   return d.getTimezoneOffset() < Math.max(jan, jul);
+}
+
+// Prevent short selling — check available shares before allowing sell
+async function checkSufficientShares(symbol, shares) {
+  try {
+    const { getAlpacaPositions } = require('./executor');
+    const positions = await getAlpacaPositions().catch(() => []);
+    const holding = positions.find(p => p.symbol === symbol);
+    const availableQty = holding ? Math.max(0, parseInt(holding.qty_available || holding.qty || 0)) : 0;
+    if (availableQty < shares) {
+      return {
+        allowed: false,
+        reason: `Insufficient shares to sell (have ${availableQty}, selling ${shares}). Short selling not allowed.`
+      };
+    }
+    return { allowed: true };
+  } catch (e) {
+    return { allowed: false, reason: `Failed to check shares: ${e.message}` };
+  }
 }
 
 module.exports = { checkAll, checkDailyTradeLimit, checkMaxOpenPositions, checkMarketHours };

@@ -2303,6 +2303,23 @@ app.post('/order', async (req, res) => {
       return res.status(400).json({ error: 'limitPrice required for limit orders' });
 
     const sym = String(symbol).toUpperCase();
+
+    // Prevent short selling — check available shares before allowing sell
+    if (orderSide === 'sell') {
+      try {
+        const positions = await getAlpacaPositions().catch(() => []);
+        const holding = positions.find(p => p.symbol === sym);
+        const availableQty = holding ? parseInt(holding.qty_available || holding.qty || 0) : 0;
+        if (availableQty < parseInt(qty)) {
+          return res.status(400).json({
+            error: `Cannot sell ${qty} shares — only ${availableQty} available. Short selling not allowed.`
+          });
+        }
+      } catch (e) {
+        return res.status(500).json({ error: `Failed to check position: ${e.message}` });
+      }
+    }
+
     const order = await placeDirectOrder({
       symbol:        sym,
       qty:           parseInt(qty),
