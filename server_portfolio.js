@@ -1445,9 +1445,15 @@ function stockRow(s, upgrade, pickFlag, positionSet) {
   const dyVal = s.dividend_yield != null ? parseFloat(s.dividend_yield) : null;
   const dy    = dyVal !== null && dyVal > 0 ? dyVal.toFixed(2)+'%' : '—';
   const chg      = s.price_change_pct != null ? parseFloat(s.price_change_pct) : null;
+  const chg1m    = s.chg_1m != null ? parseFloat(s.chg_1m) : null;
+  const chgYtd   = s.chg_ytd != null ? parseFloat(s.chg_ytd) : null;
+  const chg1y    = s.chg_1y != null ? parseFloat(s.chg_1y) : null;
   const priceColor = chg !== null ? (chg >= 0 ? '#48bb78' : '#fc8181') : '#2d3748';
   const price    = s.price ? `<span style="font-weight:600;color:${priceColor}">$${parseFloat(s.price).toFixed(2)}</span>` : '—';
   const chgTxt   = chg !== null ? `<span style="font-weight:600;color:${priceColor}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>` : '—';
+  const chg1mTxt = chg1m !== null ? `<span style="color:${chg1m >= 0 ? '#48bb78' : '#fc8181'}">${chg1m>=0?'+':''}${chg1m.toFixed(2)}%</span>` : '—';
+  const chgYtdTxt = chgYtd !== null ? `<span style="color:${chgYtd >= 0 ? '#48bb78' : '#fc8181'}">${chgYtd>=0?'+':''}${chgYtd.toFixed(2)}%</span>` : '—';
+  const chg1yTxt = chg1y !== null ? `<span style="color:${chg1y >= 0 ? '#48bb78' : '#fc8181'}">${chg1y>=0?'+':''}${chg1y.toFixed(2)}%</span>` : '—';
   const nameSafe = (s.name || '').replace(/'/g, "\\'");
   const whySafe  = s.why ? s.why.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n') : '';
   const updatedAtSafe = s.generated_at ? new Date(s.generated_at).toLocaleString('en-US',{timeZone:'America/New_York',hour12:true,month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
@@ -1501,6 +1507,9 @@ function stockRow(s, upgrade, pickFlag, positionSet) {
     </td>
     <td data-val="${s.price||0}">${price}</td>
     <td data-val="${chg??-999}">${chgTxt}</td>
+    <td data-val="${chg1m??-999}">${chg1mTxt}</td>
+    <td data-val="${chgYtd??-999}">${chgYtdTxt}</td>
+    <td data-val="${chg1y??-999}">${chg1yTxt}</td>
     <td style="text-align:center;font-size:11px;font-weight:600;color:${positionSet.has(s.symbol) ? '#276749' : '#718096'}">${positionSet.has(s.symbol) ? '✓ In Portfolio' : 'Not in Portfolio'}</td>
     <td>${recBadge}<br>${scoreBar}<span style="font-size:11px;color:${scoreColor}">${parseFloat(s.score||0).toFixed(0)}/100</span></td>
     <td>${whyBtn}</td>
@@ -1807,7 +1816,10 @@ ${pfSection}
   <th style="width:30px;text-align:center;cursor:default">★</th>
   <th data-col="sym"    onclick="sortTable('sym')">Symbol / Name</th>
   <th data-col="price"  onclick="sortTable('price')">Price</th>
-  <th data-col="chg"    onclick="sortTable('chg')">Chg%</th>
+  <th data-col="chg"    onclick="sortTable('chg')">Chg 1D%</th>
+  <th data-col="chg1m"  onclick="sortTable('chg1m')">Chg 1M%</th>
+  <th data-col="chgytd" onclick="sortTable('chgytd')">Chg YTD%</th>
+  <th data-col="chg1y"  onclick="sortTable('chg1y')">Chg 1Y%</th>
   <th style="width:110px;text-align:center">Portfolio</th>
   <th data-col="score"  onclick="sortTable('score')">⚡ Alpha</th>
   <th data-col="phx">🔥 Phoenix</th>

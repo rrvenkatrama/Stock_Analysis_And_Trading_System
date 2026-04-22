@@ -223,23 +223,31 @@ async function evaluateExit(position, sig) {
 
 // ─── Place a market order and record it ──────────────────────────────────────
 async function placeOrder(symbol, side, qty, reason = '', sellPct = null, price = null) {
-  const order = await alpacaPost('/orders', {
-    symbol,
-    qty,
-    side,
-    type:          'market',
-    time_in_force: 'day',
-  });
-  const entryReason = side === 'buy'  ? reason : null;
-  const exitReason  = side === 'sell' ? reason : null;
-  await db.query(
-    `INSERT INTO autotrader_trades (symbol, action, qty, price, exit_reason, entry_reason, sell_pct, alpaca_order_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [symbol, side, qty, price, exitReason, entryReason, sellPct, order.id]
-  );
-  await db.log('info', 'autotrader',
-    `${side.toUpperCase()} ${qty} ${symbol} — ${reason} (order ${order.id})`);
-  return order;
+  try {
+    const order = await alpacaPost('/orders', {
+      symbol,
+      qty,
+      side,
+      type:          'market',
+      time_in_force: 'day',
+    });
+    const entryReason = side === 'buy'  ? reason : null;
+    const exitReason  = side === 'sell' ? reason : null;
+    await db.query(
+      `INSERT INTO autotrader_trades (symbol, action, qty, price, exit_reason, entry_reason, sell_pct, alpaca_order_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [symbol, side, qty, price, exitReason, entryReason, sellPct, order.id]
+    );
+    await db.log('info', 'autotrader',
+      `${side.toUpperCase()} ${qty} ${symbol} — ${reason} (order ${order.id})`);
+    return order;
+  } catch (err) {
+    const msg = err.response?.data?.message || err.message || 'Unknown error';
+    const errText = `${side.toUpperCase()} order failed: ${symbol} ${qty}sh — ${msg}`;
+    await db.log('error', 'autotrader', errText);
+    // Re-throw so caller can handle (e.g., skip this symbol, continue with next)
+    throw new Error(errText);
+  }
 }
 
 // ─── Main evaluate — generates recommendations or executes trades ─────────────

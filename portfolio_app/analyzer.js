@@ -466,6 +466,19 @@ async function analyzeSymbol(symbol, quoteData = null) {
   const prevPrice = closes.length > 1 ? closes[closes.length - 2] : price;
   const changePct = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
 
+  // Multi-period returns
+  const chg1m = closes.length > 30 ? (closes[closes.length - 30] > 0 ? ((price - closes[closes.length - 30]) / closes[closes.length - 30]) * 100 : 0) : null;
+  const chg1y = closes.length > 252 ? (closes[closes.length - 252] > 0 ? ((price - closes[closes.length - 252]) / closes[closes.length - 252]) * 100 : 0) : null;
+
+  // YTD: find Jan 1 close price
+  const now = new Date();
+  const ytdStart = new Date(now.getFullYear(), 0, 1);
+  const ytdIndex = bars.findIndex(b => new Date(b.trade_date) >= ytdStart);
+  let chgYtd = null;
+  if (ytdIndex >= 0 && bars[ytdIndex].close > 0) {
+    chgYtd = ((price - bars[ytdIndex].close) / bars[ytdIndex].close) * 100;
+  }
+
   // 52-week range
   const year    = closes.slice(-252);
   const high52  = Math.max(...year);
@@ -615,7 +628,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
   await db.query(
     `INSERT INTO stock_signals (
       symbol, name, sector, asset_type, generated_at,
-      price, price_change_pct,
+      price, price_change_pct, chg_1m, chg_ytd, chg_1y,
       high_52w, low_52w, pct_from_52high, pct_from_52low,
       ma50, ma200, ema50, ema200, above_50ma, above_200ma,
       price_crossed_50ma_ago, price_crossed_200ma_ago,
@@ -627,12 +640,12 @@ async function analyzeSymbol(symbol, quoteData = null) {
       ema9_bull_cross_ago, ema9_bear_cross_ago,
       analyst_buy, analyst_sell, analyst_hold,
       score, signal_count, recommendation, why
-    ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON DUPLICATE KEY UPDATE
       name=COALESCE(VALUES(name),name), sector=COALESCE(VALUES(sector),sector),
       asset_type=COALESCE(VALUES(asset_type),asset_type),
       generated_at=NOW(),
-      price=VALUES(price), price_change_pct=VALUES(price_change_pct),
+      price=VALUES(price), price_change_pct=VALUES(price_change_pct), chg_1m=VALUES(chg_1m), chg_ytd=VALUES(chg_ytd), chg_1y=VALUES(chg_1y),
       high_52w=VALUES(high_52w), low_52w=VALUES(low_52w),
       pct_from_52high=VALUES(pct_from_52high), pct_from_52low=VALUES(pct_from_52low),
       ma50=VALUES(ma50), ma200=VALUES(ma200), ema50=VALUES(ema50), ema200=VALUES(ema200),
@@ -664,6 +677,9 @@ async function analyzeSymbol(symbol, quoteData = null) {
       assetType,
       price,
       Math.round(changePct * 100) / 100,
+      chg1m !== null ? Math.round(chg1m * 100) / 100 : null,
+      chgYtd !== null ? Math.round(chgYtd * 100) / 100 : null,
+      chg1y !== null ? Math.round(chg1y * 100) / 100 : null,
       Math.round(high52  * 10000) / 10000,
       Math.round(low52   * 10000) / 10000,
       Math.round(pctFrom52High * 100) / 100,
