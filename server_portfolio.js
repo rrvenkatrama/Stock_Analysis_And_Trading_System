@@ -3352,6 +3352,13 @@ app.get('/settings', async (req, res) => {
 
 <script>
 
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById('tab-' + tabName).classList.add('active');
+  event.target.classList.add('active');
+}
+
 function showStatus(msg, type) {
   const el = document.getElementById('statusMessage');
   el.textContent = msg;
