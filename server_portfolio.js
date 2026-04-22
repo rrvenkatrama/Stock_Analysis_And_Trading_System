@@ -1743,7 +1743,7 @@ window._buyingPower = ${buyingPower.toFixed(2)};
 
 <!-- Tab navigation -->
 <div class="tab-nav">
-  <button class="tab-btn" data-tab="portfolio" onclick="switchTab('portfolio')">💼 Portfolio · ${positions.length}</button>
+  <button class="tab-btn active" data-tab="portfolio" onclick="switchTab('portfolio')">💼 Portfolio · ${positions.length}</button>
   <button class="tab-btn" data-tab="stocks" onclick="switchTab('stocks')">📊 Stocks · ${signals.length} · <span style="color:#48bb78">${buyCount} Buy</span></button>
   <button class="tab-btn" data-tab="discover" onclick="switchTab('discover')">🔭 Discover · ${picks.length}</button>
   <button class="tab-btn tab-phoenix" data-tab="phoenix" onclick="switchTab('phoenix')">🔥 Phoenix · <span style="color:#e9d8fd">${phoenixSigs.filter(p=>p.recommendation==='BUY').length} BUY</span> · ${phoenixSigs.filter(p=>p.recommendation==='WATCH').length} WATCH</button>
@@ -1752,7 +1752,7 @@ window._buyingPower = ${buyingPower.toFixed(2)};
 </div>
 
 <!-- Portfolio tab -->
-<div id="tab-portfolio" class="tab-content">
+<div id="tab-portfolio" class="tab-content active">
 ${pfSection}
 </div>
 
@@ -3341,7 +3341,7 @@ app.get('/settings', async (req, res) => {
 function switchTab(tabName) {
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.getElementById(tabName).classList.add('active');
+  document.getElementById('tab-' + tabName).classList.add('active');
   event.target.classList.add('active');
 }
 
