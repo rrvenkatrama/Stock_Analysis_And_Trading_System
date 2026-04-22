@@ -3337,17 +3337,11 @@ app.get('/settings', async (req, res) => {
 </div>
 
 <script>
-function switchTab(tabName) {
-  document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.getElementById(tabName).classList.add('active');
-  event.target.classList.add('active');
-}
 
 function showStatus(msg, type) {
   const el = document.getElementById('statusMessage');
   el.textContent = msg;
-  el.className = \`status-message show \${type}\`;
+  el.className = `status-message show ${type}`;
   setTimeout(() => el.classList.remove('show'), 4000);
 }
 
