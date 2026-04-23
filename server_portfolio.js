@@ -340,6 +340,50 @@ function saveCurrentFilter(){
   alert('Filter "' + name + '" saved!');
 }
 
+// ── Ask Claude modal ──────────────────────────────────────────────────────────
+async function askClaude(sym) {
+  var modal = document.getElementById('claude-modal');
+  var title = document.getElementById('claude-modal-sym');
+  var body  = document.getElementById('claude-modal-body');
+  title.textContent = sym + ' — Claude Analysis';
+  body.innerHTML = '<div style="text-align:center;padding:30px;color:#718096">🤖 Asking Claude Sonnet\u2026</div>';
+  modal.style.display = 'flex';
+  try {
+    var r = await fetch('/api/ask-claude/' + sym);
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'API error');
+    var rank = d.ranking || {};
+    var confColor = rank.confidence === 'high' ? '#276749' : rank.confidence === 'medium' ? '#744210' : '#742a2a';
+    var confBg    = rank.confidence === 'high' ? '#f0fff4' : rank.confidence === 'medium' ? '#fffff0' : '#fff5f5';
+    var decision  = rank.buy ? '\u2705 BUY' : '\u26d4 SKIP';
+    var decColor  = rank.buy ? '#276749' : '#742a2a';
+    var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">'
+      + '<span style="font-size:20px;font-weight:800;color:' + decColor + '">' + decision + '</span>'
+      + '<span style="background:' + confBg + ';color:' + confColor + ';border:1px solid ' + confColor + ';padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700">' + (rank.confidence||'').toUpperCase() + '</span>'
+      + '</div>'
+      + '<div style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 14px;font-size:13px;color:#2d3748;line-height:1.7;margin-bottom:12px">'
+      + (rank.reasoning || '\u2014')
+      + '</div>';
+    if (d.market_assessment) {
+      html += '<div style="background:#ebf8ff;border:1px solid #bee3f8;border-radius:6px;padding:10px 14px;font-size:12px;color:#2a4365;line-height:1.6">'
+        + '<strong>Market context:</strong> ' + d.market_assessment + '</div>';
+    }
+    if (d.layer4) {
+      var l4Met = d.layer4.filter(function(c){return c.met;}).length;
+      var l4Color = l4Met >= 3 ? '#742a2a' : l4Met >= 1 ? '#744210' : '#276749';
+      html += '<div style="margin-top:12px">'
+        + '<div style="font-size:11px;font-weight:700;color:' + l4Color + ';margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Layer 4 Momentum (' + l4Met + '/5 bearish)</div>'
+        + d.layer4.map(function(c){ return '<div style="font-size:11px;padding:3px 0;color:' + (c.met?'#c53030':'#276749') + '">' + (c.met?'\u2717':'\u2713') + ' ' + c.label + '</div>'; }).join('')
+        + '</div>';
+    }
+    if (d.fallback) html += '<div style="margin-top:10px;font-size:11px;color:#a0aec0">\u26a0\ufe0f Claude API unavailable — response is score-based fallback.</div>';
+    body.innerHTML = html;
+  } catch(e) {
+    body.innerHTML = '<div style="color:#c53030">Error: ' + e.message + '</div>';
+  }
+}
+function closeClaudeModal() { document.getElementById('claude-modal').style.display='none'; }
+
 // ── Why modal ─────────────────────────────────────────────────────────────────
 function showWhy(sym,why,updatedAt){
   document.getElementById('why-modal-sym').textContent=sym+' — Signal Breakdown';
@@ -1100,9 +1144,9 @@ function renderTransactions(txns) {
                 onclick="document.getElementById('\${uid}').style.display=document.getElementById('\${uid}').style.display==='none'?'block':'none'">
             🤖 Claude #\${t.claude_rank} · \${(t.claude_confidence||'').toUpperCase()}
           </span>
-          <div id="\${uid}" style="display:none;margin-top:4px;padding:6px 8px;background:rgba(49,130,206,0.08);border:1px solid rgba(49,130,206,0.25);border-radius:4px;font-size:11px;color:#a0c4ff;max-width:300px;line-height:1.5">
+          <div id="\${uid}" style="display:none;margin-top:4px;padding:6px 8px;background:rgba(49,130,206,0.08);border:1px solid rgba(49,130,206,0.25);border-radius:4px;font-size:11px;color:#2d3748;max-width:300px;line-height:1.5">
             \${t.claude_reasoning || ''}
-            \${t.claude_market ? \`<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(49,130,206,0.2);color:#718096"><em>Market: \${t.claude_market}</em></div>\` : ''}
+            \${t.claude_market ? \`<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(49,130,206,0.2);color:#4a5568"><em>Market: \${t.claude_market}</em></div>\` : ''}
           </div>
         </div>\`;
     }
@@ -1534,6 +1578,7 @@ function stockRow(s, upgrade, pickFlag, positionSet) {
     <td style="text-align:center;font-size:11px;font-weight:600;color:${positionSet.has(s.symbol) ? '#276749' : '#718096'}">${positionSet.has(s.symbol) ? '✓ In Portfolio' : 'Not in Portfolio'}</td>
     <td>${recBadge}<br>${scoreBar}<span style="font-size:11px;color:${scoreColor}">${parseFloat(s.score||0).toFixed(0)}/100</span></td>
     <td>${whyBtn}</td>
+    <td style="text-align:center"><button onclick="askClaude('${s.symbol}')" class="btn btn-xs" style="background:#faf5ff;color:#6b46c1;border:1px solid #d6bcfa;white-space:nowrap">🤖 Ask</button></td>
     <td>${sectorTxt}</td>
     <td>${targetCell}</td>
     <td>${upgradeCell(upgrade)}</td>
@@ -1843,8 +1888,8 @@ ${pfSection}
   <th data-col="chg1y"  onclick="sortTable('chg1y')">Chg 1Y%</th>
   <th style="width:110px;text-align:center">Portfolio</th>
   <th data-col="score"  onclick="sortTable('score')">⚡ Alpha</th>
-  <th data-col="phx">🔥 Phoenix</th>
   <th data-col="why">Why</th>
+  <th style="width:80px;text-align:center">Ask 🤖</th>
   <th data-col="sector">Sector</th>
   <th data-col="target">Price Target</th>
   <th data-col="action">Analyst Action</th>
@@ -1958,6 +2003,17 @@ ${pfSection}
       <button class="modal-close" onclick="closeWhy()">✕</button>
     </div>
     <div id="why-modal-body" style="font-size:13px"></div>
+  </div>
+</div>
+
+<!-- Claude analysis modal -->
+<div id="claude-modal" class="modal-bg" onclick="if(event.target===this)closeClaudeModal()">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title" id="claude-modal-sym" style="color:#6b46c1">🤖 Claude Analysis</div>
+      <button class="modal-close" onclick="closeClaudeModal()">✕</button>
+    </div>
+    <div id="claude-modal-body" style="font-size:13px"></div>
   </div>
 </div>
 
@@ -2474,6 +2530,70 @@ app.get('/api/stocks', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ─── Ask Claude: on-demand analysis for a single stock ───────────────────────
+app.get('/api/ask-claude/:symbol', async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+
+    // Fetch stock signal row
+    const sig = await db.queryOne(
+      `SELECT ss.*, w.name FROM stock_signals ss
+       LEFT JOIN watchlist w ON w.symbol = ss.symbol
+       WHERE ss.symbol = ?`, [symbol]);
+    if (!sig) return res.status(404).json({ error: `No signal data for ${symbol}` });
+
+    // Derive market regime from SPY in stock_signals
+    const spy = await db.queryOne(
+      `SELECT price, ma50, ma200, macd_trend, rsi FROM stock_signals WHERE symbol = 'SPY'`);
+    let regime = 'unknown';
+    if (spy && spy.ma200) {
+      const spyAbove200 = parseFloat(spy.price) > parseFloat(spy.ma200);
+      const spyMacdBull = ['bullish','above_signal'].includes(spy.macd_trend);
+      regime = spyAbove200 && spyMacdBull ? 'bull' : spyAbove200 ? 'caution' : 'bear';
+    }
+
+    // Try to get VIX from VIXY (proxy: VIX ≈ VIXY × 1.8 + 2)
+    let vix = null;
+    const vixy = await db.queryOne(`SELECT price FROM stock_signals WHERE symbol = 'VIXY'`).catch(() => null);
+    if (vixy?.price) vix = parseFloat(vixy.price) * 1.8 + 2;
+
+    // Reuse exact same claude_advisor flow (same prompt, same Layer 4, same signals)
+    const claudeAdvisor = require('./portfolio_app/claude_advisor');
+    const result = await claudeAdvisor.getRankedPicks([sig], regime, vix, null);
+
+    const ranking = result.rankings?.[0] || {};
+
+    // Build Layer 4 for display (same logic as claude_advisor.formatCandidateBlock)
+    const spySig = spy;
+    const price  = parseFloat(sig.price);
+    const ma50   = sig.ma50  ? parseFloat(sig.ma50)  : null;
+    const ma200  = sig.ma200 ? parseFloat(sig.ma200) : null;
+    const ema9   = sig.ema9  ? parseFloat(sig.ema9)  : null;
+    const ema21  = sig.ema21 ? parseFloat(sig.ema21) : null;
+    const spyPrice = spySig?.price ? parseFloat(spySig.price) : null;
+    const spyMa200 = spySig?.ma200 ? parseFloat(spySig.ma200) : null;
+    const layer4 = [
+      { label: 'Price below 50MA',               met: ma50  !== null && price < ma50 },
+      { label: '50MA below 200MA (death zone)',   met: ma50  !== null && ma200 !== null && ma50 < ma200 },
+      { label: 'MACD bearish',                    met: ['bearish','below_signal'].includes(sig.macd_trend) },
+      { label: 'EMA9 below EMA21',                met: ema9  !== null && ema21 !== null && ema9 < ema21 },
+      { label: 'SPY below SPY 200MA',             met: spyPrice !== null && spyMa200 !== null && spyPrice < spyMa200 },
+    ];
+
+    res.json({
+      symbol,
+      ranking: { buy: ranking.buy, confidence: ranking.confidence, reasoning: ranking.reasoning },
+      market_assessment: result.market_assessment,
+      regime,
+      vix: vix ? +vix.toFixed(1) : null,
+      layer4,
+      fallback: result.fallback,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/positions', async (req, res) => {
   const [positions, orders] = await Promise.all([
     getAlpacaPositions().catch(() => []),
@@ -3032,6 +3152,7 @@ app.get('/settings', async (req, res) => {
     <button class="tab-btn" onclick="switchTab('tab6')">6. Signal Weights</button>
     <button class="tab-btn" onclick="switchTab('tab7')">7. Golden Cross</button>
     <button class="tab-btn" onclick="switchTab('tab8')">8. Position Limits</button>
+    <button class="tab-btn" onclick="switchTab('tab9')">9. Layer 4 Weights</button>
   </div>
 
   <!-- TAB 1: MARKET REGIME (Read-only) -->
@@ -3374,6 +3495,75 @@ app.get('/settings', async (req, res) => {
     </div>
   </div>
 
+  <!-- TAB 9: LAYER 4 WEIGHTS -->
+  <div id="tab9" class="tab-content">
+    <div class="section">
+      <h3>⚡ Layer 4 Momentum Exit — Weighted Conditions</h3>
+      <div class="info-banner">
+        Layer 4 is a hard safety valve that forces SELL when momentum deteriorates.
+        Each condition has a configurable weight. If total weight meets or exceeds the threshold, SELL is forced.
+        <br><strong>Note:</strong> These settings are saved to the database but the analyzer still uses the old binary logic until you confirm you want it switched over.
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">Force Sell Threshold</div>
+        <div class="setting-help">Trigger Layer 4 exit when total bearish weight reaches this value (max possible = <span id="l4MaxTotal">${(allSettings.layer4?.weight_death_cross??2)+(allSettings.layer4?.weight_spy_bearish??2)+(allSettings.layer4?.weight_price_below_50ma??1)+(allSettings.layer4?.weight_ema_bearish??1)+(allSettings.layer4?.weight_macd_bearish??1)}</span> with current weights)</div>
+        <div class="input-group">
+          <input type="number" id="l4Threshold" min="1" max="10" step="1" value="${allSettings.layer4?.threshold ?? 4}" />
+        </div>
+      </div>
+
+      <h4 style="color:#cbd5e1;margin:20px 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.05em">Condition Weights</h4>
+
+      <div class="setting-group">
+        <div class="setting-label">💀 Death Cross (50MA below 200MA)</div>
+        <div class="setting-help">Structural downtrend — slow to form, slow to reverse. Highest weight.</div>
+        <div class="input-group">
+          <input type="number" id="l4WeightDeathCross" min="0" max="5" step="0.5" value="${allSettings.layer4?.weight_death_cross ?? 2}" />
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">🌍 SPY below 200MA (market regime bearish)</div>
+        <div class="setting-help">Macro bear market — all stocks affected. High weight.</div>
+        <div class="input-group">
+          <input type="number" id="l4WeightSpyBearish" min="0" max="5" step="0.5" value="${allSettings.layer4?.weight_spy_bearish ?? 2}" />
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">📉 Price below 50MA</div>
+        <div class="setting-help">Stock lost key support — bearish but can recover quickly.</div>
+        <div class="input-group">
+          <input type="number" id="l4WeightPriceBelow50" min="0" max="5" step="0.5" value="${allSettings.layer4?.weight_price_below_50ma ?? 1}" />
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">⚡ EMA9 below EMA21 (short-term momentum bearish)</div>
+        <div class="setting-help">Short-term momentum flipped negative — recovers in days/weeks.</div>
+        <div class="input-group">
+          <input type="number" id="l4WeightEmaBearish" min="0" max="5" step="0.5" value="${allSettings.layer4?.weight_ema_bearish ?? 1}" />
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">🔀 MACD bearish trend</div>
+        <div class="setting-help">Momentum oscillator turned negative — weakest but worth tracking.</div>
+        <div class="input-group">
+          <input type="number" id="l4WeightMacdBearish" min="0" max="5" step="0.5" value="${allSettings.layer4?.weight_macd_bearish ?? 1}" />
+        </div>
+      </div>
+
+      <div style="margin-top:20px;padding:14px 16px;background:#1a1a2e;border:1px solid #30363d;border-radius:6px;font-size:12px;color:#8b949e;line-height:1.8">
+        <strong style="color:#c9d1d9">Example with defaults:</strong><br>
+        Death cross active (2) + SPY bearish (2) = 4 → threshold met → FORCE SELL<br>
+        Price &lt; 50MA (1) + EMA bearish (1) + MACD bearish (1) = 3 → below threshold → hold<br>
+        Death cross (2) + EMA bearish (1) + MACD bearish (1) = 4 → threshold met → FORCE SELL
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -3439,6 +3629,15 @@ async function saveAllChanges() {
       vix_30_plus_mult: parseFloat(document.getElementById('vix30PlusMult').value)
     };
 
+    const layer4Data = {
+      threshold:              parseFloat(document.getElementById('l4Threshold').value),
+      weight_death_cross:     parseFloat(document.getElementById('l4WeightDeathCross').value),
+      weight_spy_bearish:     parseFloat(document.getElementById('l4WeightSpyBearish').value),
+      weight_price_below_50ma: parseFloat(document.getElementById('l4WeightPriceBelow50').value),
+      weight_ema_bearish:     parseFloat(document.getElementById('l4WeightEmaBearish').value),
+      weight_macd_bearish:    parseFloat(document.getElementById('l4WeightMacdBearish').value)
+    };
+
     // Save all settings
     await Promise.all([
       fetch('/api/settings/gates', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(gatesData) }),
@@ -3446,7 +3645,8 @@ async function saveAllChanges() {
       fetch('/api/settings/sell', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(sellData) }),
       fetch('/api/settings/scoring', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(scoringData) }),
       fetch('/api/settings/golden_cross', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(gcData) }),
-      fetch('/api/settings/limits', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(limitsData) })
+      fetch('/api/settings/limits', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(limitsData) }),
+      fetch('/api/settings/layer4', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(layer4Data) })
     ]);
 
     // Save signal weights
@@ -3489,6 +3689,21 @@ async function populateSignalWeights() {
 }
 
 populateSignalWeights();
+
+// Layer 4 — keep max total display in sync with weight inputs
+function updateL4MaxTotal() {
+  var ids = ['l4WeightDeathCross','l4WeightSpyBearish','l4WeightPriceBelow50','l4WeightEmaBearish','l4WeightMacdBearish'];
+  var total = ids.reduce(function(sum, id) {
+    var el = document.getElementById(id);
+    return sum + (el ? parseFloat(el.value) || 0 : 0);
+  }, 0);
+  var span = document.getElementById('l4MaxTotal');
+  if (span) span.textContent = total;
+}
+['l4WeightDeathCross','l4WeightSpyBearish','l4WeightPriceBelow50','l4WeightEmaBearish','l4WeightMacdBearish'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('input', updateL4MaxTotal);
+});
 </script>
 </body>
 </html>`;

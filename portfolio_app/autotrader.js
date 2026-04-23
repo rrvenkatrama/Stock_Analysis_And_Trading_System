@@ -504,7 +504,7 @@ async function evaluate(execute = false) {
       const buyReason = `Score ${parseFloat(sig.score).toFixed(1)} | Claude rank #${ranking.rank ?? '?'} | ${confirmDetail.join(' | ')}`;
 
       const shares = calcPositionSizeFromCap(
-        Math.min(remaining, dailySpendCap / symbolsToBuy.length), // equal split of remaining cap
+        Math.min(remaining, dailySpendCap),
         symbolsToBuy.length,
         parseFloat(sig.price),
         accountEquity,

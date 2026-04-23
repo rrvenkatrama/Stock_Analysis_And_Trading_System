@@ -1,9 +1,9 @@
 # StockTrader: Claude Code Instructions
 
 **Project**: Swing trading research and execution system  
-**Stack**: Node.js 20 + MySQL 8.4 + Alpaca broker API  
+**Stack**: Node.js 20 + MySQL 8.4 + Alpaca broker API + Anthropic Claude API  
 **Deployment**: Mini PC at 192.168.1.156, systemd user services (ports 3001 & 8081)  
-**Version**: 2.0
+**Version**: 3.0
 
 ---
 
@@ -23,8 +23,12 @@
 2. **Margin account, no borrowing** — Instant settlement only; zero margin interest
 3. **No shorting** — Paper account has shorting disabled; handle API errors gracefully
 4. **Paper mode default** — ALPACA_BASE_URL defaults to paper trading
-5. **Cash buffer 20%** — Always keep uninvested; enforced in guardrails.js
-6. **Probability cap 85%** — Never show false confidence; max 85% probability
+5. **Cash buffer 20%** — Always keep ≥20% of total equity as cash floor
+6. **Daily spend cap 25%** — Deploy at most 25% of spendable cash (cash minus 20% floor) per day
+7. **Max 5 new tickers/day** — New position entries only; adding to existing positions doesn't count
+8. **Claude ranks new buys** — Top-10 eligible candidates sent to Claude Haiku; Claude picks 1-5 to buy
+9. **No LLM for sells** — All exit decisions are pure rule-based (4-layer algorithm)
+10. **Probability cap 85%** — Never show false confidence; max 85% probability
 
 ### System Architecture (Core)
 7. **Use provider.js for all data** — Never call data modules (yahoo, finnhub, alpaca) directly from scanner
@@ -71,7 +75,9 @@
   - BUY: score > 50
   - HOLD: 20 ≤ score ≤ 50
   - SELL: score < 20
+- **RSI overbought threshold**: 70 (changed from 65 on 2026-04-22)
 - **Layer 4 override**: ≥3 of 5 momentum conditions → FORCE SELL
+- **Golden cross pulsing window**: reads from `pulsing_glow_days` in settings (not hardcoded)
 - **settingsCache must reload** before analyzer runs (batch scripts must call `await settingsCache.reloadSettings()`)
 
 ---
@@ -86,13 +92,16 @@ price_history          — Daily bars (symbol, date, open/high/low/close/volume)
 position_flags         — Per-stock autotrader ON/OFF toggle
 signal_weights         — Configurable signal weights (database-backed scoring)
 
-autotrader_trades      — Executed orders (symbol, action, qty, price, entry_reason, exit_reason)
+autotrader_trades      — Executed orders (symbol, action, qty, price, entry_reason, exit_reason,
+                         claude_rank, claude_confidence, claude_reasoning, claude_market)
 ```
 
 ### Critical Columns
 - **watchlist.pick_flag** = 1/0 (user manually included/excluded from autotrader)
 - **position_flags.autotrader_on** = 1/0 (autotrader can manage this position)
 - **stock_signals.chg_1d, chg_1m, chg_ytd, chg_1y** = Period returns (calculated by analyzer)
+- **autotrader_trades.claude_rank** = Claude's ranking (1=top pick) for buy decisions
+- **autotrader_trades.claude_reasoning** = Claude's explanation for buying this stock
 
 ---
 
@@ -123,16 +132,38 @@ autotrader_trades      — Executed orders (symbol, action, qty, price, entry_re
 
 ## Autotrader Position Management
 
-### Buy Eligibility (at 9:35 AM ET)
-Autotrader buys only if:
-1. Score ≥ 65 (higher threshold than My Stocks BUY of 50)
-2. RSI in 30-65 window
-3. Price ≤ 8% above 50MA (not overextended)
-4. ≥2 of: RSI in range, MACD bullish, above 50MA, volume ≥1.3×
-5. < 15 open positions
-6. < 10% equity per position (VIX-scaled down to 0.5× in high vol)
-7. position_flags.pick_flag = 1 (manually selected)
-8. Market regime: not BEAR/CAUTION
+### Buy Flow (at 9:35 AM ET) — v3.0 with Claude AI
+
+**Capital guardrails (checked first):**
+- Cash floor: always keep ≥20% of total equity
+- Daily spend cap: 25% of (cash − floor). E.g. $100K equity, $60K cash → $40K spendable → $10K cap today
+- Max 5 new ticker symbols per day (tracked via today's buys in autotrader_trades)
+- Max 15 total open positions
+
+**Candidate selection:**
+1. Fetch top-10 BUY-rated stocks: pick_flag=1, NOT already in portfolio, sorted by score DESC
+2. Skip any with earnings within 5 days (Finnhub earnings check)
+
+**Claude advisory (portfolio_app/claude_advisor.js):**
+3. Send all 10 candidates to Claude Haiku 4.5 with:
+   - Market context: regime, VIX, Fear & Greed, SPY status
+   - Full signal breakdown per stock: every bullish/bearish signal with weight
+   - All 5 Layer 4 conditions explicitly listed as met/not met
+4. Claude returns ranked JSON: symbols_to_buy[], rankings[], market_assessment
+5. Fallback to top-5-by-score if Claude fails or returns bad JSON
+
+**Execution:**
+6. Buy Claude's picks in ranked order (rank 1 first)
+7. Position size = daily cap ÷ number of picks (equal split), capped at 10% equity per position
+8. Stop when daily cap exhausted or 5 new tickers bought today
+
+### Buy Eligibility Criteria
+- recommendation = 'BUY' (score > 50, Layer 4 ≤ 2)
+- RSI in 30-70 window (not overbought)
+- Price ≥ $5
+- pick_flag = 1 (manually selected)
+- Not already in portfolio (new positions only)
+- Market regime: BULL (SPY above both 50MA and 200MA)
 
 ### Sell Algorithm (4 Sequential Layers, First Triggered = Exit)
 Runs at 9:35 AM ET only for positions with autotrader_on=1:
@@ -351,6 +382,7 @@ portfolio_app/yahoo_history.js — Alpaca bars, Finnhub/Yahoo fundamentals
 portfolio_app/scheduler.js  — 8:30 AM ET cron: refresh → analyze → scan → email
 portfolio_app/settingsCache.js — In-memory settings cache (database-backed)
 portfolio_app/settings.js   — Settings API; loads from system_config
+portfolio_app/claude_advisor.js — Claude Haiku AI ranking for buy decisions
 server_portfolio.js         — Express, HTML, routes for dashboard
 ```
 
@@ -386,6 +418,8 @@ When resuming work:
 ❌ **Hardcode signal weights** in analyzer.js  
 ❌ **Call data modules directly** (use provider.js)  
 ❌ **Default signal weight = 1.0** (use 0)  
+❌ **Use LLM for sell decisions** — sells are always rule-based 4-layer algorithm  
+❌ **Hardcode pulsing_glow_days** — always read from settingsCache.getGoldenCross()  
 ❌ **Forget Layer 4 override** (≥3 bearish = SELL)  
 ❌ **Use `multi-user.target` for systemd user services**  
 ❌ **JSON.parse() on mysql2 JSON columns** (already parsed)  
@@ -400,6 +434,8 @@ When resuming work:
 ✅ **Read SCORING_METHODOLOGY.md before modifying scoring**  
 ✅ **Use provider.js for all data fetching**  
 ✅ **Call settingsCache.reloadSettings() in batch scripts**  
+✅ **Pass claudeFields to placeOrder() for all autotrader buys**  
+✅ **Always fallback gracefully** if Claude API fails (use top-5-by-score)  
 ✅ **Test systemd symlink** after service changes  
 ✅ **Verify `<a href>` links work** for Approve/Reject/Scan  
 ✅ **Document breaking changes** in memory/session*.md  
@@ -412,4 +448,5 @@ When resuming work:
 
 | Date | Changes |
 |---|---|
-| 2026-04-22 | Complete rewrite. Clarified signal weights are configurable, Layer 4 logic, UI rules, systemd gotchas, data sources, autotrader algorithm. |
+| 2026-04-22 | v2.0 — Complete rewrite. Clarified signal weights are configurable, Layer 4 logic, UI rules, systemd gotchas, data sources, autotrader algorithm. |
+| 2026-04-22 | v3.0 — Claude AI buy advisor: daily spend cap (25%), max 5 tickers/day, Claude Haiku ranks top-10 candidates, no LLM for sells. RSI overbought threshold changed 65→70. Golden cross pulsing reads from settings. |

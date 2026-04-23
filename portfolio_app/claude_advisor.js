@@ -12,7 +12,7 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const db        = require('../db/db');
 
-const MODEL = 'claude-haiku-4-5-20251001';
+const MODEL = 'claude-sonnet-4-6';
 
 function getClient() {
   const key = process.env.ANTHROPIC_API_KEY;
@@ -31,7 +31,6 @@ function formatCandidateBlock(sig, spySig) {
   const ema9f    = sig.ema9     ? parseFloat(sig.ema9)                      : null;
   const ema21f   = sig.ema21    ? parseFloat(sig.ema21)                     : null;
   const spyPrice = spySig?.price ? parseFloat(spySig.price)                 : null;
-  const spyMa50  = spySig?.ma50  ? parseFloat(spySig.ma50)                  : null;
 
   // Split the stored why text into bullish/bearish signal lines
   const whyLines   = (sig.why || '').split('\n').map(l => l.trim()).filter(Boolean);
@@ -57,8 +56,8 @@ function formatCandidateBlock(sig, spySig) {
       met:   ema9f !== null && ema21f !== null && ema9f < ema21f,
     },
     {
-      label: 'SPY below SPY 50MA (market regime bearish)',
-      met:   spyPrice !== null && spyMa50 !== null && spyPrice < spyMa50,
+      label: 'SPY below SPY 200MA (market regime bearish)',
+      met:   spyPrice !== null && spySig?.ma200 !== null && spyPrice < parseFloat(spySig?.ma200),
     },
   ];
   const l4MetCount = l4Conditions.filter(c => c.met).length;
@@ -203,7 +202,7 @@ function parseResponse(raw) {
 // Returns: { rankings, market_assessment, symbols_to_buy, fallback: bool }
 async function getRankedPicks(candidates, regime, vix, fearGreed) {
   // Always fetch SPY signal for Layer 4 condition 5
-  const spySig = await db.queryOne(`SELECT price, ma50, macd_trend, rsi FROM stock_signals WHERE symbol = 'SPY'`)
+  const spySig = await db.queryOne(`SELECT price, ma50, ma200, macd_trend, rsi FROM stock_signals WHERE symbol = 'SPY'`)
     .catch(() => null);
 
   // Attach SPY to each candidate (needed for Layer 4 formatting)
@@ -225,6 +224,15 @@ async function getRankedPicks(candidates, regime, vix, fearGreed) {
 
     await db.log('info', 'claude_advisor',
       `Claude ranked ${result.symbols_to_buy.length} buys from ${candidates.length} candidates: ${result.symbols_to_buy.join(', ')}`);
+
+    // Log full rankings including declined stocks so we can audit why each was or wasn't picked
+    for (const r of result.rankings) {
+      await db.log('info', 'claude_advisor',
+        `  #${r.rank} ${r.symbol} [${r.buy ? 'BUY' : 'SKIP'}, ${r.confidence}] ${r.reasoning || ''}`);
+    }
+    if (result.market_assessment) {
+      await db.log('info', 'claude_advisor', `  Market: ${result.market_assessment}`);
+    }
 
     return { ...result, fallback: false, rawResponse: raw };
 

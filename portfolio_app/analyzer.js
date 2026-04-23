@@ -615,7 +615,7 @@ async function analyzeSymbol(symbol, quoteData = null) {
   if (['bearish','below_signal'].includes(macdTrend)) { layer4BearishCount++; layer4Conditions.push('MACD bearish'); }
   if (ema9 !== null && ema21 !== null && ema9 < ema21) { layer4BearishCount++; layer4Conditions.push('EMA9 below EMA21'); }
   const spyMarketBullish = analyzeSymbol._marketBullish ?? null;
-  if (spyMarketBullish === false) { layer4BearishCount++; layer4Conditions.push('SPY below 50DMA'); }
+  if (spyMarketBullish === false) { layer4BearishCount++; layer4Conditions.push('SPY below 200MA'); }
 
   // Recommendation: signal score first, then Layer 4 override if ≥3 bearish conditions
   let recommendation;
@@ -870,7 +870,7 @@ async function rescoreAllFromCache() {
       if (ma50 && ma200 && ma50 < ma200) { layer4Count++; layer4Conds.push('50DMA below 200DMA'); }
       if (['bearish','below_signal'].includes(signals.macdTrend)) { layer4Count++; layer4Conds.push('MACD bearish'); }
       if (ema9v !== null && ema21v !== null && ema9v < ema21v) { layer4Count++; layer4Conds.push('EMA9 below EMA21'); }
-      if (marketBullish === false) { layer4Count++; layer4Conds.push('SPY below 50DMA'); }
+      if (marketBullish === false) { layer4Count++; layer4Conds.push('SPY below 200MA'); }
 
       let recommendation;
       if (layer4Count >= 3) {

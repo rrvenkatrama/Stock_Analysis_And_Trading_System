@@ -1,7 +1,7 @@
 # Stock Scoring & Recommendation Methodology
 
-**Last Updated:** 2026-04-22  
-**Version:** 2.0 (Fully Configurable Weights)
+**Last Updated:** 2026-04-22 (Session 16)  
+**Version:** 2.1 — RSI overbought threshold changed 65→70
 
 ---
 
@@ -139,7 +139,7 @@ if (layer4_bearish_count >= 3) {
 |-------|---------|---------|-------|
 | <30 (oversold) | +1 | — | Recovery setup |
 | 30-45 (recovering) | +1 | — | Momentum building |
-| >65 (overbought) | — | -1 | Pullback likely |
+| >70 (overbought) | — | -1 | Pullback likely (threshold changed from 65 → 70 on 2026-04-22) |
 
 ### MACD (12/26/9)
 | Signal | Bullish | Bearish | Notes |
@@ -439,4 +439,5 @@ Ensure W object uses exact same name.
 
 | Date | Change |
 |---|---|
-| 2026-04-22 | Complete rewrite. Clarified that signal weights are fully configurable (any value, not just ±1). Added decision tree, all signal categories, examples, and troubleshooting. |
+| 2026-04-22 | v2.0 — Complete rewrite. Clarified that signal weights are fully configurable (any value, not just ±1). Added decision tree, all signal categories, examples, and troubleshooting. |
+| 2026-04-22 | v2.1 — RSI overbought threshold changed from 65 to 70. Neutral zone now 45–70. |

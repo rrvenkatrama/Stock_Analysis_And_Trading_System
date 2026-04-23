@@ -303,15 +303,17 @@
 <div class="page">
 
   <h1>Stock Scoring Methodology</h1>
-  <p class="subtitle">Version 2.0 &nbsp;·&nbsp; Last Updated: 2026-04-22 &nbsp;·&nbsp; Fully Configurable Weights</p>
+  <p class="subtitle">Version 3.0 &nbsp;·&nbsp; Last Updated: 2026-04-22 &nbsp;·&nbsp; Claude Sonnet AI buy advisor + Layer 4 momentum guard</p>
 
   <nav class="toc">
     <a href="#recommendations">Recommendations</a>
     <a href="#formula">Score Formula</a>
     <a href="#decision-tree">Decision Tree</a>
     <a href="#layer4">Layer 4 Override</a>
+    <a href="#buy-flow">Buy Execution Flow</a>
     <a href="#signals">All Signals</a>
     <a href="#weights">Weight System</a>
+    <a href="#settings">All Settings</a>
     <a href="#example">Real Example</a>
   </nav>
 
@@ -434,6 +436,124 @@
     </div>
   </section>
 
+  <!-- ── Buy Execution Flow ── -->
+  <section id="buy-flow">
+    <h2>Buy Execution Flow (9:35 AM ET)</h2>
+
+    <div class="card" style="margin-bottom:16px">
+      <p style="font-size:13px;margin-bottom:18px">Buying is a two-stage pipeline: rule-based scoring narrows candidates, then Claude Sonnet makes the final ranked picks. Sells are always rule-based — Claude is never involved in exit decisions.</p>
+
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <strong>Capital Guardrails (checked first)</strong>
+            <div class="formula" style="margin-top:8px;font-size:12px">
+              Cash floor  = 20% of total equity  <span class="comment">← never spend below this</span><br>
+              Spendable   = cash − floor<br>
+              Daily cap   = spendable × 25%  <span class="comment">← max deployed today</span><br>
+              Ticker cap  = max 5 new symbols per day
+            </div>
+            <p style="font-size:12px;color:#8b949e;margin-top:6px">Example: $100K equity, $60K cash → $40K spendable → $10K daily cap. Over 4 bull days, ~68% of available cash is gradually deployed.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <strong>Candidate Eligibility Filter</strong>
+            <p style="margin-top:6px;font-size:13px">Stocks must pass ALL of the following to be considered:</p>
+            <ul style="font-size:12px;color:#c9d1d9;padding-left:18px;margin-top:6px;line-height:2">
+              <li>Signal score &gt; 50 (recommendation = BUY)</li>
+              <li>Layer 4 bearish count &lt; 3 (momentum not failing)</li>
+              <li>RSI between 30 – 70 (not overbought)</li>
+              <li>Price ≥ $5</li>
+              <li>pick_flag = 1 (manually selected by user)</li>
+              <li>Not already in portfolio (new positions only)</li>
+              <li>Market regime = BULL (SPY above both 50MA and 200MA)</li>
+              <li>No earnings within 5 days</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <strong>Top-10 Candidates Sent to Claude Sonnet</strong>
+            <p style="margin-top:6px;font-size:13px">The top-10 eligible stocks (by signal score) are sent to Claude Sonnet with full context for each:</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+              <div style="background:#0d1117;border:1px solid #21262d;border-radius:5px;padding:10px 12px;font-size:12px">
+                <div style="color:#58a6ff;font-weight:600;margin-bottom:6px">Per-Stock Context</div>
+                <div style="color:#c9d1d9;line-height:1.8">
+                  • Score, price, RSI, sector<br>
+                  • All bullish signals + weights<br>
+                  • All bearish signals + weights<br>
+                  • All 5 Layer 4 conditions (✓ ok / ✗ BEARISH)<br>
+                  • Overextension % above 50MA<br>
+                  • Analyst consensus + target upside
+                </div>
+              </div>
+              <div style="background:#0d1117;border:1px solid #21262d;border-radius:5px;padding:10px 12px;font-size:12px">
+                <div style="color:#58a6ff;font-weight:600;margin-bottom:6px">Market Context</div>
+                <div style="color:#c9d1d9;line-height:1.8">
+                  • Regime: BULL / CAUTION / BEAR<br>
+                  • SPY price, MACD trend, RSI<br>
+                  • VIX level + interpretation<br>
+                  • Fear &amp; Greed index (0–100)
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <strong>Claude Ranks and Selects Picks</strong>
+            <p style="margin-top:6px;font-size:13px">Claude considers market sentiment, current trends, and each stock's full signal picture. It returns structured JSON:</p>
+            <div class="formula" style="margin-top:8px;font-size:12px">
+              {<br>
+              &nbsp;&nbsp;"rankings": [ { "rank": 1, "symbol": "AAPL", "buy": true,<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;"confidence": "high", "reasoning": "..." }, ... ],<br>
+              &nbsp;&nbsp;"symbols_to_buy": ["AAPL", "MSFT"],<br>
+              &nbsp;&nbsp;"market_assessment": "Bullish regime with low VIX..."<br>
+              }
+            </div>
+            <div style="background:#0a1a2a;border:1px solid #1e4a7a;border-radius:5px;padding:10px 12px;margin-top:10px;font-size:12px;color:#93c5fd">
+              <strong style="color:#60a5fa">Guardrails:</strong> Stocks with Layer 4 ≥ 3 are almost never selected. In high-VIX / fearful markets, Claude prefers defensive names with strong fundamentals. Fallback to top-5-by-score if Claude API fails — autotrader never blocks.
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <strong>Execute in Ranked Order</strong>
+            <div class="formula" style="margin-top:8px;font-size:12px">
+              position_size = min(daily_cap ÷ num_picks, 10% equity) ÷ price<br>
+              <span class="comment">← VIX-scaled: high VIX = smaller size</span>
+            </div>
+            <p style="font-size:12px;color:#c9d1d9;margin-top:8px">Claude's rank, confidence level, and reasoning are stored with every trade and visible on the Transactions page. Buying stops when daily cap is exhausted or 5 new tickers have been entered today.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card" style="background:#0d1a0d;border-color:#1a5c30">
+      <h3 style="color:#4ade80;margin-top:0">Why Claude for Buys — Not Sells?</h3>
+      <div class="grid-2" style="margin-top:10px">
+        <div style="font-size:12px;color:#c9d1d9;line-height:1.8">
+          <strong style="color:#4ade80">Buys:</strong> Claude Sonnet ranks candidates using holistic reasoning across signals, market sentiment, and macro context. Humans are bad at picking from 10 similarly-scored stocks — Claude is good at this.
+        </div>
+        <div style="font-size:12px;color:#c9d1d9;line-height:1.8">
+          <strong style="color:#f87171">Sells:</strong> Always pure rule-based (4-layer algorithm). Hard stops, trailing stops, and momentum deterioration are objective — an LLM could rationalize holding a losing position, which is dangerous for real capital.
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ── All Signals ── -->
   <section id="signals">
     <h2>All Signal Categories</h2>
@@ -525,7 +645,7 @@
         <tr><th>Range</th><th>Type</th><th>Notes</th></tr>
         <tr><td>&lt; 30 (oversold)</td><td><span class="tag tag-bull">Bullish</span></td><td>Recovery setup</td></tr>
         <tr><td>30 – 45 (recovering)</td><td><span class="tag tag-bull">Bullish</span></td><td>Momentum building</td></tr>
-        <tr><td>&gt; 65 (overbought)</td><td><span class="tag tag-bear">Bearish</span></td><td>Pullback likely</td></tr>
+        <tr><td>&gt; 70 (overbought)</td><td><span class="tag tag-bear">Bearish</span></td><td>Pullback likely</td></tr>
       </table>
     </div>
 
@@ -708,6 +828,304 @@
         UPDATE signal_weights SET weight = -3 WHERE signal_name = 'death_cross_active';<br><br>
         <span class="comment">-- Check current setup</span><br>
         SELECT signal_name, weight, signal_type FROM signal_weights ORDER BY weight DESC;
+      </div>
+    </div>
+  </section>
+
+  <!-- ── All Configurable Settings ── -->
+  <section id="settings">
+    <h2>All Configurable Settings</h2>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:20px">All settings are live — change via the Settings page or SQL, take effect within 5 minutes. No code deploy needed.</p>
+
+    <!-- Buy Eligibility Gates -->
+    <div class="cat-header">
+      <div class="cat-icon">🚦</div>
+      <div>
+        <div class="cat-title">Buy Eligibility Gates <code style="background:#1c2128;color:#79c0ff;font-size:11px;padding:1px 6px;border-radius:3px">autotrader_settings → gates</code></div>
+        <div class="cat-desc">Pre-screen applied before candidates are sent to Claude</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0;margin-bottom:12px">
+      <table>
+        <tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+        <tr><td><code style="color:#79c0ff">score_threshold</code></td><td><span class="wpill w-pos">50</span></td><td>Minimum signal score for a stock to qualify as BUY candidate</td></tr>
+        <tr><td><code style="color:#79c0ff">rsi_min</code></td><td><span class="wpill w-pos">30</span></td><td>RSI must be at or above this — filters out deeply crashed stocks</td></tr>
+        <tr><td><code style="color:#79c0ff">rsi_max</code></td><td><span class="wpill w-neg">70</span></td><td>RSI must be below this — rejects overbought entries</td></tr>
+        <tr><td><code style="color:#79c0ff">overextension_pct</code></td><td><span class="wpill w-neg">15%</span></td><td>Skip if price is more than this % above 50MA — avoids chasing stretched moves</td></tr>
+        <tr><td><code style="color:#79c0ff">min_confirmations</code></td><td><span class="wpill w-pos">2</span></td><td>Minimum number of technical confirmations (RSI, MACD, 50MA, volume) required</td></tr>
+      </table>
+    </div>
+
+    <!-- Buy Rules -->
+    <div class="cat-header">
+      <div class="cat-icon">🛒</div>
+      <div>
+        <div class="cat-title">Buy Rules <code style="background:#1c2128;color:#79c0ff;font-size:11px;padding:1px 6px;border-radius:3px">autotrader_settings → buy</code></div>
+        <div class="cat-desc">Hard filters applied at candidate selection</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0;margin-bottom:12px">
+      <table>
+        <tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+        <tr><td><code style="color:#79c0ff">min_price</code></td><td><span class="wpill w-pos">$5</span></td><td>Reject penny stocks below this price</td></tr>
+        <tr><td><code style="color:#79c0ff">require_pick_flag</code></td><td><span class="wpill w-pos">1</span></td><td>Only buy stocks manually marked as ✓ Pick by the user</td></tr>
+        <tr><td><code style="color:#79c0ff">exclude_earnings_days</code></td><td><span class="wpill w-neg">5</span></td><td>Skip stocks with earnings within this many days — avoids event risk</td></tr>
+      </table>
+    </div>
+
+    <!-- Scoring Thresholds -->
+    <div class="cat-header">
+      <div class="cat-icon">🎯</div>
+      <div>
+        <div class="cat-title">Scoring Thresholds <code style="background:#1c2128;color:#79c0ff;font-size:11px;padding:1px 6px;border-radius:3px">autotrader_settings → scoring</code></div>
+        <div class="cat-desc">Determines which score range maps to BUY / HOLD / SELL</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0;margin-bottom:12px">
+      <table>
+        <tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+        <tr><td><code style="color:#79c0ff">score_threshold_buy</code></td><td><span class="wpill w-pos">50</span></td><td>Score above this → 🟢 BUY recommendation</td></tr>
+        <tr><td><code style="color:#79c0ff">score_threshold_hold_min</code></td><td><span class="wpill w-pos">20</span></td><td>Score at or above this (and ≤ hold_max) → 🟡 HOLD</td></tr>
+        <tr><td><code style="color:#79c0ff">score_threshold_hold_max</code></td><td><span class="wpill w-pos">50</span></td><td>Score at or below this (and ≥ hold_min) → 🟡 HOLD</td></tr>
+        <tr><td><code style="color:#79c0ff">score_threshold_sell</code></td><td><span class="wpill w-neg">20</span></td><td>Score below this → 🔴 SELL recommendation</td></tr>
+      </table>
+    </div>
+
+    <!-- Sell Rules -->
+    <div class="cat-header">
+      <div class="cat-icon">🛑</div>
+      <div>
+        <div class="cat-title">Sell / Exit Rules <code style="background:#1c2128;color:#79c0ff;font-size:11px;padding:1px 6px;border-radius:3px">autotrader_settings → sell</code></div>
+        <div class="cat-desc">Layer 1–3 sell triggers — Layer 4 uses signal weights above</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0;margin-bottom:12px">
+      <table>
+        <tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+        <tr><td><code style="color:#79c0ff">hard_stop_pct</code></td><td><span class="wpill w-neg">−8%</span></td><td><strong>Layer 1</strong> — Sell immediately if P&amp;L drops to this % from entry</td></tr>
+        <tr><td><code style="color:#79c0ff">trailing_stop_activation_pct</code></td><td><span class="wpill w-pos">+5%</span></td><td><strong>Layer 2</strong> — Trailing stop arms when P&amp;L reaches this gain</td></tr>
+        <tr><td><code style="color:#79c0ff">trailing_stop_pct</code></td><td><span class="wpill w-neg">8%</span></td><td><strong>Layer 2</strong> — Sell if price drops this % from the peak after trailing stop is armed</td></tr>
+        <tr><td><code style="color:#79c0ff">extended_price_pct</code></td><td><span class="wpill w-neg">20%</span></td><td><strong>Layer 3</strong> — Used with RSI ≥ 75: sell if price is this % above 50MA</td></tr>
+      </table>
+    </div>
+
+    <!-- Capital Limits -->
+    <div class="cat-header">
+      <div class="cat-icon">💼</div>
+      <div>
+        <div class="cat-title">Capital &amp; Position Limits <code style="background:#1c2128;color:#79c0ff;font-size:11px;padding:1px 6px;border-radius:3px">autotrader_settings → limits</code></div>
+        <div class="cat-desc">Controls how much capital is deployed and VIX-based position scaling</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0;margin-bottom:12px">
+      <table>
+        <tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+        <tr><td><code style="color:#79c0ff">min_cash_buffer_pct</code></td><td><span class="wpill w-pos">20%</span></td><td>Always keep at least this % of total equity as cash — never deployed</td></tr>
+        <tr><td><code style="color:#79c0ff">max_per_position_pct</code></td><td><span class="wpill w-pos">10%</span></td><td>Max allocation to any single stock as % of total equity</td></tr>
+        <tr><td><code style="color:#79c0ff">max_positions</code></td><td><span class="wpill w-pos">15</span></td><td>Maximum number of open positions at any time</td></tr>
+        <tr><td><code style="color:#79c0ff">max_deployment_pct</code></td><td><span class="wpill w-neg">80%</span></td><td>Cap on total capital deployed (= 100 − cash buffer)</td></tr>
+        <tr><td><code style="color:#79c0ff">vix_20_30_mult</code></td><td><span class="wpill w-neg">0.75×</span></td><td>Scale position sizes to 75% when VIX is between 20–30</td></tr>
+        <tr><td><code style="color:#79c0ff">vix_30_plus_mult</code></td><td><span class="wpill w-neg">0.50×</span></td><td>Scale position sizes to 50% when VIX exceeds 30 (high volatility)</td></tr>
+      </table>
+    </div>
+
+    <!-- Golden Cross Display -->
+    <div class="cat-header">
+      <div class="cat-icon">⭐</div>
+      <div>
+        <div class="cat-title">Golden Cross Display <code style="background:#1c2128;color:#79c0ff;font-size:11px;padding:1px 6px;border-radius:3px">autotrader_settings → golden_cross</code></div>
+        <div class="cat-desc">Controls the ⭐ star column in the Stocks tab</div>
+      </div>
+    </div>
+    <div class="table-wrap card" style="padding:0;margin-bottom:20px">
+      <table>
+        <tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+        <tr><td><code style="color:#79c0ff">detection_fast_ma</code></td><td><span class="wpill w-pos">50</span></td><td>Fast MA used to detect golden/death cross (50-day SMA)</td></tr>
+        <tr><td><code style="color:#79c0ff">detection_slow_ma</code></td><td><span class="wpill w-pos">200</span></td><td>Slow MA used to detect golden/death cross (200-day SMA)</td></tr>
+        <tr><td><code style="color:#79c0ff">pulsing_glow_days</code></td><td><span class="wpill w-pos">8</span></td><td>Days after a golden cross during which the ⭐ pulses/glows</td></tr>
+        <tr><td><code style="color:#79c0ff">stable_period_sessions</code></td><td><span class="wpill w-pos">20</span></td><td>Sessions after which a golden cross is considered stable (stops pulsing)</td></tr>
+      </table>
+    </div>
+
+    <!-- Signal Weights -->
+    <h3 style="margin-top:8px">Signal Weights (all configurable in Settings → Signal Weights)</h3>
+    <p style="font-size:12px;color:#8b949e;margin-bottom:14px">Stored in <code style="background:#1c2128;color:#79c0ff;padding:1px 6px;border-radius:3px">signal_weights</code> table. Any value works: +3, −2.5, 0.5, 0. Changes apply within 5 minutes. Signals with weight 0 are ignored entirely.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+      <div>
+        <!-- MA Cross -->
+        <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">📈 MA Crosses</div>
+        <div class="table-wrap card" style="padding:0;margin-bottom:14px">
+          <table>
+            <tr><th>Signal</th><th>Weight</th></tr>
+            <tr><td>golden_cross_recent</td><td><span class="wpill w-pos">+5</span></td></tr>
+            <tr><td>golden_cross_active</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>death_cross_active</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>death_cross_recent</td><td><span class="wpill w-neg">−5</span></td></tr>
+          </table>
+        </div>
+
+        <!-- Price vs MA -->
+        <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">📊 Price vs MA</div>
+        <div class="table-wrap card" style="padding:0;margin-bottom:14px">
+          <table>
+            <tr><th>Signal</th><th>Weight</th></tr>
+            <tr><td>above_50ma / price_above_50ma</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>above_200ma / price_above_200ma</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>price_crossed_50ma</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>price_crossed_200ma</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>below_50ma</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>below_200ma</td><td><span class="wpill w-neg">−1</span></td></tr>
+          </table>
+        </div>
+
+        <!-- Overextension -->
+        <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">⚠️ Overextension</div>
+        <div class="table-wrap card" style="padding:0;margin-bottom:14px">
+          <table>
+            <tr><th>Signal</th><th>Weight</th></tr>
+            <tr><td>overextended_10pct (10–15% above 50MA)</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>overextended_15pct (15–25% above 50MA)</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>overextended_25pct (&gt;25% above 50MA)</td><td><span class="wpill w-neg">−1</span></td></tr>
+          </table>
+        </div>
+
+        <!-- EMA -->
+        <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">⚡ EMA 9/21</div>
+        <div class="table-wrap card" style="padding:0;margin-bottom:14px">
+          <table>
+            <tr><th>Signal</th><th>Weight</th></tr>
+            <tr><td>ema9_cross_bull_now</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>ema9_cross_bull_recent (2–5d ago)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>ema9_above_ema21</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>ema_stack_bullish</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>ema9_cross_bear_recent</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>ema9_below_ema21</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>ema_stack_bearish</td><td><span class="wpill w-neg">−1</span></td></tr>
+          </table>
+        </div>
+
+        <!-- MACD -->
+        <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">🔀 MACD</div>
+        <div class="table-wrap card" style="padding:0;margin-bottom:14px">
+          <table>
+            <tr><th>Signal</th><th>Weight</th></tr>
+            <tr><td>macd_bullish_cross_now</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>macd_bullish_cross_recent (2–5d ago)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>macd_trend_up / macd_bullish_cross</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>macd_trend_down / macd_bearish</td><td><span class="wpill w-neg">−1</span></td></tr>
+          </table>
+        </div>
+
+        <!-- RSI -->
+        <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">🎯 RSI</div>
+        <div class="table-wrap card" style="padding:0;margin-bottom:14px">
+          <table>
+            <tr><th>Signal</th><th>Weight</th></tr>
+            <tr><td>rsi_deeply_oversold (&lt;30)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>rsi_oversold_recovery (30–45)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>rsi_neutral_bullish (45–70)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>rsi_overbought (≥70)</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>rsi_oversold</td><td><span class="wpill w-zero">0</span></td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <!-- Volume -->
+        <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">📊 Volume</div>
+        <div class="table-wrap card" style="padding:0;margin-bottom:14px">
+          <table>
+            <tr><th>Signal</th><th>Weight</th></tr>
+            <tr><td>volume_surge_up (price up + vol surge)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>volume_confirm_up (1.2–1.5× avg)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>volume_surge_down (price down + vol surge)</td><td><span class="wpill w-neg">−1</span></td></tr>
+          </table>
+        </div>
+
+        <!-- Fundamentals -->
+        <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">🏢 Fundamentals</div>
+        <div class="table-wrap card" style="padding:0;margin-bottom:14px">
+          <table>
+            <tr><th>Signal</th><th>Weight</th></tr>
+            <tr><td>eps_growth_high (&gt;20%)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>eps_growth_mod (10–20%)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>eps_growth_neg (negative)</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>revenue_growth_high (&gt;15%)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>revenue_growth_mod (5–15%)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>roe_strong (&gt;20%)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>roe_good (10–20%)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>roe_poor (negative)</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>debt_low (D/E &lt;0.3)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>debt_high (D/E &gt;2.0)</td><td><span class="wpill w-neg">−1</span></td></tr>
+          </table>
+        </div>
+
+        <!-- Valuation -->
+        <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">💰 Valuation</div>
+        <div class="table-wrap card" style="padding:0;margin-bottom:14px">
+          <table>
+            <tr><th>Signal</th><th>Weight</th></tr>
+            <tr><td>pe_below_sector_40pct</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>pe_below_sector_20pct</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>peg_below_1 (&lt;1 undervalued)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>peg_below_2 (1–2 fair value)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>fwd_pe_improving</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>pe_above_sector_30pct</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>peg_above_3 (expensive)</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>ps_above_sector_50pct</td><td><span class="wpill w-neg">−1</span></td></tr>
+          </table>
+        </div>
+
+        <!-- Analyst -->
+        <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">👥 Analyst</div>
+        <div class="table-wrap card" style="padding:0;margin-bottom:14px">
+          <table>
+            <tr><th>Signal</th><th>Weight</th></tr>
+            <tr><td>analyst_strong_buy (≥70% buy)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>analyst_positive (50–70% buy)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>rec_mean_strong_buy</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>rec_mean_buy</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>target_upside_30 (≥30% upside)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>target_upside_15 (≥15% upside)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>analyst_negative (≥40% sell)</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>rec_mean_sell</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>target_downside_10 (≥10% downside)</td><td><span class="wpill w-neg">−1</span></td></tr>
+          </table>
+        </div>
+
+        <!-- Income / Sentiment / Market -->
+        <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">💵 Income &amp; Sentiment &amp; Market</div>
+        <div class="table-wrap card" style="padding:0;margin-bottom:14px">
+          <table>
+            <tr><th>Signal</th><th>Weight</th></tr>
+            <tr><td>div_high (yield ≥5%)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>div_good (yield 3–5%)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>div_mid (yield 1.5–3%)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>div_small (yield 0.5–1.5%)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>short_squeeze (&gt;20% short + rising)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>short_bear (&gt;30% short + falling)</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>market_bullish (SPY above 200MA)</td><td><span class="wpill w-pos">+1</span></td></tr>
+            <tr><td>market_bearish (SPY below 200MA)</td><td><span class="wpill w-neg">−1</span></td></tr>
+            <tr><td>dividend_yield</td><td><span class="wpill w-zero">0</span></td></tr>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card" style="background:#0d1a0d;border-color:#1a5c30;margin-top:4px">
+      <h3 style="color:#4ade80;margin-top:0">How to Change Any Setting</h3>
+      <div class="formula" style="margin-top:10px;font-size:12px">
+        <span class="comment">-- Via SQL (immediate effect after next analyzer run)</span><br>
+        UPDATE signal_weights SET weight = 3 WHERE signal_name = 'golden_cross_active';<br>
+        UPDATE signal_weights SET weight = -3 WHERE signal_name = 'death_cross_active';<br><br>
+        <span class="comment">-- Update autotrader settings (JSON merge)</span><br>
+        UPDATE autotrader_settings<br>
+        SET settings_json = JSON_SET(settings_json, '$.rsi_max', 65)<br>
+        WHERE category = 'gates';<br><br>
+        <span class="comment">-- Or use the Settings page in the dashboard (no SQL needed)</span>
       </div>
     </div>
   </section>

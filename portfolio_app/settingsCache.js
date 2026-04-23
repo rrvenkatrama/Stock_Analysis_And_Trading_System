@@ -89,6 +89,11 @@ function getLimits() {
   return cache.limits || {};
 }
 
+// Get Layer 4 weighted conditions settings
+function getLayer4() {
+  return cache.layer4 || {};
+}
+
 // Initialize on startup and reload every 5 minutes
 async function initializeCache() {
   await reloadSettings();
@@ -107,5 +112,6 @@ module.exports = {
   getScoring,
   getGoldenCross,
   getLimits,
+  getLayer4,
   cache: () => cache // expose full cache for debugging
 };
