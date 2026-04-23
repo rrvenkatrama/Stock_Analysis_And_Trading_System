@@ -1088,6 +1088,25 @@ function renderTransactions(txns) {
     const pnl = t.pnl || t.pnl_pct ? \`<span style="color:\${t.pnl >= 0 ? '#48bb78' : '#fc8181'}">\${t.pnl ? '$' + t.pnl.toFixed(2) : ''} \${t.pnl_pct ? t.pnl_pct.toFixed(1) + '%' : ''}</span>\` : '—';
     const totalAmt = t.total_amount ? '$' + parseFloat(t.total_amount).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
 
+    // Claude advisory info — shown only on autotrader buys that have it
+    let claudeCell = '';
+    if (t.source === 'autotrader' && t.action === 'buy' && t.claude_rank) {
+      const confColor = t.claude_confidence === 'high' ? '#48bb78' : t.claude_confidence === 'medium' ? '#ecc94b' : '#fc8181';
+      const confBg    = t.claude_confidence === 'high' ? 'rgba(72,187,120,0.12)' : t.claude_confidence === 'medium' ? 'rgba(236,201,75,0.12)' : 'rgba(252,129,129,0.12)';
+      const uid = 'claude-' + (t.id || Math.random().toString(36).slice(2));
+      claudeCell = \`
+        <div style="margin-top:5px">
+          <span style="background:\${confBg};color:\${confColor};border:1px solid \${confColor};padding:1px 7px;border-radius:9px;font-size:10px;font-weight:700;cursor:pointer"
+                onclick="document.getElementById('\${uid}').style.display=document.getElementById('\${uid}').style.display==='none'?'block':'none'">
+            🤖 Claude #\${t.claude_rank} · \${(t.claude_confidence||'').toUpperCase()}
+          </span>
+          <div id="\${uid}" style="display:none;margin-top:4px;padding:6px 8px;background:rgba(49,130,206,0.08);border:1px solid rgba(49,130,206,0.25);border-radius:4px;font-size:11px;color:#a0c4ff;max-width:300px;line-height:1.5">
+            \${t.claude_reasoning || ''}
+            \${t.claude_market ? \`<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(49,130,206,0.2);color:#718096"><em>Market: \${t.claude_market}</em></div>\` : ''}
+          </div>
+        </div>\`;
+    }
+
     return \`<tr>
       <td>\${date}</td>
       <td><strong>\${t.symbol}</strong></td>
@@ -1096,7 +1115,7 @@ function renderTransactions(txns) {
       <td>\${t.price ? '$' + parseFloat(t.price).toFixed(2) : '—'}</td>
       <td>\${totalAmt}</td>
       <td><span style="background:\${sourceBg};padding:2px 6px;border-radius:3px;font-size:11px">\${sourceLabel}</span></td>
-      <td style="max-width:220px;font-size:11px;color:#718096">\${t.reason || '—'}</td>
+      <td style="max-width:280px;font-size:11px;color:#718096">\${t.reason || '—'}\${claudeCell}</td>
       <td>\${pnl}</td>
     </tr>\`;
   }).join('');
@@ -2477,7 +2496,11 @@ app.get('/api/transactions', async (req, res) => {
         'autotrader' as source,
         strategy,
         CASE WHEN action = 'buy' THEN entry_reason ELSE exit_reason END AS reason,
-        ROUND(qty * price, 2) AS total_amount
+        ROUND(qty * price, 2) AS total_amount,
+        claude_rank,
+        claude_confidence,
+        claude_reasoning,
+        claude_market
       FROM autotrader_trades
       ORDER BY executed_at DESC
       LIMIT 200
