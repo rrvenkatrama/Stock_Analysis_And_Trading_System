@@ -6,6 +6,7 @@ const db       = require('./db/db');
 const yh       = require('./portfolio_app/yahoo_history');
 const { analyzeAll, analyzeSymbol } = require('./portfolio_app/analyzer');
 const { startScheduler, runDailyRefresh } = require('./portfolio_app/scheduler');
+const settingsCache = require('./portfolio_app/settingsCache');
 const {
   getAccount, getAlpacaPositions, getOpenOrders,
   cancelAlpacaOrder, placeDirectOrder, getMarketClock, getPortfolioHistory,
@@ -1148,9 +1149,10 @@ function perfCell(p) {
 }
 
 function starCell(crossType, crossAgo) {
+  const recentWindow = settingsCache.getGoldenCross()?.pulsing_glow_days ?? 5;
   if (crossType === 'golden_cross') {
     const ago = crossAgo != null ? parseInt(crossAgo) : null;
-    if (ago !== null && ago <= 5)
+    if (ago !== null && ago <= recentWindow)
       return `<td style="text-align:center"><span class="star-recent" title="Golden cross ${ago}d ago — 50DMA just crossed above 200DMA">⭐</span></td>`;
     return `<td style="text-align:center"><span class="star-active" title="Active golden cross — 50DMA above 200DMA">★</span></td>`;
   }
@@ -1488,7 +1490,7 @@ function stockRow(s, upgrade, pickFlag, positionSet) {
       targetCell += `<br><span style="font-size:10px;color:#718096">$${tgtLow.toFixed(0)}–$${tgtHigh.toFixed(0)}</span>`;
   }
 
-  const gcState = s.cross_type === 'golden_cross' && s.golden_cross_ago !== null && parseInt(s.golden_cross_ago) <= 5 ? 'recent'
+  const gcState = s.cross_type === 'golden_cross' && s.golden_cross_ago !== null && parseInt(s.golden_cross_ago) <= (settingsCache.getGoldenCross()?.pulsing_glow_days ?? 5) ? 'recent'
                 : s.cross_type === 'golden_cross' ? 'active'
                 : s.cross_type === 'approaching_golden_cross' ? 'approaching' : 'none';
   const pickState = pickFlag === 1 ? 'pick' : 'noselect';
@@ -3057,7 +3059,7 @@ app.get('/settings', async (req, res) => {
 
       <div class="setting-group">
         <div class="setting-label">Gate 3: RSI Window</div>
-        <div class="setting-help">RSI must be within this range (avoid oversold <30 and overbought >65)</div>
+        <div class="setting-help">RSI must be within this range (avoid oversold <30 and overbought >70)</div>
         <div class="input-group">
           <input type="number" id="rsiMin" min="0" max="50" value="${allSettings.gates.rsi_min}" /> to <input type="number" id="rsiMax" min="50" max="100" value="${allSettings.gates.rsi_max}" />
         </div>
@@ -3510,7 +3512,7 @@ app.post('/api/settings/reset', async (req, res) => {
   try {
     // Reset all settings to defaults
     const defaults = {
-      gates: {score_threshold:50,rsi_min:30,rsi_max:65,overextension_pct:8,min_confirmations:2},
+      gates: {score_threshold:50,rsi_min:30,rsi_max:70,overextension_pct:8,min_confirmations:2},
       buy: {min_price:5,require_pick_flag:1,exclude_earnings_days:5},
       sell: {hard_stop_pct:-8,trailing_stop_activation_pct:5,trailing_stop_pct:5,extended_price_pct:10},
       scoring: {score_threshold_buy:50,score_threshold_hold_min:20,score_threshold_hold_max:50,score_threshold_sell:20},

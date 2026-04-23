@@ -313,8 +313,8 @@ function computeScore(signals) {
   if (rsi !== null) {
     if (rsi < 30)      add(W.rsiDeeplyOversold, `RSI < 30 oversold (${rsi.toFixed(1)})`);
     else if (rsi < 45) add(W.rsiOversoldRecovery, `RSI 30–45 recovering (${rsi.toFixed(1)})`);
-    else if (rsi < 65) { /* neutral zone 45–65, no signal */ }
-    else if (rsi >= 65) add(W.rsiOverbought, `RSI ≥ 65 overbought (${rsi.toFixed(1)})`);
+    else if (rsi < 70) { /* neutral zone 45–70, no signal */ }
+    else if (rsi >= 70) add(W.rsiOverbought, `RSI ≥ 70 overbought (${rsi.toFixed(1)})`);
   }
 
   // ── MACD ─────────────────────────────────────────────────────────────────
